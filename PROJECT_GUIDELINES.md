@@ -8,6 +8,19 @@
 
 > Ordenado de forma **DESCENDENTE** - Los cambios más recientes van ARRIBA
 
+### 2026-01-15 10:37 CST - Arquitectura del Importador de Cotizaciones
+**Autor:** Claude AI + Usuario  
+**Cambios:**
+- Definida arquitectura para Importador Inteligente de Cotizaciones
+- Estructura de parsers por aseguradora (GNP, Qualitas, AXA, etc.)
+- Interface `QuoteParserInterface` para extensibilidad
+- Reorganización de funcionalidades pendientes por módulos
+- Planificación de OCR para extracción de PDFs
+
+**Razón:** Preparar la estructura para poder importar cotizaciones desde archivos PDF/Excel de aseguradoras y evitar doble captura de datos
+
+---
+
 ### 2026-01-15 10:30 CST - Testing, Error Handling, Git Strategy y Code Review
 **Autor:** Claude AI + Usuario  
 **Cambios:**
@@ -1232,18 +1245,66 @@ public function calculate(Money $netPremium, Insurer $insurer, PaymentFrequency 
 
 ### Pendientes 🔄
 
+#### Módulo Core
 - [ ] CRUD de Cotizaciones
 - [ ] CRUD de Clientes
 - [ ] CRUD de Contactos/Intermediarios
 - [ ] CRUD de Aseguradoras
-- [ ] Wizard de nueva cotización
+- [ ] Wizard de nueva cotización manual
 - [ ] Comparador de opciones
+
+#### 📥 Importador Inteligente de Cotizaciones (Fase 2)
+> **Objetivo:** Subir PDF/Excel de aseguradoras y extraer datos automáticamente
+
+- [ ] Interfaz de carga de archivos (drag & drop)
+- [ ] Parser base con interface `QuoteParserInterface`
+- [ ] Parser específico: GNP
+- [ ] Parser específico: Qualitas
+- [ ] Parser específico: AXA
+- [ ] Parser específico: HDI
+- [ ] Parser específico: Chubb
+- [ ] Parser específico: Mapfre
+- [ ] OCR para PDFs (Tesseract o servicio cloud)
+- [ ] Pantalla de validación/corrección de datos extraídos
+- [ ] Log de importaciones para análisis
+
+**Arquitectura del Importador:**
+```
+src/
+├── Domain/
+│   └── Quote/
+│       └── Import/
+│           ├── Contracts/
+│           │   └── QuoteParserInterface.php
+│           ├── Parsers/
+│           │   ├── GnpPdfParser.php
+│           │   ├── QualitasExcelParser.php
+│           │   ├── AxaPdfParser.php
+│           │   └── ...
+│           ├── Services/
+│           │   └── QuoteImportService.php
+│           └── DTOs/
+│               └── ImportedQuoteData.php
+```
+
+#### Documentos y Comunicación
 - [ ] Generación de PDF de cotización
-- [ ] Envío de cotización por email/WhatsApp
-- [ ] Reportes y estadísticas
-- [ ] API REST documentada
-- [ ] Tests automatizados
+- [ ] Envío de cotización por email
+- [ ] Envío por WhatsApp (API)
+- [ ] Plantillas personalizables
+
+#### Reportes y Analytics
+- [ ] Dashboard con estadísticas
+- [ ] Reportes por agente
+- [ ] Reportes por aseguradora
+- [ ] Reportes por período
+- [ ] Exportación a Excel
+
+#### API y Técnico
+- [ ] API REST documentada (OpenAPI/Swagger)
+- [ ] Tests automatizados (80% cobertura)
 - [ ] Configuración de catálogos (coberturas, vehículos)
+- [ ] CI/CD con GitHub Actions
 
 ---
 
