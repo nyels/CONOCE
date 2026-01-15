@@ -1,0 +1,1386 @@
+<?php 
+session_start();
+date_default_timezone_set('America/Mexico_city');
+if(isset($_POST['aseguradoras']))
+{
+	aseguradoras();
+}
+else if(isset($_POST['alta_aseguradora']))
+{
+	alta_aseguradora();
+}
+else if(isset($_POST{'lista_aseguradoras'}))
+{
+	lista_aseguradoras();
+}
+else if(isset($_POST{'lista_aseguradoras_select'}))
+{
+	lista_aseguradoras_select();
+}
+else if(isset($_POST{'insertando_costo'}))
+{
+	insertando_costo();
+}
+else if(isset($_POST{'lista_costo_historial'}))
+{
+	lista_costo_historial();
+}
+else if(isset($_POST{'eliminando_derecho_poliza'}))
+{
+	eliminando_derecho_poliza();
+}
+else if(isset($_POST{'actualizando_costo'}))
+{
+	actualizando_costo();
+}
+else if(isset($_POST{'historial_derecho_costo'}))
+{
+	historial_derecho_costo();
+}
+
+else if(isset($_POST['eliminando_aseguradora_con_todos_los_datos']))
+{
+	eliminando_aseguradora_con_todos_los_datos();
+}
+else if(isset($_POST{'actualizando_aseguradora'}))
+{
+	actualizando_aseguradora();
+}
+else if(isset($_POST{'insertando_recargo'}))
+{
+	insertando_recargo();
+}
+
+else if(isset($_POST{'lista_recargo_historial'}))
+{
+	lista_recargo_historial();
+}
+else if(isset($_POST{'historial_recargo_costo'}))
+{
+	historial_recargo_costo();
+}
+else if(isset($_POST{'eliminando_recargo_poliza'}))
+{
+	eliminando_recargo_poliza();
+}
+else if(isset($_POST{'actualizando_recargo'}))
+{
+	actualizando_recargo();
+}
+
+function llamar_conexion()
+{
+	include'conexion.php';
+	$conexion = new conexion();
+	$conexion_final=$conexion->abrir();
+
+	return $conexion_final;
+}
+
+function eliminando_aseguradora_con_todos_los_datos()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+			$id_aseguradora=$_POST['eliminando_aseguradora_con_todos_los_datos'];
+			$instruccion="DELETE from aseguradoras where id_aseguradora=:id_aseguradora";
+			$query=$conexion->prepare($instruccion);
+			$query->execute(array(":id_aseguradora"=>$id_aseguradora));
+
+			$eliminando_derecho_pago="DELETE from costo_derecho_poliza where id_tabla_aseguradora=:id_tabla_aseguradora";
+			$query=$conexion->prepare($eliminando_derecho_pago);
+			$query->execute(array(":id_tabla_aseguradora"=>$id_aseguradora));
+
+			$recargo_eliminado="DELETE from recargo_por_cargo_fraccionado where id_tabla_aseguradoras_recargo=:id_tabla_aseguradoras_recargo";
+			$query=$conexion->prepare($recargo_eliminado);
+			$query->execute(array(":id_tabla_aseguradoras_recargo"=>$id_aseguradora));
+
+			$verificando_eliminacion="SELECT*from aseguradoras where id_aseguradora=:id_aseguradora";
+			$query=$conexion->prepare($verificando_eliminacion);
+			$query->execute(array(":id_aseguradora"=>$id_aseguradora));
+			$filas=$query->rowCount();
+			if($filas>0)
+			{
+				echo'0';//no se elimino
+			}
+			else
+			{
+				echo'0';
+				//si se elimino
+			}
+		}
+		else
+		{
+			echo"ERROR 424.ELIMINANDO_ASEGURADORA.El servidor no responde";
+		}
+	} 
+	catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+function actualizando_recargo()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+
+
+			$id_recargo=$_POST['id_recargo'];
+			$recargo=$_POST['recargo'];
+			$fecha=date('Y-m-d H:i:s',time());
+			$usuario = $_SESSION['usuario']['user'];
+
+			
+
+					$actualizando="
+					UPDATE  recargo_por_cargo_fraccionado
+					set
+					cantidad_recargo=:cantidad_recargo
+					where
+					id_recargo=:id_recargo
+					";
+					$query=$conexion->prepare($actualizando);
+					$query->execute(array(
+						":id_recargo"=>$id_recargo,
+						":cantidad_recargo"=>$recargo
+					));
+
+					
+					if($query==true)
+					{
+						$seleccionando_nombre="SELECT
+						id_tabla_aseguradoras_recargo,
+						forma_de_pago,
+						a.nombre_aseguradora
+						from recargo_por_cargo_fraccionado 
+						left join aseguradoras a on a.id_aseguradora=recargo_por_cargo_fraccionado.id_tabla_aseguradoras_recargo
+						where id_recargo=:id_recargo";
+						$query_nomnbre=$conexion->prepare($seleccionando_nombre);
+						$query_nomnbre->execute(array(":id_recargo"=>$id_recargo));
+						$nombre_final=$query_nomnbre->fetch(PDO::FETCH_ASSOC);
+
+						$insertando_movimientos="INSERT INTO
+						recargo_fraccionado_movimientos
+						(
+							id_tabla_recargo_mov,
+							nombre_aseguradora_recargo_mov,
+							forma_pago_mov_recargo,
+							cantidad_recargo_mov,
+							fecha_alta_mov_reacargo,
+							dio_alta_recargo	
+						)
+						values
+						(	
+							:id_tabla_recargo_mov,
+							:nombre_aseguradora_recargo_mov,
+							:forma_pago_mov_recargo,
+							:cantidad_recargo_mov,
+							:fecha_alta_mov_reacargo,
+							:dio_alta_recargo	
+						)";
+						$query_mov=$conexion->prepare($insertando_movimientos);
+						$query_mov->execute(array(
+							":id_tabla_recargo_mov"=>$nombre_final['id_tabla_aseguradoras_recargo'],
+							":nombre_aseguradora_recargo_mov"=>$nombre_final['nombre_aseguradora'],
+							":forma_pago_mov_recargo"=>$nombre_final['forma_de_pago'],
+							
+							":cantidad_recargo_mov"=>$recargo,
+							":fecha_alta_mov_reacargo"=>$fecha,
+							":dio_alta_recargo"=>$usuario,
+						));
+						echo '1';
+					}
+					else
+					{
+						echo '0';
+					}
+		}	
+		else
+		{
+			echo"ERROR 313.LISTA_ASEGURADORAS_DERECHO.El servidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+
+
+
+function eliminando_recargo_poliza()
+{
+	try {
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+			$id_recargo=$_POST['eliminando_recargo_poliza'];
+			$eliminando="DELETE FROM recargo_por_cargo_fraccionado
+			where id_recargo=:id_recargo";
+			$query_eli=$conexion->prepare($eliminando);
+			$query_eli->execute(array(
+				":id_recargo"=>$id_recargo
+			));
+			$i=0;
+			$j=1;
+			$arreglo=array();
+
+			$instruccion="SELECT
+			id_recargo,
+			forma_de_pago,
+			cantidad_recargo,
+			id_tabla_aseguradoras_recargo,
+			ase.nombre_aseguradora,
+			ase.id_aseguradora
+			from recargo_por_cargo_fraccionado
+			left join aseguradoras ase on ase.id_aseguradora=recargo_por_cargo_fraccionado.id_tabla_aseguradoras_recargo			
+			order by ase.nombre_aseguradora asc
+			";
+			$query_hay=$conexion->prepare($instruccion);
+			$query_hay->execute();
+			$filas=$query_hay->rowCount();
+			if($filas>0)
+			{
+				foreach ($query_hay as $datos) 
+				{
+					$movimiento ="SELECT* from 
+					 recargo_fraccionado_movimientos
+					 where id_tabla_recargo_mov=:id_tabla_recargo_mov
+					 and forma_pago_mov_recargo=:forma_pago_mov_recargo
+					 order by id_recargo_mov desc limit 1
+					";
+					$query_ultimo=$conexion->prepare($movimiento);
+					$query_ultimo->execute(array(
+						":id_tabla_recargo_mov"=>$datos['id_tabla_aseguradoras_recargo'],
+						":forma_pago_mov_recargo"=>$datos['forma_de_pago']
+					));
+					$ultima_fecha=$query_ultimo->fetch(PDO::FETCH_ASSOC);
+
+						$arreglo[$i]['botones']=
+							'
+							<div style="display:inline;">
+								<button style="width:29px;" value="'.$datos['id_recargo'].$datos['id_aseguradora'].'" class=" btn btn-primary btn-sm editar_recargo"><i class="fas fa-edit"></i></button>
+							</div>
+							
+							<div style="display:inline;">
+							<button style="width:30px;" id="eliminar_recargo" value="'.$datos['id_recargo'].'*recargo'.'" class="btn btn-danger btn-sm "><i class="fas fa-times"></i></button>
+							</div>';
+												$arreglo[$i]['nombre_seguradora']=str_replace('_',' ',$datos['nombre_aseguradora']);
+						$arreglo[$i]['forma_pago']=str_replace('_',' ',$datos['forma_de_pago']);
+						$arreglo[$i]['costo']=str_replace('_',' ',$datos['cantidad_recargo']);
+						$arreglo[$i]['ultima_fecha']=date('d-m-Y H:i:s',strtotime($ultima_fecha['fecha_alta_mov_reacargo']));
+						$arreglo[$i]['historial']=
+							'
+							<div style="display:inline;">
+								<button  value="'.$datos['id_aseguradora'].'*'.$datos['forma_de_pago'].'"class=" btn btn-success btn-sm historial_recargo">HISTORIAL</button>
+							</div>';
+						$i++;
+						$j++;
+				}
+				$datos_finales['data']=$arreglo;
+				echo json_encode($datos_finales);
+			}
+			else
+			{
+					$datos_finales['data']=$arreglo;
+				echo json_encode($datos_finales);
+			}
+		}
+		else
+		{
+			echo"ERROR 434.LISTA_COSTO_DERECHO.El sservidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+
+function historial_recargo_costo()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+
+
+					$datos=$_POST['historial_recargo_costo'];
+					$datos=explode('*',$datos);
+			
+
+					$actualizando="
+					SELECT
+					forma_pago_mov_recargo,
+					cantidad_recargo_mov,
+					fecha_alta_mov_reacargo,
+					a.nombre_aseguradora
+					from
+					 recargo_fraccionado_movimientos
+					left join aseguradoras a on a.id_aseguradora= recargo_fraccionado_movimientos.id_tabla_recargo_mov
+					where id_tabla_recargo_mov=:id_tabla_recargo_mov
+					and
+					forma_pago_mov_recargo=:forma_pago_mov_recargo
+					order by fecha_alta_mov_reacargo desc
+					";
+					$query=$conexion->prepare($actualizando);
+					$query->execute(array(
+						":id_tabla_recargo_mov"=>$datos[0],
+						":forma_pago_mov_recargo"=>$datos[1],
+						
+					));
+					echo'
+					<legend>RECARGO POR CARGO FRACCIONADO</legend>
+					<table class="table table-hover table-striped">
+						<thead>
+						<tr>
+
+							<th>ASEGURADORA</th>
+							<th>FORMA DE PAGO</th>
+							<th>RECARGO</th>
+							<th>FECHA</th>
+						</tr>
+						</thead>
+					<tbody>';
+						$filas=$query->rowCount();
+						if($filas>0)
+						{
+							foreach ($query as $datos) 
+							{
+								echo'
+								<tr>
+								
+									
+									<td>'.str_replace('_',' ',$datos['nombre_aseguradora']).'</td>
+									<td>'.$datos['forma_pago_mov_recargo'].'</td>
+									<td>'.$datos['cantidad_recargo_mov'].'</td>
+									<td>'.date('d-m-Y H:i:s',strtotime($datos['fecha_alta_mov_reacargo'])).'</td>
+									
+								</tr>';
+							}
+							
+						}
+						else
+						{
+
+						}
+					echo'
+					</tbody>
+					</table>';
+					
+		}	
+		else
+		{
+			echo"ERROR 313.LISTA_ASEGURADORAS_DERECHO.El servidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+
+function lista_recargo_historial()
+{
+	try {
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+
+			$i=0;
+			$j=1;
+			$arreglo=array();
+
+			$instruccion="SELECT
+			id_recargo,
+			forma_de_pago,
+			cantidad_recargo,
+			id_tabla_aseguradoras_recargo,
+			ase.nombre_aseguradora,
+			ase.id_aseguradora
+			from recargo_por_cargo_fraccionado
+			left join aseguradoras ase on ase.id_aseguradora=recargo_por_cargo_fraccionado.id_tabla_aseguradoras_recargo			
+			order by ase.nombre_aseguradora asc
+			";
+			$query_hay=$conexion->prepare($instruccion);
+			$query_hay->execute();
+			$filas=$query_hay->rowCount();
+			if($filas>0)
+			{
+				foreach ($query_hay as $datos) 
+				{
+					$movimiento ="SELECT* from 
+					 recargo_fraccionado_movimientos
+					 where id_tabla_recargo_mov=:id_tabla_recargo_mov
+					 and forma_pago_mov_recargo=:forma_pago_mov_recargo
+					 order by id_recargo_mov desc limit 1
+					";
+					$query_ultimo=$conexion->prepare($movimiento);
+					$query_ultimo->execute(array(
+						":id_tabla_recargo_mov"=>$datos['id_tabla_aseguradoras_recargo'],
+						":forma_pago_mov_recargo"=>$datos['forma_de_pago']
+					));
+					$ultima_fecha=$query_ultimo->fetch(PDO::FETCH_ASSOC);
+
+						$arreglo[$i]['botones']=
+							'
+							<div style="display:inline;">
+								<button style="width:29px;" value="'.$datos['id_recargo'].'*'.$datos['id_aseguradora'].'" class=" btn btn-primary btn-sm editar_recargo"><i class="fas fa-edit"></i></button>
+							</div>
+							
+							<div style="display:inline;">
+							<button style="width:30px;" id="eliminar_recargo" value="'.$datos['id_recargo'].'*recargo'.'" class="btn btn-danger btn-sm "><i class="fas fa-times"></i></button>
+							</div>';
+												$arreglo[$i]['nombre_seguradora']=str_replace('_',' ',$datos['nombre_aseguradora']);
+						$arreglo[$i]['forma_pago']=str_replace('_',' ',$datos['forma_de_pago']);
+						$arreglo[$i]['costo']=str_replace('_',' ',$datos['cantidad_recargo']);
+						$arreglo[$i]['ultima_fecha']=date('d-m-Y H:i:s',strtotime($ultima_fecha['fecha_alta_mov_reacargo']));
+						$arreglo[$i]['historial']=
+							'
+							<div style="display:inline;">
+								<button  value="'.$datos['id_aseguradora'].'*'.$datos['forma_de_pago'].'"class=" btn btn-success btn-sm historial_recargo">HISTORIAL</button>
+							</div>';
+						$i++;
+						$j++;
+				}
+				$datos_finales['data']=$arreglo;
+				echo json_encode($datos_finales);
+			}
+			else
+			{
+					$datos_finales['data']=$arreglo;
+				echo json_encode($datos_finales);
+			}
+		}
+		else
+		{
+			echo"ERROR 434.LISTA_COSTO_DERECHO.El sservidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+
+function insertando_recargo()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+
+
+			$aseguradora=$_POST['aseguradora'];
+			$forma_de_pago=$_POST['forma_pago'];
+			$costo=$_POST['costo'];
+			$fecha=date('Y-m-d H:i:s',time());
+			$usuario = $_SESSION['usuario']['user'];
+
+			//buscando si ya hay insertados peviamente
+			$hay_costo_dato="SELECT
+
+			id_recargo,
+			id_tabla_aseguradoras_recargo,
+			cantidad_recargo,
+			fecha_alta_recargo,
+			dio_alta_recargo,
+			a.nombre_aseguradora
+			from recargo_por_cargo_fraccionado
+			left join aseguradoras a on a.id_aseguradora=recargo_por_cargo_fraccionado.id_tabla_aseguradoras_recargo
+			where id_tabla_aseguradoras_recargo=:id_tabla_aseguradoras_recargo
+			and
+			forma_de_pago=:forma_de_pago
+			";
+			$query_hay=$conexion->prepare($hay_costo_dato);
+			$query_hay->execute(array(
+				":id_tabla_aseguradoras_recargo"=>$aseguradora,
+				":forma_de_pago"=>$forma_de_pago
+			));
+			$datos_finales =$query_hay->fetch(PDO::FETCH_ASSOC);
+
+			$filas_dato=$query_hay->rowCount();
+			if($filas_dato<=0)
+			{
+
+					$insertando="INSERT INTO
+					recargo_por_cargo_fraccionado
+					(
+						id_tabla_aseguradoras_recargo,
+						forma_de_pago,
+						cantidad_recargo,
+						fecha_alta_recargo,
+						dio_alta_recargo	
+					)
+					values
+					(	
+						:id_tabla_aseguradoras_recargo,
+						:forma_de_pago,
+						:cantidad_recargo,
+						:fecha_alta_recargo,
+						:dio_alta_recargo	
+					)";
+					$query=$conexion->prepare($insertando);
+					$query->execute(array(
+						":id_tabla_aseguradoras_recargo"=>$aseguradora,
+						":forma_de_pago"=>$forma_de_pago,
+						":cantidad_recargo"=>$costo,
+						":fecha_alta_recargo"=>$fecha,
+						":dio_alta_recargo"=>$usuario
+					));
+
+					
+					if($query==true)
+					{
+							$hay_costo_dato="SELECT
+							*from
+							aseguradoras
+							where id_aseguradora=:id_aseguradora
+							";
+							$query_hay=$conexion->prepare($hay_costo_dato);
+							$query_hay->execute(array(
+								":id_aseguradora"=>$aseguradora
+							));
+							$datos_finales =$query_hay->fetch(PDO::FETCH_ASSOC);
+							
+
+						$insertando_movimientos="INSERT INTO
+						recargo_fraccionado_movimientos
+						(
+							id_tabla_recargo_mov,
+							nombre_aseguradora_recargo_mov,
+							forma_pago_mov_recargo,
+							cantidad_recargo_mov,
+							fecha_alta_mov_reacargo,
+							dio_alta_recargo	
+						)
+						values
+						(	
+							:id_tabla_recargo_mov,
+							:nombre_aseguradora_recargo_mov,
+							:forma_pago_mov_recargo,
+							:cantidad_recargo_mov,
+							:fecha_alta_mov_reacargo,
+							:dio_alta_recargo	
+						)";
+						$query_mov=$conexion->prepare($insertando_movimientos);
+						$query_mov->execute(array(
+							":id_tabla_recargo_mov"=>$aseguradora,
+							":nombre_aseguradora_recargo_mov"=>$datos_finales['nombre_aseguradora'],
+							":forma_pago_mov_recargo"=>$forma_de_pago,
+							":cantidad_recargo_mov"=>$costo,
+							":fecha_alta_mov_reacargo"=>$fecha,
+							":dio_alta_recargo"=>$usuario,
+						));
+						echo '1';
+					}
+					else
+					{
+						echo '0';
+					}
+			}
+			else
+			{
+				echo'ya';
+			}
+
+			
+		}	
+		else
+		{
+			echo"ERROR 744.ALTA_RECARGo.El servidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+
+function actualizando_aseguradora()
+{
+	try {
+			$conexion=llamar_conexion();
+			if($conexion)
+			{
+				$id_seguradora=$_POST['aseguradora'];
+				$nombre=mb_strtoupper($_POST['nombre_aseguradora'],'UTF-8');
+				$ruta="";
+				$foto=$_FILES['foto'];
+				if(!empty($foto))
+				{
+					$ruta='imagenes_aseguradoras/'.$foto['name'];
+					move_uploaded_file($foto['tmp_name'],'../'.$ruta);
+
+					$ins="UPDATE aseguradoras set
+					nombre_aseguradora=:nombre_aseguradora,
+					foto=:foto
+					where id_aseguradora=:id_aseguradora
+					";
+					$q=$conexion->prepare($ins);
+					$q->execute(array(
+						":nombre_aseguradora"=>$nombre,
+						":foto"=>$ruta,
+						":id_aseguradora"=>$id_seguradora
+					));
+				}
+				else
+				{
+
+					$ins="UPDATE aseguradoras set
+					nombre_aseguradora=:nombre_aseguradora
+					where id_aseguradora=:id_aseguradora
+					";
+					$q=$conexion->prepare($ins);
+					$q->execute(array(
+						":nombre_aseguradora"=>$nombre,
+						":id_aseguradora"=>$id_seguradora
+					));
+				}
+
+				$ins2="SELECT * from aseguradoras
+				where
+				nombre_aseguradora=:nombre_aseguradora
+				and 
+				id_aseguradora=:id_aseguradora
+				";
+				$q2=$conexion->prepare($ins2);
+				$q2->execute(array(
+					":nombre_aseguradora"=>$nombre,
+					":id_aseguradora"=>$id_seguradora
+				));
+				$filas=$q2->rowCount();
+				if($filas>0)
+				{
+					echo'1';
+				}
+				else
+				{
+					echo'0';
+				}
+			}
+			else
+			{
+				echo'ERROR 329.ACTUALIZAR_ASEGURADORA.El servidor no responde';
+			}
+		
+		} catch (PDOException $e) {
+			echo $e;
+		}
+}
+
+
+function historial_derecho_costo()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+
+
+			$aseguradora=$_POST['historial_derecho_costo'];
+			
+			
+
+					$actualizando="
+					SELECT
+					costo_mov,
+					fecha_alta_mov,
+					a.nombre_aseguradora
+					from
+					costo_derecho_movimientos
+					left join aseguradoras a on a.id_aseguradora=costo_derecho_movimientos.id_tabla_aseguradora_mov
+					where id_tabla_aseguradora_mov=:id_tabla_aseguradora_mov
+					order by fecha_alta_mov desc
+					";
+					$query=$conexion->prepare($actualizando);
+					$query->execute(array(
+						":id_tabla_aseguradora_mov"=>$aseguradora
+					));
+					echo'
+					<legend>DERECHO DE POLIZA</legend>
+					<table class="table table-hover table-striped">
+						<thead>
+						<tr>
+
+							<th>ASEGURADORA</th>
+							<th>COSTO</th>
+							<th>FECHA</th>
+							
+						</tr>
+						</thead>
+					<tbody>';
+						$filas=$query->rowCount();
+						if($filas>0)
+						{
+							foreach ($query as $datos) 
+							{
+								echo'
+								<tr>
+								
+									<td>'.str_replace('_',' ',$datos['nombre_aseguradora']).'</td>
+									<td>'.$datos['costo_mov'].'</td>
+									<td>'.date('d-m-Y H:i:s',strtotime($datos['fecha_alta_mov'])).'</td>
+									
+									
+								</tr>';
+							}
+							
+						}
+						else
+						{
+
+						}
+					echo'
+					</tbody>
+					</table>';
+					
+		}	
+		else
+		{
+			echo"ERROR 313.LISTA_ASEGURADORAS_DERECHO.El servidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+function actualizando_costo()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+
+
+			$aseguradora=$_POST['aseguradora'];
+			$costo=$_POST['costo'];
+			$fecha=date('Y-m-d H:i:s',time());
+			$usuario = $_SESSION['usuario']['user'];
+
+			
+
+					$actualizando="
+					UPDATE costo_derecho_poliza
+					set
+					derecho_costo=:derecho_costo
+					where
+					id_tabla_aseguradora=:id_tabla_aseguradora
+					";
+					$query=$conexion->prepare($actualizando);
+					$query->execute(array(
+						":id_tabla_aseguradora"=>$aseguradora,
+						":derecho_costo"=>$costo
+					));
+
+					
+					if($query==true)
+					{
+						$seleccionando_nombre="SELECT*from aseguradoras where id_aseguradora=:id_aseguradora";
+						$query_nomnbre=$conexion->prepare($seleccionando_nombre);
+						$query_nomnbre->execute(array(":id_aseguradora"=>$aseguradora));
+						$nombre_final=$query_nomnbre->fetch(PDO::FETCH_ASSOC);
+
+						$insertando_movimientos="INSERT INTO
+						costo_derecho_movimientos
+						(
+							id_tabla_aseguradora_mov,
+							nombre_aseguradora_mov,
+							costo_mov,
+							fecha_alta_mov,
+							dio_alta_mov	
+						)
+						values
+						(	
+							:id_tabla_aseguradora_mov,
+							:nombre_aseguradora_mov,
+							:costo_mov,
+							:fecha_alta_mov,
+							:dio_alta_mov	
+						)";
+						$query_mov=$conexion->prepare($insertando_movimientos);
+						$query_mov->execute(array(
+							":id_tabla_aseguradora_mov"=>$aseguradora,
+							":nombre_aseguradora_mov"=>$nombre_final['nombre_aseguradora'],
+							":costo_mov"=>$costo,
+							":fecha_alta_mov"=>$fecha,
+							":dio_alta_mov"=>$usuario,
+						));
+						echo '1';
+					}
+					else
+					{
+						echo '0';
+					}
+		}	
+		else
+		{
+			echo"ERROR 313.LISTA_ASEGURADORAS_DERECHO.El servidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+
+
+function eliminando_derecho_poliza()
+{
+	try {
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+			$id_derecho_poliza=$_POST['eliminando_derecho_poliza'];
+			$eliminando="DELETE FROM costo_derecho_poliza
+			where id_tabla_aseguradora=:id_tabla_aseguradora";
+			$query_eli=$conexion->prepare($eliminando);
+			$query_eli->execute(array(
+				":id_tabla_aseguradora"=>$id_derecho_poliza
+			));
+
+			$i=0;
+			$j=1;
+			$arreglo=array();
+
+			$instruccion="SELECT
+			id_derecho_poliza,
+			derecho_costo,
+			id_tabla_aseguradora,
+			ase.nombre_aseguradora
+			from costo_derecho_poliza
+			left join aseguradoras ase on ase.id_aseguradora=costo_derecho_poliza.id_tabla_aseguradora			
+			order by ase.nombre_aseguradora asc
+			";
+			$query_hay=$conexion->prepare($instruccion);
+			$query_hay->execute();
+			$filas=$query_hay->rowCount();
+			if($filas>0)
+			{
+				foreach ($query_hay as $datos) 
+				{
+					$movimiento ="SELECT* from 
+					 costo_derecho_movimientos
+					 where id_tabla_aseguradora_mov=:id_tabla_aseguradora_mov
+					 order by id_costo_derecho desc limit 1
+					";
+					$query_ultimo=$conexion->prepare($movimiento);
+					$query_ultimo->execute(array(
+						":id_tabla_aseguradora_mov"=>$datos['id_tabla_aseguradora']
+					));
+					$ultima_fecha=$query_ultimo->fetch(PDO::FETCH_ASSOC);
+
+						$arreglo[$i]['botones']=
+							'
+							<div style="display:inline;">
+								<button style="width:29px;" value="'.$datos['id_derecho_poliza'].'"class=" btn btn-primary btn-sm editar_derecho"><i class="fas fa-edit"></i></button>
+							</div>
+							
+							<div style="display:inline;>
+							<button style="width:30px;" id="eliminar_derecho" value="'.$datos['id_derecho_poliza'].'*derecho'.'" class="btn btn-danger btn-sm  "><i class="fas fa-times"></i></button>
+							</div>';
+												$arreglo[$i]['nombre_seguradora']=str_replace('_',' ',$datos['nombre_aseguradora']);
+						$arreglo[$i]['costo']=str_replace('_',' ',$datos['derecho_costo']);
+						$arreglo[$i]['ultima_fecha']=date('d-m-Y H:i:s',strtotime($ultima_fecha['fecha_alta_mov']));
+						$arreglo[$i]['historial']=
+							'
+							<div style="display:inline;">
+								<button  value="'.$datos['id_tabla_aseguradora'].'"class=" btn btn-success btn-sm historial">HISTORIAL</button>
+							</div>';
+						$i++;
+						$j++;	
+				}
+				$datos_finales['data']=$arreglo;
+				echo json_encode($datos_finales);
+			}
+			else
+			{
+					$datos_finales['data']=$arreglo;
+				echo json_encode($datos_finales);
+			}
+		}
+		else
+		{
+			echo"ERROR 434.LISTA_COSTO_DERECHO.El sservidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+
+function lista_costo_historial()
+{
+	try {
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+
+			$i=0;
+			$j=1;
+			$arreglo=array();
+
+			$instruccion="SELECT
+			id_derecho_poliza,
+			derecho_costo,
+			id_tabla_aseguradora,
+			ase.nombre_aseguradora,
+			ase.id_aseguradora
+			from costo_derecho_poliza
+			left join aseguradoras ase on ase.id_aseguradora=costo_derecho_poliza.id_tabla_aseguradora			
+			order by ase.nombre_aseguradora asc
+			";
+			$query_hay=$conexion->prepare($instruccion);
+			$query_hay->execute();
+			$filas=$query_hay->rowCount();
+			if($filas>0)
+			{
+				foreach ($query_hay as $datos) 
+				{
+					$movimiento ="SELECT* from 
+					 costo_derecho_movimientos
+					 where id_tabla_aseguradora_mov=:id_tabla_aseguradora_mov
+					 order by id_costo_derecho desc limit 1
+					";
+					$query_ultimo=$conexion->prepare($movimiento);
+					$query_ultimo->execute(array(
+						":id_tabla_aseguradora_mov"=>$datos['id_tabla_aseguradora']
+					));
+					$ultima_fecha=$query_ultimo->fetch(PDO::FETCH_ASSOC);
+
+						$arreglo[$i]['botones']=
+							'
+							<div style="display:inline;">
+								<button style="width:29px;" value="'.$datos['id_aseguradora'].'" class=" btn btn-primary btn-sm editar_derecho"><i class="fas fa-edit"></i></button>
+							</div>
+							
+							<div style="display:inline;">
+							<button style="width:30px;" id="eliminar_derecho" value="'.$datos['id_aseguradora'].'*derecho'.'" class="btn btn-danger btn-sm "><i class="fas fa-times"></i></button>
+							</div>';
+												$arreglo[$i]['nombre_seguradora']=str_replace('_',' ',$datos['nombre_aseguradora']);
+						$arreglo[$i]['costo']=str_replace('_',' ',$datos['derecho_costo']);
+						$arreglo[$i]['ultima_fecha']=date('d-m-Y H:i:s',strtotime($ultima_fecha['fecha_alta_mov']));
+						$arreglo[$i]['historial']=
+							'
+							<div style="display:inline;">
+								<button  value="'.$datos['id_tabla_aseguradora'].'"class=" btn btn-success btn-sm historial">HISTORIAL</button>
+							</div>';
+						$i++;
+						$j++;
+				}
+				$datos_finales['data']=$arreglo;
+				echo json_encode($datos_finales);
+			}
+			else
+			{
+					$datos_finales['data']=$arreglo;
+				echo json_encode($datos_finales);
+			}
+		}
+		else
+		{
+			echo"ERROR 434.LISTA_COSTO_DERECHO.El sservidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+
+function insertando_costo()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+
+
+			$aseguradora=$_POST['aseguradora'];
+			$costo=$_POST['costo'];
+			$fecha=date('Y-m-d H:i:s',time());
+			$usuario = $_SESSION['usuario']['user'];
+
+			//buscando si ya hay insertados peviamente
+			$hay_costo_dato="SELECT
+
+			id_derecho_poliza,
+			id_tabla_aseguradora,
+			derecho_costo,
+			fecha_alta_costo,
+			dio_alta_costo,
+			a.nombre_aseguradora
+			from costo_derecho_poliza
+			left join aseguradoras a on a.id_aseguradora=costo_derecho_poliza.id_tabla_aseguradora
+			where id_tabla_aseguradora=:id_tabla_aseguradora
+			";
+			$query_hay=$conexion->prepare($hay_costo_dato);
+			$query_hay->execute(array(
+				":id_tabla_aseguradora"=>$aseguradora
+			));
+			$datos_finales =$query_hay->fetch(PDO::FETCH_ASSOC);
+
+			$filas_dato=$query_hay->rowCount();
+			if($filas_dato<=0)
+			{
+					$insertando="INSERT INTO
+					costo_derecho_poliza
+					(
+						id_tabla_aseguradora,
+					
+						derecho_costo,
+						fecha_alta_costo,
+						dio_alta_costo	
+					)
+					values
+					(	
+						:id_tabla_aseguradora,
+					
+						:derecho_costo,
+						:fecha_alta_costo,
+						:dio_alta_costo	
+					)";
+					$query=$conexion->prepare($insertando);
+					$query->execute(array(
+						":id_tabla_aseguradora"=>$aseguradora,
+					
+						":derecho_costo"=>$costo,
+						":fecha_alta_costo"=>$fecha,
+						":dio_alta_costo"=>$usuario
+					));
+
+					
+					if($query==true)
+					{
+						$hay_costo_dato="SELECT
+							*from
+							aseguradoras
+							where id_aseguradora=:id_aseguradora
+							";
+							$query_hay=$conexion->prepare($hay_costo_dato);
+							$query_hay->execute(array(
+								":id_aseguradora"=>$aseguradora
+							));
+							$datos_finales =$query_hay->fetch(PDO::FETCH_ASSOC);
+						
+
+						$insertando_movimientos="INSERT INTO
+						costo_derecho_movimientos
+						(
+							id_tabla_aseguradora_mov,
+								nombre_aseguradora_mov,
+							costo_mov,
+							fecha_alta_mov,
+							dio_alta_mov	
+						)
+						values
+						(	
+							:id_tabla_aseguradora_mov,
+								:nombre_aseguradora_mov,
+							:costo_mov,
+							:fecha_alta_mov,
+							:dio_alta_mov	
+						)";
+						$query_mov=$conexion->prepare($insertando_movimientos);
+						$query_mov->execute(array(
+							":id_tabla_aseguradora_mov"=>$aseguradora,
+								":nombre_aseguradora_mov"=>$datos_finales['nombre_aseguradora'],
+							":costo_mov"=>$costo,
+							":fecha_alta_mov"=>$fecha,
+							":dio_alta_mov"=>$usuario,
+						));
+						echo '1';
+					}
+					else
+					{
+						echo '0';
+					}
+			}
+			else
+			{
+				echo'ya';
+			}
+
+			
+		}	
+		else
+		{
+			echo"ERROR 313.LISTA_ASEGURADORAS_DERECHO.El servidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+
+
+function lista_aseguradoras_select()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+			$respuesta="";
+			$asegurados="SELECT
+				id_aseguradora,
+				nombre_aseguradora,
+				fecha_alta_aseguradora,
+				dio_alta
+				from
+				aseguradoras
+				order by nombre_aseguradora asc";
+				$query_aseguradora=$conexion->prepare($asegurados);
+				$query_aseguradora->execute();
+				$filas_totales=$query_aseguradora->rowCount();
+				if($filas_totales>0)
+				{
+					$respuesta='<option value="0">SELECCIONA UNA ASEGURADORA</option>';
+					foreach ($query_aseguradora as $datos) 
+					{
+						$respuesta.='<option value="'.$datos['id_aseguradora'].'">'.str_replace('_',' ',$datos['nombre_aseguradora']).'</option>';
+					}
+					echo $respuesta;
+				}
+				else
+				{
+					echo'<option value="na">NO HAY ASEGURADORAS REGISTADAS</option>';
+				}
+		}	
+		else
+		{
+			echo"ERROR 313.LISTA_ASEGURADORAS_DERECHO.El servidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+
+function lista_aseguradoras()
+{
+	try 
+	{
+		$conexion =llamar_conexion();
+		if($conexion)
+		{
+				$arreglo=array();
+				$i=0;
+				$j=1;
+				$datos_finales_cargo="";
+				$asegurados="SELECT
+				id_aseguradora,
+				nombre_aseguradora,
+				foto,
+				fecha_alta_aseguradora,
+				dio_alta
+				from
+				aseguradoras
+				order by nombre_aseguradora asc";
+				$query_aseguradora=$conexion->prepare($asegurados);
+				$query_aseguradora->execute();
+				$filas_totales=$query_aseguradora->rowCount();
+
+				if($filas_totales>0)
+				{
+					foreach ($query_aseguradora as $datos) 
+					{
+
+							$arreglo[$i]['botones']=
+							'
+							<div style="display:inline;">
+								<button style="width:29px;" value="'.$datos['id_aseguradora'].'" class=" btn btn-primary btn-sm editar_aseguradora"><i class="fas fa-edit"></i></button>
+							</div>
+							
+							<div style="display:inline;">
+							<button style="width:30px;" value="'.$datos['id_aseguradora'].'" class="btn btn-danger btn-sm  eliminar_aseguradora"><i class="fas fa-times"></i></button>
+							</div>
+
+								
+
+							';
+							$arreglo[$i]['foto']='<div style="width:80px;"><img style="width:100%;" src="'.$datos['foto'].'" alt=""></div>';
+
+							$arreglo[$i]['nombre_seguradora']=str_replace('_',' ',$datos['nombre_aseguradora']);
+
+							$arreglo[$i]['fecha_alta']=date('d-m-Y H:i:s',strtotime($datos['fecha_alta_aseguradora']));
+
+						$cargo="SELECT 
+						derecho_costo
+						from
+						costo_derecho_poliza
+						where
+						id_tabla_aseguradora=:id_tabla_aseguradora
+						order by id_derecho_poliza desc limit 1
+						";
+						$query_cargo=$conexion->prepare($cargo);
+						$query_cargo->execute(array(
+							":id_tabla_aseguradora"=>$datos['id_aseguradora']
+						));
+						$filas=$query_cargo->rowCount();
+						if($filas>0)
+						{
+							$datos_finales_cargo=$query_cargo->fetch(PDO::FETCH_ASSOC);
+							$arreglo[$i]['derecho_poliza']=$datos_finales_cargo['derecho_costo'];
+						}
+						else
+						{
+							$arreglo[$i]['derecho_poliza']='';		
+						}
+
+						$recargo="SELECT
+						forma_de_pago, 
+						cantidad_recargo
+						from
+						recargo_por_cargo_fraccionado
+						where
+						id_tabla_aseguradoras_recargo=:id_tabla_aseguradoras_recargo
+						order by id_recargo desc limit 1
+						";
+						$query_cargo=$conexion->prepare($recargo);
+						$query_cargo->execute(array(
+							":id_tabla_aseguradoras_recargo"=>$datos['id_aseguradora']
+						));
+						$filas=$query_cargo->rowCount();
+						if($filas>0)
+						{
+							$datos_finales_cargo=$query_cargo->fetch(PDO::FETCH_ASSOC);
+							$arreglo[$i]['forma_de_pago']=$datos_finales_cargo['forma_de_pago'];
+							$arreglo[$i]['recargo']=$datos_finales_cargo['cantidad_recargo'];
+						}
+						else
+						{
+							$arreglo[$i]['forma_de_pago']='';
+							$arreglo[$i]['recargo']='';		
+						}
+					$i++;
+					$j++;
+					}
+
+					$data_final['data']=$arreglo;
+					echo json_encode($data_final);
+				}
+				else
+				{
+					$data_final['data']=$arreglo;
+					echo json_encode($data_final);
+				}
+		}	
+		else
+		{
+			echo"ERROR 463.LISTA_DE_ASEGURADORAS.EL servidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+function alta_aseguradora()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+
+			$usuario = $_SESSION['usuario']['user'];
+			$fecha_hoy=date('Y-m-d H:i:s',time());
+
+			$nombre_aseguradora=mb_strtoupper(str_replace(' ','_',$_POST['alta_aseguradora']),'UTF-8');
+			$foto=$_FILES['foto'];
+			
+			$ruta_guardado='imagenes_aseguradoras/'.$foto['name'];
+
+			if(move_uploaded_file($foto['tmp_name'],'../'.$ruta_guardado))
+			{
+
+			}
+			else
+			{
+				echo'foto_no';
+				exit();
+			}
+
+			//insertar aseguradora
+			$insertar="INSERT INTO 
+			aseguradoras
+			(
+				nombre_aseguradora,
+				foto,
+				fecha_alta_aseguradora,
+				dio_alta
+			)
+			values
+			(
+				:nombre_aseguradora,
+				:foto,
+				:fecha_alta_aseguradora,
+				:dio_alta	
+			)";
+			$query=$conexion->prepare($insertar);
+			$query->execute(array(
+				":nombre_aseguradora"=>$nombre_aseguradora,
+				":foto"=>$ruta_guardado,
+				":fecha_alta_aseguradora"=>$fecha_hoy,
+				":dio_alta"=>$usuario
+			));
+
+			if($query==true)
+			{
+				
+				echo '1';
+			}
+			else
+			{
+				echo'0';
+			}
+		}	
+		else
+		{
+			echo'ERROR 516.ALTA_ASEGURADORA.El servidor no responder';
+		}
+	} catch (PDOException $e) 
+	{
+		echo$e;	
+	}
+}
+function aseguradoras()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+			//buscando todas las aseguradoras registradas
+			
+			$resultado=array();
+			$aseguradoras = "
+			SELECT 
+			* 
+			from 
+			aseguradoras";
+			$query=$conexion->prepare($aseguradoras);
+			$query->execute();
+			$filas=$query->rowCount();
+			if($filas>0)
+			{
+
+					foreach ($query as $datos) 
+					{
+						$resultado['nombre'][]=str_replace('_',' ',$datos['nombre_aseguradora']);
+					}
+
+					$datos_finales['aseguradoras']=$resultado;					
+					echo json_encode($datos_finales);
+
+			}
+			else
+			{
+
+			}
+		}
+		else	
+		{
+			echo 'ERROR 351.ASEGURADORA_ALTA_ASEGURADO.El servidor no responde';
+		}
+	} 
+	catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+
+ ?>

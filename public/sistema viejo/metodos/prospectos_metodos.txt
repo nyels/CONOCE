@@ -1,0 +1,666 @@
+<?php 
+session_start();
+date_default_timezone_set('America/Mexico_City');
+
+if(isset($_POST['alta_prospecto']))
+{
+	alta_prospecto();
+}
+else if(isset($_POST['prospectos_lista']))
+{
+	prospectos_lista();
+}
+elseif(isset($_POST['eliminando_contacto']))
+{
+	eliminando_contacto();
+}
+else if(isset($_POST['buscar_datos_para_actualizar_y_actualizar']))
+{
+	buscar_datos_para_actualizar_y_actualizar();
+}
+else if(isset($_POST['llenando_informacion_cotizacion']))
+{
+	llenando_informacion_cotizacion();
+}
+
+function llamar_conexion()
+{
+	include('conexion.php');
+	$conexion=new conexion;	
+
+	return $conexion_final=$conexion->abrir();
+}
+
+function buscar_datos_para_actualizar_y_actualizar()
+{
+	try 
+	{
+		$conexion =llamar_conexion();
+		if($conexion)
+		{
+
+				$id_prospectos = $_POST['buscar_datos_para_actualizar_y_actualizar'];
+				$buscando_y_actualizar=$_POST['buscando_y_actualizar'];
+
+				switch ($buscando_y_actualizar) 
+				{
+					case '1':
+						$contacto_ins ="SELECT*from prospectos
+						where id_prospectos=:id_prospectos";
+						$query_contacto = $conexion->prepare($contacto_ins);
+						$query_contacto->execute(array(":id_prospectos"=>$id_prospectos[0]));
+
+						foreach ($query_contacto as $datos) 
+						{
+							switch ($datos['tipo_prospecto']) 
+							{
+								case 'FISICA':
+								$respuestas[]=str_replace('_',' ',$datos['apellido_parteno_prospecto']);
+								$respuestas[]=str_replace('_',' ',$datos['apellido_materno_prospecto']);
+								$respuestas[]=str_replace('_',' ',$datos['nombres_persona_prospecto']);
+									break;
+								case 'MORAL':
+								$respuestas[]=str_replace('_',' ',$datos['nombre_prospecto']);
+									break;
+								
+								default:
+									# code...
+									break;
+							}
+							
+							$respuestas[]=$datos['tipo_prospecto'];
+							$respuestas[]=$datos['codigo_postal_prospecto'];
+							$respuestas[]=$datos['colonia_prospecto'];
+							$respuestas[]=$datos['estado_prospecto'];
+						}
+						$respuesta_final['data']=$respuestas;
+						echo json_encode($respuesta_final);
+						break;
+					
+					default:
+
+
+						$codigo_postal=$_POST['codigo_postal'];
+						$colonia=mb_strtoupper($_POST['colonia'],'UTF-8');
+						$estado=$_POST['estado'];
+						$fecha_hoy=date('Y-m-d H:i:s',time());
+						$usuario = $_SESSION['usuario']['user'];
+						$tipo_prospecto=explode(',',$id_prospectos);
+						switch ($tipo_prospecto[1]) 
+						{
+							case 'FISICA':
+							$apellido_parteno_prospecto=mb_strtoupper(str_replace(' ', '_',trim($_POST['apellido_paterno'])),'UTF-8');
+							$apellido_materno_prospecto=mb_strtoupper(str_replace(' ', '_',trim($_POST['apellido_materno'])),'UTF-8');
+							$nombres_persona_prospecto=mb_strtoupper(str_replace(' ', '_',trim($_POST['nombres_persona'])),'UTF-8');
+
+							//vetificando si existe el prospecto
+						/*	$verificando_prospecto="SELECT
+							apellido_parteno_prospecto,
+							apellido_materno_prospecto,
+							nombres_persona_prospecto
+							from
+							prospectos
+							where
+							apellido_parteno_prospecto=:apellido_parteno_prospecto
+							and
+							apellido_materno_prospecto=:apellido_materno_prospecto
+							and
+							nombres_persona_prospecto=:nombres_persona_prospecto
+							and
+							dio_alta_prospeccto=:dio_alta_prospeccto
+							";
+							$query_verificando=$conexion->prepare($verificando_prospecto);
+							$query_verificando->execute(array(
+								":apellido_parteno_prospecto"=>$apellido_parteno_prospecto,
+								":apellido_materno_prospecto"=>$apellido_materno_prospecto,
+								":nombres_persona_prospecto"=>$nombres_persona_prospecto,
+								":dio_alta_prospeccto"=>$usuario,
+								
+							));
+							*/
+							/*$filas=$query_verificando->rowCount();
+							if($filas>0)
+							{
+								echo'si_hay';
+							}
+							else
+							{*/
+									$actualizar_ins = "UPDATE prospectos
+									set
+									apellido_parteno_prospecto=:apellido_parteno_prospecto,
+									apellido_materno_prospecto=:apellido_materno_prospecto,
+									nombres_persona_prospecto=:nombres_persona_prospecto,
+									codigo_postal_prospecto=:codigo_postal_prospecto,
+									colonia_prospecto=:colonia_prospecto,
+									estado_prospecto=:estado_prospecto
+									where id_prospectos=:id_prospectos
+									";
+									$query_actu=$conexion->prepare($actualizar_ins);
+									$query_actu->execute(array(
+										":apellido_parteno_prospecto"=>$apellido_parteno_prospecto,
+										":apellido_materno_prospecto"=>$apellido_materno_prospecto,
+										":nombres_persona_prospecto"=>$nombres_persona_prospecto,
+										":codigo_postal_prospecto"=>$codigo_postal,
+										":colonia_prospecto"=>$colonia,
+										":estado_prospecto"=>$estado,
+										":id_prospectos"=>$id_prospectos[0]
+
+									));
+									if($query_actu==true)
+									{
+										echo '1';
+									}
+									else
+									{
+										echo '0';
+									}
+							/*}*/
+
+
+								break;
+							case 'MORAL':
+							$nombre_prospecto=mb_strtoupper(str_replace(' ', '_',trim($_POST['nombre_asegurado'])),'UTF-8');
+							$actualizar_ins = "UPDATE prospectos
+							set
+							nombre_prospecto=:nombre_prospecto,
+							codigo_postal_prospecto=:codigo_postal_prospecto,
+							colonia_prospecto=:colonia_prospecto,
+							estado_prospecto=:estado_prospecto
+							where id_prospectos=:id_prospectos
+							";
+							$query_actu=$conexion->prepare($actualizar_ins);
+							$query_actu->execute(array(
+								":nombre_prospecto"=>$nombre_prospecto,
+								":codigo_postal_prospecto"=>$codigo_postal,
+								":colonia_prospecto"=>$colonia,
+								":estado_prospecto"=>$estado,
+								":id_prospectos"=>$id_prospectos[0]
+
+							));
+							if($query_actu==true)
+							{
+								echo '1';
+							}
+							else
+							{
+								echo '0';
+							}
+
+								break;
+						}
+						
+						
+						
+						break;
+				}
+
+				$respuestas=array();
+
+		}	
+		else
+		{
+			echo'ERROR 234.BUSCAR DATOS PARA ACTUALIZAR. El servidor no responde';
+		}
+
+	} catch (PDOException $e) 
+	{
+		echo$e;	
+	}
+}
+
+function eliminando_contacto()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+			$id_contacto=$_POST['eliminando_contacto'];
+			$delete="DELETE FROM prospectos
+			where id_prospectos=:id_prospectos";
+			$query_del=$conexion->prepare($delete);
+			$query_del->execute(array(
+				":id_prospectos"=>$id_contacto
+			));
+
+			if($query_del==true)
+			{
+				echo '1';
+
+			}
+			else
+			{
+				echo'0';
+			}
+		}	
+		else
+		{
+			echo'ERROR 342.ELIMINAR CONTACTO.EL servidor no responde';
+		}
+	} catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+
+function alta_prospecto()
+{
+	try 
+	{
+		$conexion = llamar_conexion();
+		if($conexion)
+		{
+
+			$tipo_prospecto=$_POST['tipo_prospecto'];
+			
+			$codigo_postal=$_POST['codigo_postal'];
+			$colonia=mb_strtoupper($_POST['colonia'],'UTF-8');
+			$estado=$_POST['estado'];
+			$fecha_hoy=date('Y-m-d H:i:s',time());
+			$usuario =$_SESSION['usuario']['user'];
+
+			switch ($tipo_prospecto) 
+			{
+				case 'MORAL':
+
+				$nombre_prospecto=mb_strtoupper(str_replace(' ', '_', $_POST['nombre_asegurado']),'UTF-8');
+
+					$insertar_prospecto = "INSERT prospectos
+					(
+						nombre_prospecto,
+						tipo_prospecto,
+						codigo_postal_prospecto,
+						colonia_prospecto,
+						estado_prospecto,
+						fecha_alta_prospecto,
+						dio_alta_prospeccto
+					)
+					values
+					(
+						
+						:nombre_prospecto,
+						:tipo_prospecto,
+						:codigo_postal_prospecto,
+						:colonia_prospecto,
+						:estado_prospecto,
+						:fecha_alta_prospecto,
+						:dio_alta_prospeccto
+					)";
+					$lala=$conexion->prepare($insertar_prospecto);
+					$lala->execute(array(
+						":nombre_prospecto"=>$nombre_prospecto,
+						":tipo_prospecto"=>$tipo_prospecto,
+						":codigo_postal_prospecto"=>$codigo_postal,
+						":colonia_prospecto"=>$colonia,
+						":estado_prospecto"=>$estado,
+						":fecha_alta_prospecto"=>$fecha_hoy,
+						":dio_alta_prospeccto"=>$usuario,
+
+					));
+					if($lala==true)
+					{
+						echo '1';
+					}
+					else
+					{
+						echo '0';
+					}
+					break;
+				
+				default:
+					$apellido_paterno=mb_strtoupper(trim($_POST['apellido_paterno'],'UTF-8'));
+					$apellido_materno=(mb_strtoupper(trim($_POST['apellido_materno']),'UTF-8'));
+					$nombres_persona=(mb_strtoupper(trim($_POST['nombres_persona']),'UTF-8'));
+
+					//vetificando si existe el prospecto
+					$verificando_prospecto="SELECT
+					apellido_parteno_prospecto,
+					apellido_materno_prospecto,
+					nombres_persona_prospecto
+					from
+					prospectos
+					where
+					apellido_parteno_prospecto=:apellido_parteno_prospecto
+					and
+					apellido_materno_prospecto=:apellido_materno_prospecto
+					and
+					nombres_persona_prospecto=:nombres_persona_prospecto
+					and
+					dio_alta_prospeccto=:dio_alta_prospeccto
+					";
+					$query_verificando=$conexion->prepare($verificando_prospecto);
+					$query_verificando->execute(array(
+						":apellido_parteno_prospecto"=>$apellido_paterno,
+						":apellido_materno_prospecto"=>$apellido_materno,
+						":nombres_persona_prospecto"=>$nombres_persona,
+						":dio_alta_prospeccto"=>$usuario,
+						
+					));
+
+					$filas=$query_verificando->rowCount();
+					if($filas>0)
+					{
+						echo'si_hay';
+					}
+					else
+					{
+						$insertar_prospecto = "INSERT prospectos
+						(
+							apellido_parteno_prospecto,
+							apellido_materno_prospecto,
+							nombres_persona_prospecto,
+							tipo_prospecto,
+							codigo_postal_prospecto,
+							colonia_prospecto,
+							estado_prospecto,
+							fecha_alta_prospecto,
+							dio_alta_prospeccto
+						)
+						values
+						(
+							
+							:apellido_parteno_prospecto,
+							:apellido_materno_prospecto,
+							:nombres_persona_prospecto,
+							:tipo_prospecto,
+							:codigo_postal_prospecto,
+							:colonia_prospecto,
+							:estado_prospecto,
+							:fecha_alta_prospecto,
+							:dio_alta_prospeccto
+						)";
+						$lala=$conexion->prepare($insertar_prospecto);
+						$lala->execute(array(
+							":apellido_parteno_prospecto"=>$apellido_paterno,
+							":apellido_materno_prospecto"=>$apellido_materno,
+							":nombres_persona_prospecto"=>$nombres_persona,
+							":tipo_prospecto"=>$tipo_prospecto,
+							":codigo_postal_prospecto"=>$codigo_postal,
+							":colonia_prospecto"=>$colonia,
+							":estado_prospecto"=>$estado,
+							":fecha_alta_prospecto"=>$fecha_hoy,
+							":dio_alta_prospeccto"=>$usuario,
+
+						));
+						if($lala==true)
+						{
+							echo '1';
+						}
+						else
+						{
+							echo '0';
+						}
+					}
+					break;
+			}
+		}	
+		else
+		{
+			echo'ERROR 313.ALTA_PROSPECTO.El servidor no responde';
+		}
+	} 
+	catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+function estados()
+{
+	try 
+	{
+		$conexion = llamar_conexion();
+		if($conexion)
+		{
+			$estados="SELECT * FROM estados";
+			$query_e=$conexion->prepare($estados);
+			$query_e->execute();
+			echo '<option value="0">SELECCIONA UN ESTADO</option>';
+			foreach ($query_e as $datos) 
+			{
+				echo'<option value="'.$datos['id_estados'].'">'.$datos['nombre_estado'].'</option>';
+			}
+		}	
+		else
+		{
+			echo'ERROR 242.ESTADOS.El servidor no responde';
+		}
+	} 
+	catch (PDOException $e) 
+	{
+		
+	}
+}
+
+
+function prospectos_lista()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+			$arreglo = array();
+			$i=0;
+			$j=1;
+			$usuario=$_SESSION['usuario']['user'];
+			$opcion=$_POST['prospectos_lista'];
+			switch ($opcion) 
+			{
+				case 1://opcion de lista de tabla
+					$prospectos_todos ="SELECT
+					id_prospectos,
+					nombre_prospecto,
+					apellido_parteno_prospecto,
+					apellido_materno_prospecto,
+					nombres_persona_prospecto,
+					tipo_prospecto,
+					codigo_postal_prospecto,
+					e.nombre_estado,
+					fecha_alta_prospecto,
+					dio_alta_prospeccto,
+					r.nombre_persona
+					FROM prospectos 
+					left join estados e on e.id_estados=prospectos.estado_prospecto
+					left join usuarios r on r.nombre_usuario=prospectos.dio_alta_prospeccto
+					
+					where dio_alta_prospeccto=:dio_alta_prospeccto
+					order by nombre_prospecto
+					";
+					$query_todos=$conexion->prepare($prospectos_todos);
+					$query_todos->execute(array(
+						":dio_alta_prospeccto"=>$usuario
+					));
+					$filas=$query_todos->rowCount();
+					if($filas>0)
+					{
+						foreach ($query_todos as $data) 
+						{
+
+							$arreglo[$i]['numero']=$j;
+							switch ($data['tipo_prospecto']) 
+							{
+								case 'FISICA':
+							$arreglo[$i]['nombre']=str_replace('_',' ',$data['apellido_parteno_prospecto']).' '.str_replace('_',' ',$data['apellido_materno_prospecto']).' '.str_replace('_',' ',$data['nombres_persona_prospecto']);	
+									break;
+								
+								default:
+								$arreglo[$i]['nombre']=str_replace('_',' ',$data['nombre_prospecto']);					
+									break;
+							}
+							
+						
+							$arreglo[$i]['tipo_prospecto']=$data['tipo_prospecto'];
+							$arreglo[$i]['codigo_postal']=$data['codigo_postal_prospecto'];
+							$arreglo[$i]['colonia']=$data['codigo_postal_prospecto'];
+							$arreglo[$i]['estado']=$data['nombre_estado'];
+							$arreglo[$i]['fecha_alta']=date('d-m-Y H:i:s',strtotime($data['fecha_alta_prospecto']));
+							$arreglo[$i]['dio_alta']=str_replace('_',' ',$data['nombre_persona']);
+							
+								$arreglo[$i]['botones']='
+							<center><div style="border:0px red solid;width:70px;text-align:center">
+							<div style="display:inline-block;">
+							<button  style="width:29px;display:"   class="btn  btn-info btn-sm editar_prospectos" value="'.$data['id_prospectos'].'*'.$data['tipo_prospecto'].'"><i class="fas fa-edit"></i>
+							</button>
+							</div>
+							
+							<div style="display:inline-block;">
+							<button class="btn btn-danger  btn-sm eliminar_prospectos" value="'.$data['id_prospectos'].'">
+								<i  class="fas fa-times"></i>
+							</button>
+							</div>
+							</div></center>
+							
+							';	
+							$i++;
+							$j++;
+						}
+						$arreglo_final['data']=$arreglo;
+						echo json_encode($arreglo_final);
+					}
+					else
+					{
+						$arreglo_final['data']=$arreglo;
+						echo json_encode($arreglo_final);
+					}
+					break;
+				
+				case 2:
+						$prospectos_todos ="SELECT
+						id_prospectos,
+						nombre_prospecto,
+						tipo_prospecto,
+						codigo_postal_prospecto,
+						e.nombre_estado,
+						fecha_alta_prospecto,
+						dio_alta_prospeccto
+						FROM prospectos 
+						left join estados e on e.id_estados=prospectos.estado_prospecto
+						where dio_alta_prospeccto=:dio_alta_prospeccto
+						order by nombre_prospecto
+						";
+						$query_todos=$conexion->prepare($prospectos_todos);
+						$query_todos->execute(array(
+							":dio_alta_prospeccto"=>$usuario
+						));
+						$filas=$query_todos->rowCount();
+						if($filas>0)
+						{
+							foreach ($query_todos as $data) 
+							{
+								
+								$arreglo['nombre_prospecto'][]=str_replace('_',' ',$data['nombre_prospecto']);
+								
+						
+							}
+							$arreglo_final['prospectos']=$arreglo;
+							echo json_encode($arreglo_final);
+						}
+						else
+						{
+							$arreglo_final['prospectos']=$arreglo;
+							echo json_encode($arreglo_final);
+						}
+					break;
+
+					case 3:
+					$resultado='<option value="0">SELECCIONA UN PROSPECTO</option>';
+					$fisicas='<optgroup label ="PERSONAS FISICAS">';	
+					$morales='<optgroup label ="PERSONAS MORALES">';
+					$prospectos_todos ="
+						SELECT
+						id_prospectos,
+						apellido_parteno_prospecto,
+						apellido_materno_prospecto,
+						nombres_persona_prospecto,
+						nombre_prospecto,
+						tipo_prospecto
+						FROM prospectos 
+						where 
+						dio_alta_prospeccto=:dio_alta_prospeccto
+						order by tipo_prospecto asc ,nombre_prospecto asc
+						";
+						$query_todos=$conexion->prepare($prospectos_todos);
+						$query_todos->execute(array(
+							":dio_alta_prospeccto"=>$usuario
+						));
+						$filas=$query_todos->rowCount();
+						if($filas>0)
+						{
+							foreach ($query_todos as $datos) 
+							{
+								switch ($datos['tipo_prospecto']) 
+								{
+									case 'FISICA':
+									$fisicas.='<option value="'.$datos['id_prospectos'].'">'.str_replace('_',' ',$datos['nombres_persona_prospecto']).' '.str_replace('_',' ',$datos['apellido_parteno_prospecto']).' '.str_replace('_',' ',$datos['apellido_materno_prospecto']).'</option>';
+										break;
+									
+									case 'MORAL':
+										$morales.='<option value="'.$datos['id_prospectos'].'">'.str_replace('_',' ',$datos['nombre_prospecto']).'</option>';
+										break;
+									
+								}
+							}
+
+							$fisicas.='</optgroup>';
+							$morales.='</optgroup>';
+							echo$resultado.=$fisicas.$morales;
+						}
+						else
+						{
+							$resultado.='<option value="0">NO HAY PROSPECTOS REGISTRADOS</option>';
+						}
+					break;
+			}
+		}
+		else
+		{
+			echo 'ERROR 163.LISTA PROSPECTOS.EL servidor no responde';
+		}
+	} 
+	catch (PDOException $e) 
+	{
+		echo $e;
+	}
+}
+
+function llenando_informacion_cotizacion()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+				$arreglo=array();
+				$id_prospecto=$_POST['llenando_informacion_cotizacion'];
+				$buscando="SELECT*from prospectos
+				left join estados e on e.id_estados=prospectos.estado_prospecto
+				where id_prospectos=:id_prospectos";
+				$query_busqueda=$conexion->prepare($buscando);
+				$query_busqueda->execute(array(":id_prospectos"=>$id_prospecto));
+				foreach ($query_busqueda as $data) 
+				{
+					$arreglo[]=$data['tipo_prospecto'];
+					$arreglo[]=$data['apellido_parteno_prospecto'];
+					$arreglo[]=$data['apellido_materno_prospecto'];
+					$arreglo[]=str_replace('_',' ',$data['nombres_persona_prospecto']);
+					$arreglo[]=str_replace('_',' ',$data['nombre_prospecto']);
+					$arreglo[]=$data['codigo_postal_prospecto'];
+					$arreglo[]=str_replace('_',' ',$data['colonia_prospecto']);
+					$arreglo[]=mb_strtoupper($data['nombre_estado'],'UTF-8');	
+				}
+				$datos_finales['prospecto']=$arreglo;
+				echo json_encode($datos_finales);
+		}	
+		else
+		{
+			echo'ERROR 324.LLENANDO_INFORMACION.El servidor no responde';
+		}
+	} catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+ ?>

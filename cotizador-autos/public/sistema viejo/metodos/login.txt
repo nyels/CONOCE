@@ -1,0 +1,54 @@
+<?php 
+session_start();
+function llamar_conexion()
+{
+	include'conexion.php';
+	$conexion=new conexion;
+	return $conexion_final=$conexion->abrir();
+}
+
+try 
+{
+	$conexion=llamar_conexion();
+	if($conexion)
+	{
+		$usuario = $_POST['user'];
+		$pass=$_POST['password'];
+
+		$seleccionado_usuario = "SELECT*FROM usuarios 
+		where 
+		nombre_usuario=:nombre_usuario
+		and
+		pass=:pass";
+		$q=$conexion->prepare($seleccionado_usuario);
+		$q->execute(array(
+			":nombre_usuario"=>$usuario,
+			":pass"=>$pass
+		));
+		$fila=$q->rowCount();
+		if($fila>0)
+		{
+			foreach ($q as $data) 
+			{
+				$_SESSION['usuario']['nombres']=$data['nombre_persona'];
+				$_SESSION['usuario']['user']=$data['nombre_usuario'];
+				$_SESSION['usuario']['correo']=$data['correo'];
+				$_SESSION['usuario']['tipo_user']=$data['tipo_usuario'];
+			}
+			echo'1';
+		}
+		else
+		{
+			echo'0';
+		}
+	}
+	else
+	{
+		echo'ERROR';
+	}
+} 
+catch (PDOException $e) 
+{
+	echo$e;	
+}
+?>

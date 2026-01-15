@@ -1,0 +1,44 @@
+<?php 
+class conexion
+{
+
+	private $servername;
+	private $dbname;
+	private $username;
+	private $password;
+ 	protected $conexion;
+	
+	public function abrir()
+	{
+
+		try 
+		{
+			$this->servername = "localhost";
+	        $this->dbname = "conoce_cotizacion_autos";
+	        $this->username = "root";
+	        $this->password = "skyline0987/";
+	        $dns="mysql:host=".$this->servername.";dbname=".$this->dbname;
+         	$options = array(
+						PDO::ATTR_PERSISTENT => FALSE, 
+						PDO::ATTR_EMULATE_PREPARES => FALSE,
+	 				  	PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+	    			  	PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"
+	        );
+
+			$pdo= new PDO($dns,$this->username,$this->password,$options);
+			return $pdo;
+			//return $conexion;
+		} 
+		catch (PDOException $e) 
+		{
+			echo $e;
+			
+		}
+	}
+	public function cerrar_conexion()
+	{
+		$conexion=null;
+	}
+}
+
+

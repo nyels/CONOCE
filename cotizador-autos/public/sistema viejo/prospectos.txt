@@ -1,0 +1,646 @@
+<?php 
+require('metodos/prospectos_metodos.php');
+if(empty($_SESSION['usuario']['user']) || isset($_POST['cerrar_session']))
+{
+session_destroy();
+header('location:index.php');
+}
+
+?>  
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <title>COTIZADOR</title>
+
+  <!-- Custom fonts for this template-->
+  <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
+
+  <!-- Custom styles for this template-->
+  <link href="css/sb-admin-2.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+<!--datepicker librerias-->
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+ <!---->    
+  <link href="js/fontawesome-free-web/css/all.css" rel="stylesheet" />
+
+
+<link rel="stylesheet" href="js/jquery.typeahead.min.css">
+</head>
+
+<body id="page-top">
+
+  <!-- Page Wrapper -->
+  <div id="wrapper">
+
+    <!-- Sidebar -->
+    <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion toggled"  id="accordionSidebar"><!--toggled-->
+
+      <!-- Sidebar - Brand -->
+      <a class="sidebar-brand d-flex align-items-center justify-content-center" href="index.php">
+        <div class="sidebar-brand-icon rotate-n-15">
+          COTI
+        </div>
+        <div class="sidebar-brand-text mx-3">COTIZADOR</div>
+      </a>
+
+      <!-- Divider -->
+      <hr class="sidebar-divider my-0">
+
+      <!-- Nav Item - Dashboard -->
+      <li class="nav-item ">
+        <a class="nav-link" href="index.php">
+          <i class="fas fa-fw fa-tachometer-alt"></i>
+          <span>INICO</span></a>
+      </li>
+
+      <!-- Divider -->
+      <hr class="sidebar-divider">
+
+      <!-- Heading -->
+   <!--<div class="sidebar-heading">
+        ALTAS
+      </div>-->
+      <!-- Nav Item - Pages Collapse Menu -->
+      <li class="nav-item ">
+        <a class="nav-link collapsed" href="contacto.php"  aria-expanded="true" aria-controls="collapseTwo">
+           <i class="fas fa-users"></i>
+          <span>CONTACTOS</span>
+        </a>
+        <!--<div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
+          <div class="bg-white py-2 collapse-inner rounded">
+            <a class="collapse-item" href="buttons.html">ALTA CONTACTO</a>
+            <a class="collapse-item" href="cards.html">LISTA DE CONTACTO</a>
+          </div>
+        </div>-->
+      </li>
+
+
+
+ <li class="nav-item active">
+        <a href="prospectos.php" class="nav-link collapsed" aria-expanded="true" aria-controls="collapseTwo">
+       <i class="fas fa-user"></i>
+          <span>PROSPECTOS</span>
+        </a>
+   
+      </li>
+
+
+
+ <li class="nav-item">
+        <a href="cotizacion.php" class="nav-link collapsed" aria-expanded="true" aria-controls="collapseTwo">
+       <i class="fas fa-file-contract"></i>
+          <span>COTIZACION</span>
+        </a>
+   
+      </li>
+  <?php 
+      $tipo_usuario = $_SESSION['usuario']['tipo_user'];
+        switch ($tipo_usuario) 
+        {
+          case '1':
+          ?>
+        <li class="nav-item">
+          <a href="aseguradoras.php" class="nav-link collapsed" aria-expanded="true" aria-controls="collapseTwo">
+            <i class="far fa-building"></i>
+            <span>ASEGURADORAS</span>
+          </a>
+
+        </li>
+          <?php
+            break;
+        }
+   ?>
+
+      <!-- Nav Item - Utilities Collapse Menu -->
+   <!--   <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseUtilities" aria-expanded="true" aria-controls="collapseUtilities">
+          <i class="fas fa-fw fa-wrench"></i>
+          <span>Utilities</span>
+        </a>
+        <div id="collapseUtilities" class="collapse" aria-labelledby="headingUtilities" data-parent="#accordionSidebar">
+          <div class="bg-white py-2 collapse-inner rounded">
+            <h6 class="collapse-header">Custom Utilities:</h6>
+            <a class="collapse-item" href="utilities-color.html">Colors</a>
+            <a class="collapse-item" href="utilities-border.html">Borders</a>
+            <a class="collapse-item" href="utilities-animation.html">Animations</a>
+            <a class="collapse-item" href="utilities-other.html">Other</a>
+          </div>
+        </div>
+      </li>
+-->
+
+
+      <!-- Sidebar Toggler (Sidebar) -->
+      <div class="text-center d-none d-md-inline">
+        <button class="rounded-circle border-0" id="sidebarToggle"></button>
+      </div>
+
+    </ul>
+    <!-- End of Sidebar -->
+
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+
+      <!-- Main Content -->
+      <div id="content">
+
+        <!-- Topbar -->
+        <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
+
+          <!-- Sidebar Toggle (Topbar) -->
+          <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
+            <i class="fa fa-bars"></i>
+          </button>
+
+          <!-- Topbar Search -->
+          <!--<form class="d-none d-sm-inline-block form-inline mr-auto ml-md-3 my-2 my-md-0 mw-100 navbar-search">
+            <div class="input-group">
+              <input type="text" class="form-control bg-light border-0 small" placeholder="Search for..." aria-label="Search" aria-describedby="basic-addon2">
+              <div class="input-group-append">
+                <button class="btn btn-primary" type="button">
+                  <i class="fas fa-search fa-sm"></i>
+                </button>
+              </div>
+            </div>
+          </form>-->
+
+          <!-- Topbar Navbar -->
+          <ul class="navbar-nav ml-auto">
+
+   
+
+
+           
+            <div class="topbar-divider d-none d-sm-block"></div>
+
+            <!-- Nav Item - User Information -->
+            <li class="nav-item dropdown no-arrow">
+              <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <span class="mr-2 d-none d-lg-inline text-gray-600 small"><?php echo$_SESSION['usuario']['nombres'] ?></span>
+               <!-- <img class="img-profile rounded-circle" src="https://source.unsplash.com/QAB-WJcbgJk/60x60">-->
+              </a>
+
+              <!-- Dropdown - User Information -->
+              <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="userDropdown">
+                <!--<a class="dropdown-item" href="#">
+                  <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
+                  Profile
+                </a>-->
+                <!--<a class="dropdown-item" href="#">
+                  <i class="fas fa-cogs fa-sm fa-fw mr-2 text-gray-400"></i>
+                  Settings
+                </a>-->
+                <!--<a class="dropdown-item" href="#">
+                  <i class="fas fa-list fa-sm fa-fw mr-2 text-gray-400"></i>
+                  Activity Log
+                </a>-->
+                <!--<div class="dropdown-divider"></div-->
+                <a class="dropdown-item" href="#" data-toggle="modal" data-target="#logoutModal">
+                  <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
+                  SALIR
+                </a>
+              </div>
+            </li>
+
+          </ul>
+
+        </nav>
+        <!-- End of Topbar -->
+
+        <!-- Begin Page Content -->
+        <div class="container-fluid">
+
+          <!-- Page Heading -->
+          <!-- <div class="d-sm-flex align-items-center justify-content-between mb-4">
+         
+            <a href="#" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
+          </div>-->
+          
+          <div class="col-lg-12" style="border:0px red solid;">
+
+
+
+
+            <div class="card shadow mb-4 contenedor_card_prospecto" style="">
+              <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                  <h6 class="m-0 font-weight-bold text-primary">
+                    <button style="border:1px grey solid;" class="btn btn-warning alta_prospecto">ALTA PROSPECTO/ASEGURADO</button> 
+                    <button style="border:1px grey solid;" class="btn btn-warning lista_prospectos">LISTA PROSPECTOS/ASEGURADOS</button>
+                  </h6>
+              </div>
+
+              <div class="card-body">
+             
+
+
+                  <div class="col-lg-12" id="contenedor_alta_prospecto">
+                    
+                    <center>
+                      <div class="col-lg-12" style="border:0px red solid;color:black;" >
+ 
+                      <legend style="font-size: 14px;font-weight: bold;text-align: center;">DATOS DEL PROSPECTO/ASEGURADO</legend>
+                   
+                    <form id="formulario_prospecto" method="post">
+                      
+                     <div class="col-lg-12" >
+                         <div style="display: inline-block;" class="col-lg-1">
+                            <label for="firstname" class="control-label" style="font-size: 12px;">TIPO DE PROSPECTO/<br>ASEGURADO: </label>
+                          </div>
+
+                           <div style="display: inline-block;" class="col-lg-10">
+                            <select name="tipo_prospecto" id="tipo_prospecto" class="form-control " style="text-align-last: center;font-size: 14px;">
+                              <option value="0">SELECCIONA EL TIPO DE PROSPECTO/ASEGURADO</option>
+                              <option value="FISICA">PERSONA FISICA</option>
+                              <option value="MORAL">PERSONA MORAL</option>
+                            </select>
+                          </div>
+                          <div>  
+                            <center>
+                              <span id="error_tipo_prospecto" style="text-align:center;color:#b71c1c; font-weight: bold; display: none; padding-top: 10px;font-size: 14px;"></span>
+                            </center>
+                      </div>                                
+                      </div>
+
+
+                        <div class="col-lg-12" id="contenedor_nombre_empresa" style="display: none;" >
+                           <div style="display: inline-block;" class="col-lg-1">
+                              <label for="firstname" class="control-label" style="font-size: 12px;">NOMBRE EMPRESA: </label>
+                            </div>
+
+                           <div style="display: inline-block;" class="col-lg-10">
+                              <input style="display: none;" type="text"  name="" id="resultado_nombre_contacto" value="" >
+
+                            <var id="contenedor_resultado" class="contenedor_resultado" >
+                        
+                            </var>
+                            
+                            <div class="typeahead__container">
+                              <div class="typeahead__field">
+                                 <input class="form-control" id="nombre_asegurado" name="nombre_asegurado" type="text" autocomplete="off"> 
+                              </div>
+                          </div>
+
+                          
+                          </div>
+
+
+                           <div>  
+                              <center>
+                                <span id="error_nombre_asegurado" style="text-align:center;color:#b71c1c; font-weight: bold; display: none; padding-top: 10px;font-size: 14px;"></span>
+                              </center>
+                          </div>                        
+                        </div>
+
+                        <div class="col-lg-12" id="contenedor_apellido_paterno" style="display: none;" >
+                           <div style="display: inline-block;" class="col-lg-1">
+                              <label for="firstname" class="control-label" style="font-size: 12px;">APELLIDO PATERNO: </label>
+                            </div>
+
+                           <div style="display: inline-block;" class="col-lg-10">
+                              <input style="display: none;" type="text"  name="" id="resultado_apellido_paterno" value="" >
+
+                            <var id="contenedor_resultado_apellido" class="contenedor_resultado_apellido" >
+                        
+                            </var>
+                            
+                            <div class="typeahead__container">
+                              <div class="typeahead__field">
+                                 <input class="form-control" id="apellido_paterno" name="apellido_paterno" type="text" autocomplete="off" > 
+                              </div>
+                          </div>
+
+                          
+                          </div>
+                           <div>  
+                              <center>
+                                <span id="error_apellido_paterno" style="text-align:center;color:#b71c1c; font-weight: bold; display: none; padding-top: 10px;font-size: 14px;"></span>
+                              </center>
+                          </div>                        
+                        </div>
+
+                         <div class="col-lg-12" id="contenedor_apellido_materno" style="display: none;">
+                           <div style="display: inline-block;" class="col-lg-1">
+                              <label for="firstname" class="control-label" style="font-size: 12px;">APELLIDO MATERNO: </label>
+                            </div>
+
+                           <div style="display: inline-block;" class="col-lg-10">
+                              <input style="display: none;" type="text"  name="" id="resultado_apellido_materno" value="" >
+
+                            <var id="contenedor_resultado_materno" class="contenedor_resultado_materno" >
+                        
+                            </var>
+                            
+                            <div class="typeahead__container">
+                              <div class="typeahead__field">
+                                 <input class="form-control" id="apellido_materno" name="apellido_materno" type="text" autocomplete="off" > 
+                              </div>
+                          </div>
+
+                          
+                          </div>
+                           <div>  
+                              <center>
+                                <span id="error_apellido_materno" style="text-align:center;color:#b71c1c; font-weight: bold; display: none; padding-top: 10px;font-size: 14px;"></span>
+                              </center>
+                          </div>                        
+                        </div>
+
+                         <div class="col-lg-12" id="contenedor_nombres_persona"style="display: none;" >
+                           <div style="display: inline-block;" class="col-lg-1">
+                              <label for="firstname" class="control-label" style="font-size: 12px;">NOMBRES: </label>
+                            </div>
+
+                           <div style="display: inline-block;" class="col-lg-10">
+                              <input style="display: none;" type="text"  name="" id="resultado_nombres_persona" value="" >
+
+                            <var id="contenedor_resultado_nombres_persona" class="contenedor_resultado_nombres_persona" >
+                        
+                            </var>
+                            
+                            <div class="typeahead__container">
+                              <div class="typeahead__field">
+                                 <input class="form-control" id="nombres_persona" name="nombres_persona" type="text" autocomplete="off" > 
+                              </div>
+                          </div>
+
+                          
+                          </div>
+                           <div>  
+                              <center>
+                                <span id="error_nombres_persona" style="text-align:center;color:#b71c1c; font-weight: bold; display: none; padding-top: 10px;font-size: 14px;"></span>
+                              </center>
+                          </div>                        
+                        </div>
+
+                      <!--<div class="col-lg-12" >
+                         <div style="display: inline-block;" class="col-lg-1">
+                            <label for="firstname" class="control-label" style="font-size: 12px;">NOMBRE: </label>
+                          </div>
+                         <div style="display: inline-block;" class="col-lg-10">
+                          <input type="text" name="nombre_asegurado" id="nombre_asegurado" class="form-control " >
+                        </div>
+                         <div>  
+                            <center>
+                              <span id="error_nombre_asegurado" style="text-align:center;color:#b71c1c; font-weight: bold; display: none; padding-top: 10px;font-size: 14px;"></span>
+                            </center>
+                      </div>                        
+                      </div>-->
+ 
+                      <div class="col-lg-12" >
+                         <div style="display: inline-block;" class="col-lg-1">
+                            <label for="firstname" class="control-label" style="font-size: 12px;">C.P. </label>
+                          </div>
+
+                           <div style="display: inline-block;" class="col-lg-10">
+                            <input type="text" name="codigo_postal"  min="0" maxlength="5" id="codigo_postal" class="form-control " >
+                          </div>
+                           <div>  
+                            <center>
+                              <span id="error_codigo_postal" style="text-align:center;color:#b71c1c; font-weight: bold; display: none; padding-top: 10px;font-size: 14px;"></span>
+                            </center>
+                      </div>                            
+                      </div>
+
+                      <div class="col-lg-12" >
+                         <div style="display: inline-block;" class="col-lg-1">
+                            <label for="firstname" class="control-label" style="font-size: 12px;">COLONIA: </label>
+                          </div>
+
+                           <div style="display: inline-block;" class="col-lg-10">
+                            <input type="text" name="colonia" id="colonia"class="form-control " >
+                          </div> 
+                          <div>  
+                            <center>
+                              <span id="error_colonia" style="text-align:center;color:#b71c1c; font-weight: bold; display: none; padding-top: 10px;font-size: 14px;"></span>
+                            </center>
+                      </div>                         
+                      </div>
+                      <div class="col-lg-12" >
+                         <div style="display: inline-block;" class="col-lg-1">
+                            <label for="firstname" class="control-label" style="font-size: 12px;">ESTADO: </label>
+                          </div>
+
+                           <div style="display: inline-block;" class="col-lg-10">
+                            <select style="text-align-last: center;font-size: 14px;" name="estado" id="estado" class="form-control " >
+                              <?php estados(); ?>
+                            </select>
+                          </div>
+                          <div>  
+                            <center>
+                              <span id="error_estado" style="text-align:center;color:#b71c1c; font-weight: bold; display: none; padding-top: 10px;font-size: 14px;"></span>
+                            </center>
+                      </div>                                
+                      </div>
+
+                  </div>
+               
+
+                      <div class="col-lg-12" style="text-align:center; margin-top: 2%;">
+                          <button type="button" class=" guardar btn btn-sm btn-primary guardar_prospecto">GUARDAR</button>
+
+                          <button type="button" style="display: none;" value="" class="actualizar_prospecto btn btn-sm btn-success">ACTUALIZAR</button>
+                          
+                      </div>
+<div class="alert alert-danger" role="alert" id="alerta_error_prospecto" style="display:none;">
+<span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"><i class="fas fa-exclamation"></i></span>
+<span class="sr-only completo_mensaje">Error:</span><span id="texto_error_alerta_prospecto">Se produjo un error.</span>
+
+</div>
+
+<div class="alert alert-success" role="alert" id="alerta_correcta_prospecto" style="display:none ;">
+<span class="glyphicon glyphicon-ok" aria-hidden="true"><i class="fas fa-check"></i></span>
+<span class="sr-only">Exitoso</span><span id="texto_correcto_alerta_prospecto">Registro completo</span>
+</div>
+
+       
+                    </form>
+                  </div>
+                  <!--aqui termina el contenedor de los campos para los datos-->
+
+                  <!--aqui inicia el contenedor de lista de contactos registados-->
+                   <div class="col-lg-12 table-responsive" id="contenedor_lista_prospectos" style="display: none;">
+                    <legend>
+                      LISTA DE PROSPECTOS
+                    </legend>
+                    <table style="font-size: 14px;font-weight: bold;" class="table table-striped tabla_lista_prospectos">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>NOMBRE PROSPECTO</th>
+                          <th>TIPO DE PROSPECTO</th>
+                          <th>C.P</th>
+                          <th>COLONIA</th>
+                          <th>ESTADO</th>
+                          <th>FECHA ALTA</th>
+                          <th>DIO ALTA</th>
+                          <th>EDIT</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                         <td></td>
+                         <td></td>
+                         <td></td>
+                         <td></td>
+                         <td></td>
+                         <td></td>
+                         <td></td>
+                         <td></td>
+                         <td></td>
+                        </tr>
+                      </tbody>
+                    </table>
+        
+                   </div>
+                  <!--aqui termiana contenedor lista de contactos-->
+                </div>
+                <!--aqui termina el cuerpo de la card de datos del contacto-->
+            </div>
+          
+        
+          </div>
+        
+        </div>
+        <!-- /.container-fluid -->
+
+      </div>
+      <!-- End of Main Content -->
+
+      <!-- Footer -->
+      
+      <!-- End of Footer -->
+
+    </div>
+    <!-- End of Content Wrapper -->
+
+  </div>
+  <!-- End of Page Wrapper -->
+
+  <!-- Scroll to Top Button-->
+  <a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+  </a>
+
+  <!-- Logout Modal-->
+  <div class="modal fade " id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5  style="text-align:center;" class="modal-title" id="exampleModalLabel">¿LISTO PARA SALIR?</h5>
+          <!--<button class="close" type="button" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">×</span>
+          </button>-->
+        </div>
+        <div class="modal-body" style="text-align: center;">Presiona salir para cerrar sesion</div>
+        <div class="modal-footer" style="text-align: center;">
+          <form method="post">   
+            <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
+         
+            <button class="btn btn-primary" type="submit" name="cerrar_session">Salir</button> 
+        
+           </form>
+         
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+ <!-- Logout Modal-->
+  <div class="modal fade " id="modal_alerta" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5  style="text-align:center;" class="modal-title" id="titulo_modal_alerta">¿LISTO PARA SALIR?</h5>
+          <!--<button class="close" type="button" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">×</span>
+          </button>-->
+        </div>
+        <div class="modal-body" id="cuerpo_modal_alerta" style="text-align: center;">Se eliminara el prospecto.<br>¿Esta seguro de la acción?</div>
+        <div class="modal-footer" style="text-align:center;">
+          
+          <button class="btn btn-success" type='button' value="" id="id_confirmar">SI</button>
+            
+          <button class="btn btn-primary" type="button" data-dismiss="modal">NO</button>
+         
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+
+
+  <!-- Bootstrap core JavaScript-->
+  <script src="vendor/jquery/jquery.min.js"></script>
+  <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Core plugin JavaScript-->
+  <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
+
+  <!-- Custom scripts for all pages-->
+  <script src="js/sb-admin-2.min.js"></script>
+  <script type="text/javascript" src="js/formulario.js"></script>
+  <script src="js/jquery-ui-1.9.2.custom.min.js"></script>
+
+
+  <!--librerias para select2-->
+  <link rel="stylesheet" type="text/css" href="js/select2.min.css">
+  <script type="text/javascript" src="js/select2.min.js"></script>
+ <!--aqui termina librerias select2-->
+
+<!--libreria lista en input typehead-->
+<script src="js/jquery.typeahead.min.js"></script> 
+
+<script type="text/javascript" src="js/prospectos.js"></script>
+<!--aqui termina typehead-->
+
+
+
+
+
+<!--libreria tablas-->
+ <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.19/css/jquery.dataTables.min.css">
+ 
+<link rel="stylesheet" type="text/css" href="
+https://cdn.datatables.net/buttons/1.5.6/css/buttons.dataTables.min.css">
+
+<script src="DataTables-1.10.18/js/jquery.dataTables.min.js"></script>
+<!--fin liberia tablas-->
+<!--liberrias de moment van despues de las tablas-->
+<script src="js/moment2.min.js"></script>
+<script src="js/datetime-moment.js"></script>
+<!--fin de las librerias de moment-->
+</body>
+<script type="text/javascript">
+  
+
+     $('#fecha_vigencia').datepicker({
+                minDate: 0,
+                monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+        monthNamesShort: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+        dayNames: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+        dayNamesShort: ['Dom', 'Lun', 'Mar', 'Mié', 'Juv', 'Vie', 'Sáb'],
+        dayNamesMin: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'],
+        weekHeader: 'Sm',
+        dateFormat: 'dd/mm/yy',
+        firstDay: 1,
+        isRTL: false,
+        showMonthAfterYear: false,
+        yearSuffix: ''});
+</script>
+</html>

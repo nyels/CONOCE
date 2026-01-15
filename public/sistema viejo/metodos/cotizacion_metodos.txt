@@ -1,0 +1,2973 @@
+<?php 
+session_start();
+date_default_timezone_set('America/Mexico_city');
+if(isset($_POST['cotizacion_autos_alta']))
+{
+cotizacion_autos_alta();
+}
+else if (isset($_POST['cotizaciones_nuevas']))
+{
+	cotizaciones_nuevas();
+}
+else if (isset($_POST['prospecto']))
+{
+	prospecto();
+}
+else if (isset($_POST['contacto']))
+{
+	contacto();
+}
+else if (isset($_POST['opciones']))
+{
+	opciones();
+}
+else if(isset($_POST['lista_aseguradoras_select']))
+{
+	lista_aseguradoras_select();
+}
+else if(isset($_POST['metodos_sacar_prima_neta']))
+{
+	metodos_sacar_prima_neta();
+}
+else if(isset($_POST['concretar_buscando_datos']))
+{
+	concretar_buscando_datos();
+}
+else if(isset($_POST['guardar_concretar']))
+{
+	guardar_concretar_nueva();
+}
+else if(isset($_POST['guardar_no_concretar']))
+{
+	guardar_no_concretar();
+}
+else if(isset($_POST['cotizaciones_renovaciones']))
+{
+	cotizaciones_renovaciones();
+}
+else if(isset($_POST['alta_fecha_envio_renovacion']))
+{
+	alta_fecha_envio_renovacion();
+}
+else if(isset($_POST['alta_fecha_envio_poliza_renovacion']))
+{
+	alta_fecha_envio_poliza_renovacion();
+}
+else if(isset($_POST['anular_concretacion']))
+{
+	anular_concretacion();
+}
+
+
+function llamar_conexion()
+{
+	include'conexion.php';
+	$conexion=new conexion();
+	$conexion_final=$conexion->abrir();
+	return $conexion_final;
+}
+function anular_concretacion()
+{
+	try 
+	{
+			$conexion=llamar_conexion();
+			if($conexion)
+			{
+				$datos = $_POST['anular_concretacion'];
+
+				switch ($datos[1]) 
+				{
+					case 'NUEVA':
+						$instruccion ="
+						UPDATE cotizacion_autos
+						set
+						estatus_concretar_cotizacion=:estatus_concretar_cotizacion,
+						opcion_concreto=:opcion_concreto,
+						fecha_concreta_autos=:fecha_concreta_autos,
+						numero_poliza=:numero_poliza,
+						inicio_vigencia_poliza=:inicio_vigencia_poliza,
+						motivos_no_concretacion=:motivos_no_concretacion
+
+						where Id_contizacion_autos=:Id_contizacion_autos
+						";
+						$query_anular=$conexion->prepare($instruccion);
+						$query_anular->execute(array(
+							":opcion_concreto"=>'',
+							":fecha_concreta_autos"=>'',
+							":numero_poliza"=>'',
+							":inicio_vigencia_poliza"=>'',
+							":estatus_concretar_cotizacion"=>0,
+							":Id_contizacion_autos"=>$datos[0],
+							":motivos_no_concretacion"=>''
+						));
+
+						$seleccionando="SELECT*FROM
+						cotizacion_autos
+						where 
+						Id_contizacion_autos=:Id_contizacion_autos
+						";
+						$query_sele=$conexion->prepare($seleccionando);
+						$query_sele->execute(array(
+							":Id_contizacion_autos"=>$datos[0]
+						));
+						$datos_finales=$query_sele->fetch(PDO::FETCH_ASSOC);
+						switch ($datos_finales['estatus_concretar_cotizacion']) 
+						{
+							case '0':
+								echo'1*nueva';
+								break;
+							
+							default:
+								echo'0*nueva';
+								break;
+						}
+						break;
+					case 'RENOVACION':
+						$instruccion ="
+						UPDATE cotizacion_autos
+						set
+						estatus_concretar_cotizacion=:estatus_concretar_cotizacion,
+						fecha_envio_poliza_renovacion=:fecha_envio_poliza_renovacion,
+						opcion_concreto=:opcion_concreto,
+						fecha_concreta_autos=:fecha_concreta_autos,
+						numero_poliza=:numero_poliza,
+						inicio_vigencia_poliza=:inicio_vigencia_poliza,
+						motivos_no_concretacion=:motivos_no_concretacion
+						where 
+						Id_contizacion_autos=:Id_contizacion_autos
+						";
+						$query_anular=$conexion->prepare($conexion);
+						$query_anular->execute(array(
+							":opcion_concreto"=>'',
+							":fecha_concreta_autos"=>'',
+							":numero_poliza"=>'',
+							":inicio_vigencia_poliza"=>'',
+							":estatus_concretar_cotizacion"=>0,
+							":Id_contizacion_autos"=>$datos[0],
+							":motivos_no_concretacion"=>''
+						));
+						$seleccionando="SELECT*FROM
+						cotizacion_autos
+						where 
+						Id_contizacion_autos=:Id_contizacion_autos
+						";
+						$query_sele=$conexion->prepare($seleccionando);
+						$query_sele->execute(array(
+							":Id_contizacion_autos"=>$datos[0]
+						));
+						$datos_finales=$query_sele->fetch(PDO::FETCH_ASSOC);
+						switch ($datos_finales['estatus_concretar_cotizacion']) 
+						{
+							case '0':
+								echo'1*renovacion';
+								break;
+							
+							default:
+								echo'0*renovacion';
+								break;
+						}
+						break;
+				}
+			
+			}
+			else
+			{
+				echo "ERROR 423.CONCRETAR_COTIZACION_NUEVA.El servidor no responde";
+			}
+	} 
+	catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+function alta_fecha_envio_poliza_renovacion()
+{
+	try 
+	{
+			$conexion=llamar_conexion();
+			if($conexion)
+			{
+				$id_cotizacion = $_POST['alta_fecha_envio_poliza_renovacion'];
+			
+				$fecha_hoy=date('Y-m-d H:i:s',time());
+
+				$instruccion = 
+				"UPDATE cotizacion_autos
+				set 
+				fecha_envio_poliza_renovacion=:fecha_envio_poliza_renovacion
+				where Id_contizacion_autos=:Id_contizacion_autos
+				";
+				$query_con=$conexion->prepare($instruccion);
+				$query_con->execute(array(
+					
+					":fecha_envio_poliza_renovacion"=>$fecha_hoy,
+					
+					":Id_contizacion_autos"=>$id_cotizacion
+				));
+
+				$select = "SELECT*from cotizacion_autos
+				where
+				Id_contizacion_autos=:Id_contizacion_autos
+				";
+				$query_sele=$conexion->prepare($select);
+				$query_sele->execute(array(
+					":Id_contizacion_autos"=>$id_cotizacion
+				));
+				$datos=$query_sele->fetch(PDO::FETCH_ASSOC);
+				if(!empty($datos['fecha_envio_poliza_renovacion']))
+				{
+					echo'1';
+				}
+				else
+				{
+					echo '0';
+				}
+
+
+			}
+			else
+			{
+				echo "ERROR 423.CONCRETAR_COTIZACION_NUEVA.El servidor no responde";
+			}
+	} 
+	catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+function alta_fecha_envio_renovacion()
+{
+	try 
+	{
+			$conexion=llamar_conexion();
+			if($conexion)
+			{
+				$id_cotizacion = $_POST['alta_fecha_envio_renovacion'];
+			
+				$fecha_hoy=date('Y-m-d H:i:s',time());
+
+				$instruccion = 
+				"UPDATE cotizacion_autos
+				set 
+				fecha_envio_cotizacion_renovacion=:fecha_envio_cotizacion_renovacion
+				where Id_contizacion_autos=:Id_contizacion_autos
+				";
+				$query_con=$conexion->prepare($instruccion);
+				$query_con->execute(array(
+					
+					":fecha_envio_cotizacion_renovacion"=>$fecha_hoy,
+					
+					":Id_contizacion_autos"=>$id_cotizacion
+				));
+
+				$select = "SELECT*from cotizacion_autos
+				where
+				Id_contizacion_autos=:Id_contizacion_autos
+				";
+				$query_sele=$conexion->prepare($select);
+				$query_sele->execute(array(
+					":Id_contizacion_autos"=>$id_cotizacion
+				));
+				$datos=$query_sele->fetch(PDO::FETCH_ASSOC);
+				if(!empty($datos['fecha_envio_cotizacion_renovacion']))
+				{
+					echo'1';
+				}
+				else
+				{
+					echo '0';
+				}
+
+
+			}
+			else
+			{
+				echo "ERROR 423.CONCRETAR_COTIZACION_NUEVA.El servidor no responde";
+			}
+	} 
+	catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+function cotizaciones_renovaciones()
+{
+	try 
+	{	
+		$conexion=llamar_conexion();
+		if($conexion)
+		{		
+
+				//var_dump($_SESSION['usuario']);
+				$usuario = $_SESSION['usuario']['user'];
+				$arreglo=array();
+				$i=0;
+				$query_nuevas="";
+
+				$tipo_usuario=$_SESSION['usuario']['tipo_user'];
+				switch ($tipo_usuario) 
+				{
+					case '1':
+						if(isset($_POST['fecha_inicial_nueva']))
+							{
+								$fecha_inicial_nueva=$_POST['fecha_inicial_nueva'];
+								$fecha_final_nueva=$_POST['fecha_final_nueva'];
+								
+								$coti_nuevas="
+								SELECT
+								Id_contizacion_autos,
+								tipo_cotizacion,
+								hora_solicitada,
+								Id_contacto_tabla_autos,
+								Id_prospecto_tabla_autos,
+								marca_auto,
+								descripcion_auto,
+								modelo_auto,
+								uso_de_unidad_auto,
+								tipo_auto,
+								compania_autos,
+								fecha_vigencia_autos,
+								poliza_renovar_autos,
+								prima_ano_autos,
+								tipo_de_carga,
+								paquete_solicitado,
+								cantidad_aseguradoras,
+								fecha_envio_cotizacion_renovacion,
+								fecha_envio_poliza_renovacion,
+								fecha_alta_auto,
+								dio_alta_auto,
+								estatus_concretar_cotizacion,
+								opcion_concreto,
+								fecha_concreta_autos,
+								numero_poliza,
+								inicio_vigencia_poliza,
+								motivos_no_concretacion,
+								p.id_prospectos,
+								p.nombre_prospecto,
+								p.apellido_parteno_prospecto,
+								p.apellido_materno_prospecto,
+								p.nombres_persona_prospecto,
+								c.id_contacto,
+								c.tipo_contacto,
+								c.nombre_contacto,
+								c.apellido_paterno_contacto,
+								c.apellido_materno_contacto,
+								u.nombre_persona
+								from
+								cotizacion_autos
+								left join prospectos p on p.id_prospectos=cotizacion_autos.Id_prospecto_tabla_autos
+								left join contactos c on c.id_contacto=cotizacion_autos.Id_contacto_tabla_autos
+								left join usuarios u on u.nombre_usuario=cotizacion_autos.dio_alta_auto
+								where
+								(DATE_FORMAT(fecha_alta_auto,'%Y-%m-%d') between '$fecha_inicial_nueva' and '$fecha_final_nueva')
+								and
+								tipo_cotizacion=:tipo_cotizacion
+								";
+								$query_nuevas=$conexion->prepare($coti_nuevas);
+								$query_nuevas->execute(array(
+									":dio_alta_auto"=>$usuario,
+									":tipo_cotizacion"=>"RENOVACION"
+								));
+							}
+							else
+							{
+								
+								//buscando las cotizacciones
+								$coti_nuevas="
+								SELECT
+								Id_contizacion_autos,
+								tipo_cotizacion,
+								hora_solicitada,
+								Id_contacto_tabla_autos,
+								Id_prospecto_tabla_autos,
+								marca_auto,
+								descripcion_auto,
+								modelo_auto,
+								uso_de_unidad_auto,
+								tipo_auto,
+								compania_autos,
+								fecha_vigencia_autos,
+								poliza_renovar_autos,
+								prima_ano_autos,
+								tipo_de_carga,
+								paquete_solicitado,
+								cantidad_aseguradoras,
+								fecha_envio_cotizacion_renovacion,
+								fecha_envio_poliza_renovacion,
+								fecha_alta_auto,
+								dio_alta_auto,
+								estatus_concretar_cotizacion,
+								opcion_concreto,
+								fecha_concreta_autos,
+								numero_poliza,
+								inicio_vigencia_poliza,
+								motivos_no_concretacion,
+								p.id_prospectos,
+								p.nombre_prospecto,
+								p.apellido_parteno_prospecto,
+								p.apellido_materno_prospecto,
+								p.nombres_persona_prospecto,
+								c.id_contacto,
+								c.tipo_contacto,
+								c.nombre_contacto,
+								c.apellido_paterno_contacto,
+								c.apellido_materno_contacto,
+								u.nombre_persona
+								from
+								cotizacion_autos
+								left join prospectos p on p.id_prospectos=cotizacion_autos.Id_prospecto_tabla_autos
+								left join contactos c on c.id_contacto=cotizacion_autos.Id_contacto_tabla_autos
+								left join usuarios u on u.nombre_usuario=cotizacion_autos.dio_alta_auto
+								where
+								tipo_cotizacion=:tipo_cotizacion
+								";
+								$query_nuevas=$conexion->prepare($coti_nuevas);
+								$query_nuevas->execute(array(
+									":tipo_cotizacion"=>"RENOVACION"
+								));
+							}
+						break;
+					
+					default:
+						if(isset($_POST['fecha_inicial_nueva']))
+							{
+								$fecha_inicial_nueva=$_POST['fecha_inicial_nueva'];
+								$fecha_final_nueva=$_POST['fecha_final_nueva'];
+								
+								$coti_nuevas="
+								SELECT
+								Id_contizacion_autos,
+								tipo_cotizacion,
+								hora_solicitada,
+								Id_contacto_tabla_autos,
+								Id_prospecto_tabla_autos,
+								marca_auto,
+								descripcion_auto,
+								modelo_auto,
+								uso_de_unidad_auto,
+								tipo_auto,
+								compania_autos,
+								fecha_vigencia_autos,
+								poliza_renovar_autos,
+								prima_ano_autos,
+								tipo_de_carga,
+								paquete_solicitado,
+								cantidad_aseguradoras,
+								fecha_envio_cotizacion_renovacion,
+								fecha_envio_poliza_renovacion,
+								fecha_alta_auto,
+								dio_alta_auto,
+								estatus_concretar_cotizacion,
+								opcion_concreto,
+								fecha_concreta_autos,
+								numero_poliza,
+								inicio_vigencia_poliza,
+								motivos_no_concretacion,
+								p.id_prospectos,
+								p.nombre_prospecto,
+								p.apellido_parteno_prospecto,
+								p.apellido_materno_prospecto,
+								p.nombres_persona_prospecto,
+								c.id_contacto,
+								c.tipo_contacto,
+								c.nombre_contacto,
+								c.apellido_paterno_contacto,
+								c.apellido_materno_contacto,
+								u.nombre_persona
+								from
+								cotizacion_autos
+								left join prospectos p on p.id_prospectos=cotizacion_autos.Id_prospecto_tabla_autos
+								left join contactos c on c.id_contacto=cotizacion_autos.Id_contacto_tabla_autos
+								left join usuarios u on u.nombre_usuario=cotizacion_autos.dio_alta_auto
+								where
+								
+								dio_alta_auto=:dio_alta_auto
+								and
+
+								(DATE_FORMAT(fecha_alta_auto,'%Y-%m-%d') between '$fecha_inicial_nueva' and '$fecha_final_nueva')
+								and
+								tipo_cotizacion=:tipo_cotizacion
+								";
+								$query_nuevas=$conexion->prepare($coti_nuevas);
+								$query_nuevas->execute(array(
+									
+									":dio_alta_auto"=>$usuario,
+									":tipo_cotizacion"=>"RENOVACION"
+								));
+							}
+							else
+							{
+								
+								//buscando las cotizacciones
+								$coti_nuevas="
+								SELECT
+								Id_contizacion_autos,
+								tipo_cotizacion,
+								hora_solicitada,
+								Id_contacto_tabla_autos,
+								Id_prospecto_tabla_autos,
+								marca_auto,
+								descripcion_auto,
+								modelo_auto,
+								uso_de_unidad_auto,
+								tipo_auto,
+								compania_autos,
+								fecha_vigencia_autos,
+								poliza_renovar_autos,
+								prima_ano_autos,
+								tipo_de_carga,
+								paquete_solicitado,
+								cantidad_aseguradoras,
+								fecha_envio_cotizacion_renovacion,
+								fecha_envio_poliza_renovacion,
+								fecha_alta_auto,
+								dio_alta_auto,
+								estatus_concretar_cotizacion,
+								opcion_concreto,
+								fecha_concreta_autos,
+								numero_poliza,
+								inicio_vigencia_poliza,
+								motivos_no_concretacion,
+								p.id_prospectos,
+								p.nombre_prospecto,
+								p.apellido_parteno_prospecto,
+								p.apellido_materno_prospecto,
+								p.nombres_persona_prospecto,
+								c.id_contacto,
+								c.tipo_contacto,
+								c.nombre_contacto,
+								c.apellido_paterno_contacto,
+								c.apellido_materno_contacto,
+								u.nombre_persona
+								from
+								cotizacion_autos
+								left join prospectos p on p.id_prospectos=cotizacion_autos.Id_prospecto_tabla_autos
+								left join contactos c on c.id_contacto=cotizacion_autos.Id_contacto_tabla_autos
+								left join usuarios u on u.nombre_usuario=cotizacion_autos.dio_alta_auto
+								where
+								dio_alta_auto=:dio_alta_auto
+								and
+								tipo_cotizacion=:tipo_cotizacion
+								";
+								$query_nuevas=$conexion->prepare($coti_nuevas);
+								$query_nuevas->execute(array(
+									
+									":dio_alta_auto"=>$usuario,
+									":tipo_cotizacion"=>"RENOVACION"
+								));
+							}
+						break;
+				}
+				
+
+
+					
+					$filas_nuevas=$query_nuevas->rowCount();
+					if($filas_nuevas>0)
+					{
+						foreach ($query_nuevas as $datos) 
+						{
+							//buscando opciones
+							$arreglo[$i]['realizo']=str_replace('_',' ',$datos['nombre_persona']);
+							$arreglo[$i]['fecha_alta']=date('d-m-Y H:i:s',strtotime($datos['fecha_alta_auto']));
+							$arreglo[$i]['fecha_vencimiento']=$datos['fecha_vigencia_autos'];
+							$arreglo[$i]['aseguradora_actual']=$datos['compania_autos'];
+							$arreglo[$i]['poliza_renovar']=$datos['poliza_renovar_autos'];
+								
+							if(!empty($datos_nuevas['nombre_prospecto']))//es moral
+							{
+								$arreglo[$i]['prospecto']=
+								'<button class="btn btn-outline-info prospecto" value="'.$datos['id_prospectos'].'">'.str_replace('_',' ',$datos['nombre_prospecto']).'</button>';	
+
+								$arreglo[$i]['pdf']='  <form method="post"> <button class="btn btn-outline-success pdf" name="pdf" type="submit" value="'.$datos['Id_contizacion_autos'].'*'.str_replace('_',' ',$datos['nombre_prospecto']).'-'.$datos['descripcion_auto'].'">  <img style="width: 20px;" src="img/pdf_imagen.jpg"></button></form>';
+							}
+							else//es fisica
+							{
+								$arreglo[$i]['prospecto']=
+								'<button class="btn btn-outline-info prospecto" value="'.$datos['id_prospectos'].'">'.str_replace('_',' ',$datos['nombres_persona_prospecto']).' '.str_replace('_',' ',$datos['apellido_parteno_prospecto']).' '.str_replace('_',' ',$datos['apellido_materno_prospecto']).'</button>';	
+
+									$arreglo[$i]['pdf']='  <form method="post"> <button class="btn btn-outline-success pdf" name="pdf" type="submit" value="'.$datos['Id_contizacion_autos'].'*'.str_replace('_',' ',$datos['nombres_persona_prospecto']).' '.str_replace('_',' ',$datos['apellido_parteno_prospecto']).' '.str_replace('_',' ',$datos['apellido_materno_prospecto']).'-'.$datos['descripcion_auto'].'">  <img style="width: 20px;" src="img/pdf_imagen.jpg"></button></form>';
+							}
+
+							$arreglo[$i]['contacto']=
+								'<button class="btn btn-outline-info contacto" value="'.$datos['id_contacto'].'">'.str_replace('_',' ',$datos['nombre_contacto']).' '.str_replace('_',' ',$datos['apellido_paterno_contacto']).' '.str_replace('_',' ',$datos['apellido_materno_contacto']).'</button>';
+
+							$arreglo[$i]['cantidad_opciones_cotizadas']=
+								'<button class="btn btn-outline-primary contactos" value="'.$datos['id_contacto'].'">'.str_replace('_',' ',$datos['nombre_contacto']).' '.str_replace('_',' ',$datos['apellido_paterno_contacto']).' '.str_replace('_',' ',$datos['apellido_materno_contacto']).'</button>';
+
+							$arreglo[$i]['cantidad_opciones_cotizadas']='
+							<button class="btn btn-outline-primary opciones" value="'.$datos['Id_contizacion_autos'].'">
+								'.$datos['cantidad_aseguradoras'].'
+							</button>';
+
+							$arreglo[$i]['tipo_contacto']=str_replace('_',' ',$datos['tipo_contacto']);
+							$arreglo[$i]['paquete_solicitado']=$datos['paquete_solicitado'];
+
+							/*$hora=date('H',strtotime($datos['hora_solicitada']));
+							if(intval($hora)>11 && intval($hora)<24)
+							{
+								$arreglo[$i]['hora_solicitada']=date('H:i',strtotime($datos['hora_solicitada'])).' P.M.';
+							}
+							else
+							{
+								$arreglo[$i]['hora_solicitada']=date('H:i',strtotime($datos['hora_solicitada'])).' A.M.';
+							}*/
+							
+							//$arreglo[$i]['hora_solicitada']=date('H:i',strtotime($datos['hora_solicitada']));
+							//$arreglo[$i]['hora_envio']=date('H:i',strtotime($datos['fecha_alta_auto']));
+
+
+							$arreglo[$i]['descripcion']=$datos['marca_auto'].' - '.$datos['descripcion_auto'].' '.$datos['modelo_auto'];
+							
+							
+							
+							
+							//$tiempo=$hora_final->diff($hora_inicial);
+							//$arreglo[$i]['tiempo_respuesta']=$tiempo->format('%H horas %i minutos %s seconds');
+							
+
+							switch ($datos['estatus_concretar_cotizacion']) {
+								case '0'://cotizada
+									$arreglo[$i]['estatus_cotizacion']='COTIZADA';
+									$arreglo[$i]['aseguradora_concretada']='';
+										$arreglo[$i]['prima_neta_concretada']='';
+										$arreglo[$i]['prima_total_anual_concretada']='';
+										$arreglo[$i]['primer_pago']='';
+										$arreglo[$i]['numero_poliza']='';
+										$arreglo[$i]['inicio_vigencia']='';
+										$arreglo[$i]['motivos']='';
+										$arreglo[$i]['concretar']='
+										<button class="btn btn-success btn-sm si_concretar" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-check"></i></button>
+
+										<button class="btn btn-danger btn-sm no_concretar" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-times"></i></button>';
+
+									if(!empty($datos['fecha_envio_cotizacion_renovacion']))
+									{
+										$arreglo[$i]['fecha_envio_cotizacion_renovacion']=date('d-m-Y H:i:s',strtotime($datos['fecha_envio_cotizacion_renovacion']));
+
+										
+										$fecha_inicial=new DateTime(date('Y-m-d',strtotime($datos['fecha_envio_cotizacion_renovacion'])));
+										$fecha_final=new DateTime(date('Y-m-d',strtotime($datos['fecha_vigencia_autos'])));
+										$tiempo=$fecha_final->diff($fecha_inicial);
+										$arreglo[$i]['tiempo_respuesta']=($tiempo->d);
+									}
+									else
+									{
+										$arreglo[$i]['fecha_envio_cotizacion_renovacion']='<button class="btn btn-primary btn-sm fecha_envio_cot_reno" value="'.$datos['Id_contizacion_autos'].'"><i class="fas fa-check"></i></i></button>';
+										$arreglo[$i]['tiempo_respuesta']='';
+									}
+
+									$arreglo[$i]['fecha_envio_poliza']='';
+									
+									break;
+								case '1'://concretada
+									$arreglo[$i]['estatus_cotizacion']='CONCRETADA';
+									//buscar la opcion cno la que se concreto
+									
+										$buscando_opcion="SELECT*from opciones_cotizaciones
+										where
+										id_opciones=:id_opciones
+										and
+										Id_tabla_contizacion_autos_opciones=:Id_tabla_contizacion_autos_opciones
+										";
+										$query_opcion_co=$conexion->prepare($buscando_opcion);
+										$query_opcion_co->execute(array(
+												":id_opciones"=>$datos['opcion_concreto'],
+												":Id_tabla_contizacion_autos_opciones"=>$datos['Id_contizacion_autos']
+										));	
+										$data_con_final=$query_opcion_co->fetch(PDO::FETCH_ASSOC);
+										$arreglo[$i]['aseguradora_concretada']=$data_con_final['aseguradora_opciones'];
+										$arreglo[$i]['prima_neta_concretada']=$data_con_final['prima_neta_anual_opciones'];
+										$arreglo[$i]['prima_total_anual_concretada']=$data_con_final['prima_total_anual_opciones'];
+										$arreglo[$i]['primer_pago']=$data_con_final['primer_pago_opciones'];
+										$arreglo[$i]['numero_poliza']=$datos['numero_poliza'];
+										$arreglo[$i]['inicio_vigencia']=$datos['inicio_vigencia_poliza'];
+										$arreglo[$i]['motivos']='';
+
+									switch ($tipo_usuario) 
+									{
+										case '1':
+											$arreglo[$i]['concretar']='
+											<button class="btn btn-success btn-sm si_concretar" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-check"></i></button>
+
+											<button class="btn btn-danger btn-sm no_concretar" disabled value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-times"></i></button>
+
+											<button class="btn btn-primary btn-sm anular_concretar" style="width:30px;" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-trash-alt"></i></button>
+									';
+											break;
+										
+										default:
+										$arreglo[$i]['concretar']='
+									<button class="btn btn-success btn-sm si_concretar" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-check"></i></button>
+
+									<button class="btn btn-danger btn-sm no_concretar" disabled value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-times"></i></button>';
+											break;
+									}
+									
+
+									if(!empty($datos['fecha_envio_cotizacion_renovacion']))
+									{
+										$arreglo[$i]['fecha_envio_cotizacion_renovacion']=date('d-m-Y H:i:s',strtotime($datos['fecha_envio_cotizacion_renovacion']));
+
+										
+										$fecha_inicial=new DateTime(date('Y-m-d',strtotime($datos['fecha_envio_cotizacion_renovacion'])));
+										$fecha_final=new DateTime(date('Y-m-d',strtotime($datos['fecha_vigencia_autos'])));
+										$tiempo=$fecha_final->diff($fecha_inicial);
+										$arreglo[$i]['tiempo_respuesta']=($tiempo->d);
+									}
+									else
+									{
+										$arreglo[$i]['fecha_envio_cotizacion_renovacion']='<button class="btn btn-primary btn-sm fecha_envio_cot_reno" value="'.$datos['Id_contizacion_autos'].'"><i class="fas fa-check"></i></i></button>';
+										$arreglo[$i]['tiempo_respuesta']='';
+									}
+
+									if(!empty($datos['fecha_envio_poliza_renovacion']))
+									{
+										//$arreglo[$i]['fecha_envio_poliza']=date('d-m-Y H:i:s',strtotime($datos['fecha_envio_poliza_renovacion']));
+
+										
+										$fecha_inicial=new DateTime(date('Y-m-d',strtotime($datos['fecha_envio_poliza_renovacion'])));
+										$fecha_final=new DateTime(date('Y-m-d',strtotime($datos['fecha_vigencia_autos'])));
+										$tiempo=$fecha_final->diff($fecha_inicial);
+										$arreglo[$i]['fecha_envio_poliza']=date('d-m-Y',strtotime($datos['fecha_envio_poliza_renovacion'])).' dias antes'.($tiempo->d);
+									}
+									else
+									{
+										$arreglo[$i]['fecha_envio_poliza']='<button class="btn btn-primary btn-sm fecha_envio_poliza_reno" value="'.$datos['Id_contizacion_autos'].'"><i class="fas fa-check"></i></i></button>';
+										
+									}
+
+									
+									break;
+								case '2'://emitida
+									$arreglo[$i]['estatus_cotizacion']='EMITIDA';
+									break;
+								case '3'://rechazada
+									$arreglo[$i]['estatus_cotizacion']='RECHAZADA';
+									$arreglo[$i]['aseguradora_concretada']='';
+										$arreglo[$i]['prima_neta_concretada']='';
+										$arreglo[$i]['prima_total_anual_concretada']='';
+										$arreglo[$i]['primer_pago']='';
+										$arreglo[$i]['numero_poliza']='';
+										$arreglo[$i]['inicio_vigencia']='';
+										$arreglo[$i]['motivos']=$datos['motivos_no_concretacion'];
+
+										switch ($tipo_usuario) 
+									{
+										case '1':
+											$arreglo[$i]['concretar']='
+											<button class="btn btn-success btn-sm si_concretar" disabled value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-check"></i></button>
+										
+										<button class="btn btn-danger btn-sm no_concretar" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-times"></i></button>
+
+											<button class="btn btn-primary btn-sm anular_concretar" style="width:30px;" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-trash-alt"></i></button>
+									';
+											break;
+										
+										default:
+									$arreglo[$i]['concretar']='
+										<button class="btn btn-success btn-sm si_concretar" disabled value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-check"></i></button>
+
+										<button class="btn btn-danger btn-sm no_concretar" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-times"></i></button>';
+											break;
+									}
+
+										
+										$arreglo[$i]['fecha_envio_cotizacion_renovacion']='';
+										$arreglo[$i]['tiempo_respuesta']='';
+										$arreglo[$i]['fecha_envio_poliza']='';
+
+
+									break;
+								default:
+									# code...
+									break;
+							}
+							
+							
+							//buscando opciones
+							$opciones = "SELECT
+							*
+							from
+							opciones_cotizaciones
+							where 
+							Id_tabla_contizacion_autos_opciones=:Id_tabla_contizacion_autos_opciones
+							and
+							fecha_alta_opciones=:fecha_alta_opciones
+							order by prima_total_anual_opciones asc limit 1
+							";
+							$query_opciones=$conexion->prepare($opciones);
+							$query_opciones->execute(array(
+								":Id_tabla_contizacion_autos_opciones"=>$datos['Id_contizacion_autos'],
+								":fecha_alta_opciones"=>$datos['fecha_alta_auto']
+								
+							));
+							$datos_opciones=$query_opciones->fetch(PDO::FETCH_ASSOC);
+
+							$arreglo[$i]['forma_de_pago']=$datos_opciones['forma_de_pago_opciones'];
+							$arreglo[$i]['objetivo_minimo_concretar']=$datos_opciones['aseguradora_opciones'];
+
+							$arreglo[$i]['prima_neta']=$datos_opciones['prima_neta_anual_opciones'];
+							$arreglo[$i]['prima_total_anual']=$datos_opciones['prima_total_anual_opciones'];
+						//	$arreglo[$i]['primer_pago']=$datos_opciones['primer_pago_opciones'];
+							
+							$i++;
+						}
+
+						$datos_finales['data']=$arreglo;
+						echo json_encode($datos_finales);
+					}
+					else
+					{
+						$datos_finales['data']=$arreglo;
+						echo json_encode($datos_finales);
+					}
+				
+		}	
+		else
+		{
+			echo'ERROR 362.BUSCANDO_COTIZACIONES_NUEVAS.EL servidor no responde';
+		}
+	}
+	catch (PDOException $e) 
+	{
+		
+	}
+}
+
+function guardar_concretar_nueva()
+{
+	try 
+	{
+			$conexion=llamar_conexion();
+			if($conexion)
+			{
+				$id_cotizacion = $_POST['guardar_concretar'];
+				$id_cotizacion = explode('*',$id_cotizacion);
+				$opcion_cotizacion=$_POST['opciones_Cotizadas'];
+				$opcion_cotizacion=explode('*',$opcion_cotizacion);
+				$numero_poliza =$_POST['numero_poliza'];
+				$inicio_vigencia=$_POST['inicio_vigencia'];
+				$fecha_hoy=date('Y-m-d H:i:s',time());
+
+				$instruccion = 
+				"UPDATE cotizacion_autos
+				set 
+				opcion_concreto=:opcion_concreto,
+				fecha_concreta_autos=:fecha_concreta_autos,
+				numero_poliza=:numero_poliza,
+				inicio_vigencia_poliza=:inicio_vigencia_poliza,
+				estatus_concretar_cotizacion=:estatus_concretar_cotizacion 
+				where Id_contizacion_autos=:Id_contizacion_autos
+				";
+				$query_con=$conexion->prepare($instruccion);
+				$query_con->execute(array(
+					":opcion_concreto"=>$opcion_cotizacion[0],
+					":fecha_concreta_autos"=>$fecha_hoy,
+					":numero_poliza"=>$numero_poliza,
+					":inicio_vigencia_poliza"=>$inicio_vigencia,
+					":estatus_concretar_cotizacion"=>1,
+					":Id_contizacion_autos"=>$id_cotizacion[0]
+				));
+
+				$select = "SELECT*from cotizacion_autos
+				where
+				Id_contizacion_autos=:Id_contizacion_autos
+				";
+				$query_sele=$conexion->prepare($select);
+				$query_sele->execute(array(
+					":Id_contizacion_autos"=>$id_cotizacion[0]
+				));
+				$datos=$query_sele->fetch(PDO::FETCH_ASSOC);
+				if(!empty($datos['opcion_concreto']))
+				{
+					echo'1';
+				}
+				else
+				{
+					echo '0';
+				}
+
+
+			}
+			else
+			{
+				echo "ERROR 423.CONCRETAR_COTIZACION_NUEVA.El servidor no responde";
+			}
+	} 
+	catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+function concretar_buscando_datos()
+{
+	try 
+	{
+			$conexion=llamar_conexion();
+			if($conexion)
+			{
+				$respuesta="";
+				$datos=$_POST['concretar_buscando_datos'];
+
+				$instruccion="SELECT* FROM opciones_cotizaciones
+				where Id_tabla_contizacion_autos_opciones=:Id_tabla_contizacion_autos_opciones
+				order by aseguradora_opciones asc,prima_total_anual_opciones desc
+				";
+				$query_opciones=$conexion->prepare($instruccion);
+				$query_opciones->execute(array(
+					":Id_tabla_contizacion_autos_opciones"=>$datos[0]
+				));
+
+				echo '<option value="0">SELECCIONA UNA OPCION COTIZADA</option>';
+				foreach ($query_opciones as $data) 
+				{
+					echo'<option value="'.$data['id_opciones'].'*'.number_format(str_replace(',','',$data['prima_total_anual_opciones']),2).'">'.str_replace('_',' ',$data['aseguradora_opciones']).' - $'.number_format(str_replace(',','',$data['prima_total_anual_opciones']),2).'</option>';
+				}
+			}
+			else
+			{
+				echo "ERROR 352.OBTENER DATOS DEL PROSPECTO.El servidor no responde";
+			}
+	} catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+function metodos_sacar_prima_neta()
+{
+	try {
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+			$id_asegurado=$_POST['id_aseguradora'];
+			$forma_pago=$_POST['forma_pago'];
+			$prima_anual_neta=$_POST['prima_anual_neta'];
+
+			switch ($forma_pago)
+			 {
+				case 'ANUAL':
+				//sacando valor de drecho de polzia
+						$ins="SELECT
+						derecho_costo
+						from
+						costo_derecho_poliza
+						where id_tabla_aseguradora=:id_tabla_aseguradora
+						";
+						$q=$conexion->prepare($ins);
+						$q->execute(array(
+							":id_tabla_aseguradora"=>$id_asegurado
+						));
+
+						$filas_derecho=$q->rowCount();
+						if($filas_derecho>0)
+						{
+							$dato_final=$q->fetch(PDO::FETCH_ASSOC);
+							$resultado=(floatval($prima_anual_neta)/1.16)-floatval($dato_final['derecho_costo']);
+							echo number_format($resultado,2);
+						}
+						else
+						{
+							echo'no_derecho';
+						}
+
+					break;
+				case 'SEMESTRAL':
+						$ins="SELECT
+						derecho_costo
+						from
+						costo_derecho_poliza
+						where id_tabla_aseguradora=:id_tabla_aseguradora
+						";
+						$q1=$conexion->prepare($ins);
+						$q1->execute(array(
+							":id_tabla_aseguradora"=>$id_asegurado
+						));
+
+						$filas_derecho=$q1->rowCount();
+						if($filas_derecho==0)
+						{
+
+							echo'no_derecho';
+							exit();
+						}
+
+						$ins2="SELECT
+						cantidad_recargo
+						from
+						recargo_por_cargo_fraccionado
+						where id_tabla_aseguradoras_recargo=:id_tabla_aseguradoras_recargo
+						and
+						forma_de_pago=:forma_de_pago
+						";
+						$q2=$conexion->prepare($ins2);
+						$q2->execute(array(
+							":id_tabla_aseguradoras_recargo"=>$id_asegurado,
+							":forma_de_pago"=>$forma_pago
+						));
+
+						$filas_recargo=$q2->rowCount();
+						if($filas_recargo==0)
+						{
+							echo'no_recargo';
+							exit();	
+						}
+
+						$dato_derecho=$q1->fetch(PDO::FETCH_ASSOC);
+						$dato_recargo=$q2->fetch(PDO::FETCH_ASSOC);
+													
+						$resultado=((floatval($prima_anual_neta)/1.16)-floatval($dato_derecho['derecho_costo']));
+						$resultado2=1+((floatval($dato_recargo['cantidad_recargo']))/100);
+						$resultado_final=$resultado/$resultado2;
+						echo number_format($resultado_final,2);
+
+					break;
+				case 'TRIMESTRAL':
+					$ins="SELECT
+						derecho_costo
+						from
+						costo_derecho_poliza
+						where id_tabla_aseguradora=:id_tabla_aseguradora
+						";
+						$q1=$conexion->prepare($ins);
+						$q1->execute(array(
+							":id_tabla_aseguradora"=>$id_asegurado
+						));
+
+						$filas_derecho=$q1->rowCount();
+						if($filas_derecho==0)
+						{
+
+							echo'no_derecho';
+							exit();
+						}
+
+						$ins2="SELECT
+						cantidad_recargo
+						from
+						recargo_por_cargo_fraccionado
+						where id_tabla_aseguradoras_recargo=:id_tabla_aseguradoras_recargo
+						and
+						forma_de_pago=:forma_de_pago
+						";
+						$q2=$conexion->prepare($ins2);
+						$q2->execute(array(
+							":id_tabla_aseguradoras_recargo"=>$id_asegurado,
+							":forma_de_pago"=>$forma_pago
+						));
+
+						$filas_recargo=$q2->rowCount();
+						if($filas_recargo==0)
+						{
+							echo'no_recargo';
+							exit();	
+						}
+
+						$dato_derecho=$q1->fetch(PDO::FETCH_ASSOC);
+						$dato_recargo=$q2->fetch(PDO::FETCH_ASSOC);
+													
+						$resultado=((floatval($prima_anual_neta)/1.16)-floatval($dato_derecho['derecho_costo']));
+						$resultado2=1+((floatval($dato_recargo['cantidad_recargo']))/100);
+						$resultado_final=$resultado/$resultado2;
+						echo number_format($resultado_final,2);
+					break;
+				case 'MENSUAL':
+					$ins="SELECT
+						derecho_costo
+						from
+						costo_derecho_poliza
+						where id_tabla_aseguradora=:id_tabla_aseguradora
+						";
+						$q1=$conexion->prepare($ins);
+						$q1->execute(array(
+							":id_tabla_aseguradora"=>$id_asegurado
+						));
+
+						$filas_derecho=$q1->rowCount();
+						if($filas_derecho==0)
+						{
+
+							echo'no_derecho';
+							exit();
+						}
+
+						$ins2="SELECT
+						cantidad_recargo
+						from
+						recargo_por_cargo_fraccionado
+						where id_tabla_aseguradoras_recargo=:id_tabla_aseguradoras_recargo
+						and
+						forma_de_pago=:forma_de_pago
+						";
+						$q2=$conexion->prepare($ins2);
+						$q2->execute(array(
+							":id_tabla_aseguradoras_recargo"=>$id_asegurado,
+							":forma_de_pago"=>$forma_pago
+						));
+
+						$filas_recargo=$q2->rowCount();
+						if($filas_recargo==0)
+						{
+							echo'no_recargo';
+							exit();	
+						}
+
+						$dato_derecho=$q1->fetch(PDO::FETCH_ASSOC);
+						$dato_recargo=$q2->fetch(PDO::FETCH_ASSOC);
+													
+						$resultado=((floatval($prima_anual_neta)/1.16)-floatval($dato_derecho['derecho_costo']));
+						$resultado2=1+((floatval($dato_recargo['cantidad_recargo']))/100);
+						$resultado_final=$resultado/$resultado2;
+						echo number_format($resultado_final,2);
+					break;
+				
+				default:
+					# code...
+					break;
+			}
+
+			
+		}
+		else 
+		{
+			echo "ERROR 854.CALCULO_PRIMA_NETA.El servinor no responde";
+		}
+		
+	} catch (PDOPException $e) {
+		echo $e;
+	}
+}
+function lista_aseguradoras_select()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+			$respuesta="";
+			$asegurados="SELECT
+				id_aseguradora,
+				nombre_aseguradora,
+				fecha_alta_aseguradora,
+				dio_alta
+				from
+				aseguradoras
+				order by nombre_aseguradora asc";
+				$query_aseguradora=$conexion->prepare($asegurados);
+				$query_aseguradora->execute();
+				$filas_totales=$query_aseguradora->rowCount();
+				if($filas_totales>0)
+				{
+					$respuesta='<option value="0">SELECCIONA UNA ASEGURADORA</option>';
+					foreach ($query_aseguradora as $datos) 
+					{
+						$respuesta.='<option value="'.$datos['id_aseguradora'].'">'.str_replace('_',' ',$datos['nombre_aseguradora']).'</option>';
+					}
+					echo $respuesta;
+				}
+				else
+				{
+					echo'<option value="na">NO HAY ASEGURADORAS REGISTADAS</option>';
+				}
+		}	
+		else
+		{
+			echo"ERROR 313.LISTA_ASEGURADORAS_DERECHO.El servidor no responde";
+		}
+	} catch (PDOException $e) {
+		echo $e;
+	}
+}
+
+
+function opciones()
+{
+	try 
+	{
+			$conexion=llamar_conexion();
+			if($conexion)
+			{
+				//var_dump($_SESSION);
+				$usuario = $_SESSION['usuario']['user'];
+				$id_cotizacion=$_POST['opciones'];
+				$respuesta="";
+				//verificando si ya fue concretada
+				$concretada="SELECT*from cotizacion_autos
+				where Id_contizacion_autos=:Id_contizacion_autos";
+				$query_concreta=$conexion->prepare($concretada);
+				$query_concreta->execute(array(
+					":Id_contizacion_autos"=>$id_cotizacion
+				));
+				$datos_concretar=$query_concreta->fetch(PDO::FETCH_ASSOC);
+				switch ($datos_concretar['estatus_concretar_cotizacion']) 
+				{
+					case '0':
+						$opciones ="SELECT
+						aseguradora_opciones,
+						forma_de_pago_opciones,
+						prima_neta_anual_opciones,
+						prima_total_anual_opciones
+						FROM opciones_cotizaciones
+						where 
+						Id_tabla_contizacion_autos_opciones=:Id_tabla_contizacion_autos_opciones
+						order by prima_total_anual_opciones asc";
+						$query_pro=$conexion->prepare($opciones);
+						$query_pro->execute(array(
+								":Id_tabla_contizacion_autos_opciones"=>$id_cotizacion
+						));
+
+						$respuesta='<table  class="table-hover table-striped tabla-center table-sm" style="width:100%;">
+									<tr >
+												<td style="font-size:13px;font-weight: bold;">ASEGURADORA</td>
+												<td style="font-size:13px;font-weight: bold;">FORMA PAGO</td>
+												<td style="font-size:13px;font-weight: bold;">PRIMA NETA</td>
+												<td style="font-size:13px;font-weight: bold;">PRIMA TOTAL ANUAL</td>
+									</tr>
+						';
+						$i=0;
+						foreach ($query_pro as $datos) 
+						{
+							if($i==0)
+							{
+								$respuesta.='
+									<tr class="bg-danger">
+									
+									<td style="text-align:center;color:white;font-size:13px;">
+									'.str_replace('_',' ',$datos['aseguradora_opciones']).'
+									</td>
+
+									<td style="text-align:center;color:white;font-size:13px;">
+									'.$datos['forma_de_pago_opciones'].'
+									</td>
+
+									<td style="text-align:center;color:white;font-size:13px;">$'.number_format(floatval(str_replace(',','',$datos['prima_neta_anual_opciones'])),2).'
+									</td>
+
+									<td style="text-align:center;color:white;font-size:13px;">$'.number_format(floatval(str_replace(',','',$datos['prima_total_anual_opciones'])),2).'
+									</td>
+
+									</tr>';	
+							}
+							else
+							{
+								$respuesta.='
+									<tr>
+									
+									<td style="text-align:center;font-size:13px;">
+									'.str_replace('_',' ',$datos['aseguradora_opciones']).'
+									</td>
+
+									<td style="text-align:center;font-size:13px;">
+									'.$datos['forma_de_pago_opciones'].'
+									</td>
+
+									<td style="text-align:center;font-size:13px;">$'.number_format(floatval(str_replace(',','',$datos['prima_neta_anual_opciones'])),2).'
+									</td>
+
+									<td style="text-align:center;font-size:13px;">$'.number_format(floatval(str_replace(',','',$datos['prima_total_anual_opciones'])),2).'
+									</td>
+
+									</tr>';
+							}
+							
+						$i++;	
+							
+						}
+					break;
+
+					case '1':
+						$opciones ="SELECT
+						id_opciones,
+						aseguradora_opciones,
+						forma_de_pago_opciones,
+						prima_neta_anual_opciones,
+						prima_total_anual_opciones
+						FROM opciones_cotizaciones
+						where 
+						Id_tabla_contizacion_autos_opciones=:Id_tabla_contizacion_autos_opciones
+						order by prima_total_anual_opciones asc";
+						$query_pro=$conexion->prepare($opciones);
+						$query_pro->execute(array(
+								":Id_tabla_contizacion_autos_opciones"=>$id_cotizacion
+						));
+
+						$respuesta='<table  class="table-hover table-striped tabla-center table-sm" style="width:100%;">
+									<tr >
+												<td style="font-size:13px;font-weight: bold;">ASEGURADORA</td>
+												<td style="font-size:13px;font-weight: bold;">FORMA PAGO</td>
+												<td style="font-size:13px;font-weight: bold;">PRIMA NETA</td>
+												<td style="font-size:13px;font-weight: bold;">PRIMA TOTAL ANUAL</td>
+									</tr>
+						';
+						$i=0;
+						foreach ($query_pro as $datos) 
+						{
+
+							if(strcmp($datos_concretar['opcion_concreto'],$datos['id_opciones'])==0)
+							{
+								$respuesta.='
+								<tr class="bg-success">
+
+								<td style="text-align:center;color:white;font-size:13px;">
+								'.str_replace('_',' ',$datos['aseguradora_opciones']).'
+								</td>
+
+								<td style="text-align:center;color:white;font-size:13px;">
+								'.$datos['forma_de_pago_opciones'].'
+								</td>
+
+								<td style="text-align:center;color:white;font-size:13px;">$'.number_format(floatval(str_replace(',','',$datos['prima_neta_anual_opciones'])),2).'
+								</td>
+
+								<td style="text-align:center;color:white;font-size:13px;">$'.number_format(floatval(str_replace(',','',$datos['prima_total_anual_opciones'])),2).'
+								</td>
+
+								</tr>';	
+							}
+							else
+							{
+
+								$respuesta.='
+									<tr>
+									
+									<td style="text-align:center;font-size:13px;">
+									'.str_replace('_',' ',$datos['aseguradora_opciones']).'
+									</td>
+
+									<td style="text-align:center;font-size:13px;">
+									'.$datos['forma_de_pago_opciones'].'
+									</td>
+
+									<td style="text-align:center;font-size:13px;">$'.number_format(floatval(str_replace(',','',$datos['prima_neta_anual_opciones'])),2).'
+									</td>
+
+									<td style="text-align:center;font-size:13px;">$'.number_format(floatval(str_replace(',','',$datos['prima_total_anual_opciones'])),2).'
+									</td>
+
+									</tr>';
+							}
+							
+						}
+					break;
+					case '3':
+					$opciones ="SELECT
+						aseguradora_opciones,
+						forma_de_pago_opciones,
+						prima_neta_anual_opciones,
+						prima_total_anual_opciones
+						FROM opciones_cotizaciones
+						where 
+						Id_tabla_contizacion_autos_opciones=:Id_tabla_contizacion_autos_opciones
+						order by prima_total_anual_opciones asc";
+						$query_pro=$conexion->prepare($opciones);
+						$query_pro->execute(array(
+								":Id_tabla_contizacion_autos_opciones"=>$id_cotizacion
+						));
+
+						$respuesta='<table  class="table-hover tabla-center table-sm" style="width:100%;">
+									<tr >
+												<td style="font-size:13px;font-weight: bold;">ASEGURADORA</td>
+												<td style="font-size:13px;font-weight: bold;">FORMA PAGO</td>
+												<td style="font-size:13px;font-weight: bold;">PRIMA NETA</td>
+												<td style="font-size:13px;font-weight: bold;">PRIMA TOTAL ANUAL</td>
+									</tr>
+						';
+						$i=0;
+						foreach ($query_pro as $datos) 
+						{
+							
+								$respuesta.='
+									<tr>
+									
+									<td style="text-align:center;font-size:13px;">
+									'.str_replace('_',' ',$datos['aseguradora_opciones']).'
+									</td>
+
+									<td style="text-align:center;font-size:13px;">
+									'.$datos['forma_de_pago_opciones'].'
+									</td>
+
+									<td style="text-align:center;font-size:13px;">$'.number_format(floatval(str_replace(',','',$datos['prima_neta_anual_opciones'])),2).'
+									</td>
+
+									<td style="text-align:center;font-size:13px;">$'.number_format(floatval(str_replace(',','',$datos['prima_total_anual_opciones'])),2).'
+									</td>
+
+									</tr>';
+							
+						}
+					break;
+					default:
+						# code...
+						break;
+				}
+				
+				echo$respuesta.='</table>';
+			}
+			else
+			{
+				echo "ERROR 352.OBTENER DATOS DEL PROSPECTO.El servidor no responde";
+			}
+	} catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+function contacto()
+{
+	try 
+	{
+			$conexion=llamar_conexion();
+			if($conexion)
+			{
+				//var_dump($_SESSION);
+				$usuario = $_SESSION['usuario']['user'];
+				$id_contacto=$_POST['contacto'];
+				switch ($_SESSION['usuario']['tipo_user']) 
+				{
+					case '1':
+						$prospecto ="SELECT
+						apellido_paterno_contacto,
+						apellido_materno_contacto,
+						nombre_contacto,
+						tipo_contacto,
+						telefono_contacto,
+						correo_contaco
+						FROM contactos
+						where 
+						id_contacto=:id_contacto
+						";
+						$query_pro=$conexion->prepare($prospecto);
+						$query_pro->execute(array(
+								":id_contacto"=>$id_contacto
+						));
+						break;
+					
+					default:
+						
+						$prospecto ="SELECT
+						apellido_paterno_contacto,
+						apellido_materno_contacto,
+						nombre_contacto,
+						tipo_contacto,
+						telefono_contacto,
+						correo_contaco
+						FROM contactos
+						where 
+						id_contacto=:id_contacto
+						and
+						dio_alta_contacto=:dio_alta_contacto";
+						$query_pro=$conexion->prepare($prospecto);
+						$query_pro->execute(array(
+								":dio_alta_contacto"=>$usuario,
+								":id_contacto"=>$id_contacto
+						));
+						break;
+				}
+
+				$respuesta='<table  class="table-hover table-striped tabla-center" style="width:100%;">';
+				foreach ($query_pro as $datos) 
+				{
+					$respuesta.='
+							<tr>
+							<td style="text-align:left"><span style="font-weight: bold;">
+							TIPO CONTACTO: </span>   '.str_replace('_',' ',$datos['tipo_contacto']).'
+							</td></tr>';
+				
+							$respuesta.='
+							<tr>
+							<td style="text-align:left"><span style="font-weight: bold;">NOMBRE: </span>   '.str_replace('_',' ',$datos['nombre_contacto']).' '.str_replace('_',' ',$datos['apellido_paterno_contacto']).' '.str_replace('_',' ',$datos['apellido_materno_contacto']).'
+							</td></tr>';
+						
+					$respuesta.='
+							<tr>
+							<td style="text-align:left"><span style="font-weight: bold;">TEL:</span> 
+							'.$datos['telefono_contacto'].'
+							</td></tr>';
+					$respuesta.='
+							<tr>
+							<td style="text-align:left"><span style="font-weight: bold;">CORREO: </span> 
+							'.$datos['correo_contaco'].'
+							</td></tr>';
+					
+				}
+				echo$respuesta.='</table>';
+			}
+			else
+			{
+				echo "ERROR 352.OBTENER DATOS DEL PROSPECTO.El servidor no responde";
+			}
+	} catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+function prospecto()
+{
+	try 
+	{
+			$conexion=llamar_conexion();
+			if($conexion)
+			{
+				//var_dump($_SESSION);
+				$usuario = $_SESSION['usuario']['user'];
+				$id_prospectos=$_POST['prospecto'];
+				switch ($_SESSION['usuario']['tipo_user']) 
+				{
+					case '1':
+						$prospecto ="SELECT
+						nombre_prospecto,
+						apellido_parteno_prospecto,
+						apellido_materno_prospecto,
+						nombres_persona_prospecto,
+						tipo_prospecto,
+						codigo_postal_prospecto,
+						colonia_prospecto,
+						e.nombre_estado
+						FROM prospectos
+						left join estados e on e.id_estados=prospectos.estado_prospecto
+						where 
+						id_prospectos=:id_prospectos
+						";
+						$query_pro=$conexion->prepare($prospecto);
+						$query_pro->execute(array(
+								":id_prospectos"=>$id_prospectos
+						));
+						break;
+					
+					default:
+				
+						$prospecto ="SELECT
+						nombre_prospecto,
+						apellido_parteno_prospecto,
+						apellido_materno_prospecto,
+						nombres_persona_prospecto,
+						tipo_prospecto,
+						codigo_postal_prospecto,
+						colonia_prospecto,
+						e.nombre_estado
+						FROM prospectos
+						left join estados e on e.id_estados=prospectos.estado_prospecto
+						where 
+						id_prospectos=:id_prospectos
+						and
+						dio_alta_prospeccto=:dio_alta_prospeccto";
+						$query_pro=$conexion->prepare($prospecto);
+						$query_pro->execute(array(
+								":dio_alta_prospeccto"=>$usuario,
+								":id_prospectos"=>$id_prospectos
+						));
+					break;
+				}
+
+				$respuesta='<table  class="table-hover table-striped tabla-center" style="width:100%;">';
+				foreach ($query_pro as $datos) 
+				{
+					$respuesta.='
+							<tr>
+							<td style="text-align:left"><span style="font-weight: bold;">
+							TIPO PROSPECTO: </span>   '.str_replace('_',' ',$datos['tipo_prospecto']).'
+							</td></tr>';
+					switch ($datos['tipo_prospecto']) 
+					{
+						case 'FISICA':
+							$respuesta.='
+							<tr>
+							<td style="text-align:left"><span style="font-weight: bold;">NOMBRE: </span>   '.str_replace('_',' ',$datos['nombres_persona_prospecto']).' '.str_replace('_',' ',$datos['apellido_parteno_prospecto']).' '.str_replace('_',' ',$datos['apellido_materno_prospecto']).'
+							</td></tr>';
+							break;
+						case 'MORAL':
+							$respuesta.='
+							<tr>
+							<td style="text-align:left"><span style="font-weight: bold;">
+							NOMBRE: </span> '.str_replace('_',' ',$datos['nombre_prospecto']).'
+							</td></tr>';
+							break;
+						
+						default:
+							# code...
+							break;
+					}
+					
+					$respuesta.='
+							<tr>
+							<td style="text-align:left"><span style="font-weight: bold;">C.P:</span> 
+							'.$datos['codigo_postal_prospecto'].'
+							</td></tr>';
+					$respuesta.='
+							<tr>
+							<td style="text-align:left"><span style="font-weight: bold;">COLONIA: </span> 
+							'.$datos['colonia_prospecto'].'
+							</td></tr>';
+					$respuesta.='
+							<tr>
+							<td style="text-align:left"><span style="font-weight: bold;">ESTADO:</span>  
+							'.$datos['nombre_estado'].'
+							</td></tr>';
+				}
+				echo$respuesta.='</table>';
+			}
+			else
+			{
+				echo "ERROR 352.OBTENER DATOS DEL PROSPECTO.El servidor no responde";
+			}
+	} catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+function cotizaciones_nuevas()
+{
+	try 
+	{	
+		$conexion=llamar_conexion();
+		if($conexion)
+		{		
+
+				//var_dump($_SESSION['usuario']);
+				$usuario = $_SESSION['usuario']['user'];
+				$arreglo=array();
+				$i=0;
+				$query_nuevas="";
+
+				$tipo_usuario =$_SESSION['usuario']['tipo_user'];
+
+				switch ($tipo_usuario) 
+				{
+					case '1':
+							if(isset($_POST['fecha_inicial_nueva']))
+							{
+								$fecha_inicial_nueva=$_POST['fecha_inicial_nueva'];
+								$fecha_final_nueva=$_POST['fecha_final_nueva'];
+								
+								$coti_nuevas="
+								SELECT
+								Id_contizacion_autos,
+								tipo_cotizacion,
+								hora_solicitada,
+								Id_contacto_tabla_autos,
+								Id_prospecto_tabla_autos,
+								marca_auto,
+								descripcion_auto,
+								modelo_auto,
+								uso_de_unidad_auto,
+								tipo_auto,
+								compania_autos,
+								fecha_vigencia_autos,
+								poliza_renovar_autos,
+								prima_ano_autos,
+								tipo_de_carga,
+								paquete_solicitado,
+								cantidad_aseguradoras,
+								fecha_alta_auto,
+								dio_alta_auto,
+								estatus_concretar_cotizacion,
+								opcion_concreto,
+								fecha_concreta_autos,
+								numero_poliza,
+								inicio_vigencia_poliza,
+								motivos_no_concretacion,
+								p.id_prospectos,
+								p.nombre_prospecto,
+								p.apellido_parteno_prospecto,
+								p.apellido_materno_prospecto,
+								p.nombres_persona_prospecto,
+								c.id_contacto,
+								c.tipo_contacto,
+								c.nombre_contacto,
+								c.apellido_paterno_contacto,
+								c.apellido_materno_contacto,
+								u.nombre_persona
+								from
+								cotizacion_autos
+								left join prospectos p on p.id_prospectos=cotizacion_autos.Id_prospecto_tabla_autos
+								left join contactos c on c.id_contacto=cotizacion_autos.Id_contacto_tabla_autos
+								left join usuarios u on u.nombre_usuario=cotizacion_autos.dio_alta_auto
+								where
+								
+								
+								(DATE_FORMAT(fecha_alta_auto,'%Y-%m-%d') between '$fecha_inicial_nueva' and '$fecha_final_nueva')
+								and
+								tipo_cotizacion=:tipo_cotizacion
+								";
+								$query_nuevas=$conexion->prepare($coti_nuevas);
+								$query_nuevas->execute(array(
+									
+								
+									":tipo_cotizacion"=>"NUEVA"
+								));
+							}
+							else
+							{
+								
+								//buscando las cotizacciones
+								$coti_nuevas="
+								SELECT
+								Id_contizacion_autos,
+								tipo_cotizacion,
+								hora_solicitada,
+								Id_contacto_tabla_autos,
+								Id_prospecto_tabla_autos,
+								marca_auto,
+								descripcion_auto,
+								modelo_auto,
+								uso_de_unidad_auto,
+								tipo_auto,
+								compania_autos,
+								fecha_vigencia_autos,
+								poliza_renovar_autos,
+								prima_ano_autos,
+								tipo_de_carga,
+								paquete_solicitado,
+								cantidad_aseguradoras,
+								fecha_alta_auto,
+								dio_alta_auto,
+								estatus_concretar_cotizacion,
+								opcion_concreto,
+								fecha_concreta_autos,
+								numero_poliza,
+								inicio_vigencia_poliza,
+								motivos_no_concretacion,
+								p.id_prospectos,
+								p.nombre_prospecto,
+								p.apellido_parteno_prospecto,
+								p.apellido_materno_prospecto,
+								p.nombres_persona_prospecto,
+								c.id_contacto,
+								c.tipo_contacto,
+								c.nombre_contacto,
+								c.apellido_paterno_contacto,
+								c.apellido_materno_contacto,
+								u.nombre_persona
+								from
+								cotizacion_autos
+								left join prospectos p on p.id_prospectos=cotizacion_autos.Id_prospecto_tabla_autos
+								left join contactos c on c.id_contacto=cotizacion_autos.Id_contacto_tabla_autos
+								left join usuarios u on u.nombre_usuario=cotizacion_autos.dio_alta_auto
+								where
+								
+								tipo_cotizacion=:tipo_cotizacion
+								";
+								$query_nuevas=$conexion->prepare($coti_nuevas);
+								$query_nuevas->execute(array(
+								
+									":tipo_cotizacion"=>"NUEVA"
+								));
+							}
+						break;
+					
+					default:
+									if(isset($_POST['fecha_inicial_nueva']))
+							{
+								$fecha_inicial_nueva=$_POST['fecha_inicial_nueva'];
+								$fecha_final_nueva=$_POST['fecha_final_nueva'];
+								
+								$coti_nuevas="
+								SELECT
+								Id_contizacion_autos,
+								tipo_cotizacion,
+								hora_solicitada,
+								Id_contacto_tabla_autos,
+								Id_prospecto_tabla_autos,
+								marca_auto,
+								descripcion_auto,
+								modelo_auto,
+								uso_de_unidad_auto,
+								tipo_auto,
+								compania_autos,
+								fecha_vigencia_autos,
+								poliza_renovar_autos,
+								prima_ano_autos,
+								tipo_de_carga,
+								paquete_solicitado,
+								cantidad_aseguradoras,
+								fecha_alta_auto,
+								dio_alta_auto,
+								estatus_concretar_cotizacion,
+								opcion_concreto,
+								fecha_concreta_autos,
+								numero_poliza,
+								inicio_vigencia_poliza,
+								motivos_no_concretacion,
+								p.id_prospectos,
+								p.nombre_prospecto,
+								p.apellido_parteno_prospecto,
+								p.apellido_materno_prospecto,
+								p.nombres_persona_prospecto,
+								c.id_contacto,
+								c.tipo_contacto,
+								c.nombre_contacto,
+								c.apellido_paterno_contacto,
+								c.apellido_materno_contacto,
+								u.nombre_persona
+								from
+								cotizacion_autos
+								left join prospectos p on p.id_prospectos=cotizacion_autos.Id_prospecto_tabla_autos
+								left join contactos c on c.id_contacto=cotizacion_autos.Id_contacto_tabla_autos
+								left join usuarios u on u.nombre_usuario=cotizacion_autos.dio_alta_auto
+								where
+								
+								dio_alta_auto=:dio_alta_auto
+								and
+
+								(DATE_FORMAT(fecha_alta_auto,'%Y-%m-%d') between '$fecha_inicial_nueva' and '$fecha_final_nueva')
+								and
+								tipo_cotizacion=:tipo_cotizacion
+								";
+								$query_nuevas=$conexion->prepare($coti_nuevas);
+								$query_nuevas->execute(array(
+									
+									":dio_alta_auto"=>$usuario,
+									":tipo_cotizacion"=>"NUEVA"
+								));
+							}
+							else
+							{
+								
+								//buscando las cotizacciones
+								$coti_nuevas="
+								SELECT
+								Id_contizacion_autos,
+								tipo_cotizacion,
+								hora_solicitada,
+								Id_contacto_tabla_autos,
+								Id_prospecto_tabla_autos,
+								marca_auto,
+								descripcion_auto,
+								modelo_auto,
+								uso_de_unidad_auto,
+								tipo_auto,
+								compania_autos,
+								fecha_vigencia_autos,
+								poliza_renovar_autos,
+								prima_ano_autos,
+								tipo_de_carga,
+								paquete_solicitado,
+								cantidad_aseguradoras,
+								fecha_alta_auto,
+								dio_alta_auto,
+								estatus_concretar_cotizacion,
+								opcion_concreto,
+								fecha_concreta_autos,
+								numero_poliza,
+								inicio_vigencia_poliza,
+								motivos_no_concretacion,
+								p.id_prospectos,
+								p.nombre_prospecto,
+								p.apellido_parteno_prospecto,
+								p.apellido_materno_prospecto,
+								p.nombres_persona_prospecto,
+								c.id_contacto,
+								c.tipo_contacto,
+								c.nombre_contacto,
+								c.apellido_paterno_contacto,
+								c.apellido_materno_contacto,
+								u.nombre_persona
+								from
+								cotizacion_autos
+								left join prospectos p on p.id_prospectos=cotizacion_autos.Id_prospecto_tabla_autos
+								left join contactos c on c.id_contacto=cotizacion_autos.Id_contacto_tabla_autos
+								left join usuarios u on u.nombre_usuario=cotizacion_autos.dio_alta_auto
+								where
+								dio_alta_auto=:dio_alta_auto
+								and
+								tipo_cotizacion=:tipo_cotizacion
+								";
+								$query_nuevas=$conexion->prepare($coti_nuevas);
+								$query_nuevas->execute(array(
+									
+									":dio_alta_auto"=>$usuario,
+									":tipo_cotizacion"=>"NUEVA"
+								));
+							}
+						break;
+				}
+
+				
+					
+					$filas_nuevas=$query_nuevas->rowCount();
+					if($filas_nuevas>0)
+					{
+						foreach ($query_nuevas as $datos) 
+						{
+
+							//buscando opciones
+							$arreglo[$i]['realizo']=str_replace('_',' ',$datos['nombre_persona']);
+							$arreglo[$i]['fecha_alta']=date('d-m-Y H:i:s',strtotime($datos['fecha_alta_auto']));	
+
+								
+							if(!empty($datos_nuevas['nombre_prospecto']))//es moral
+							{
+								$arreglo[$i]['prospecto']=
+								'<button class="btn btn-outline-info prospecto" value="'.$datos['id_prospectos'].'">'.str_replace('_',' ',$datos['nombre_prospecto']).'</button>';	
+
+								$arreglo[$i]['pdf']='  <form method="post"> <button class="btn btn-outline-success pdf" name="pdf" type="submit" value="'.$datos['Id_contizacion_autos'].'*'.str_replace('_',' ',$datos['nombre_prospecto']).'-'.$datos['descripcion_auto'].'">  <img style="width: 20px;" src="img/pdf_imagen.jpg"></button></form>';
+							}
+							else//es fisica
+							{
+								$arreglo[$i]['prospecto']=
+								'<button class="btn btn-outline-info prospecto" value="'.$datos['id_prospectos'].'">'.str_replace('_',' ',$datos['nombres_persona_prospecto']).' '.str_replace('_',' ',$datos['apellido_parteno_prospecto']).' '.str_replace('_',' ',$datos['apellido_materno_prospecto']).'</button>';	
+
+									$arreglo[$i]['pdf']='  <form method="post"> <button class="btn btn-outline-success pdf" name="pdf" type="submit" value="'.$datos['Id_contizacion_autos'].'*'.str_replace('_',' ',$datos['nombres_persona_prospecto']).' '.str_replace('_',' ',$datos['apellido_parteno_prospecto']).' '.str_replace('_',' ',$datos['apellido_materno_prospecto']).'-'.$datos['descripcion_auto'].'">  <img style="width: 20px;" src="img/pdf_imagen.jpg"></button></form>';
+							}
+
+							$arreglo[$i]['contacto']=
+								'<button class="btn btn-outline-info contacto" value="'.$datos['id_contacto'].'">'.str_replace('_',' ',$datos['nombre_contacto']).' '.str_replace('_',' ',$datos['apellido_paterno_contacto']).' '.str_replace('_',' ',$datos['apellido_materno_contacto']).'</button>';
+
+							$arreglo[$i]['cantidad_opciones_cotizadas']=
+								'<button class="btn btn-outline-primary contactos" value="'.$datos['id_contacto'].'">'.str_replace('_',' ',$datos['nombre_contacto']).' '.str_replace('_',' ',$datos['apellido_paterno_contacto']).' '.str_replace('_',' ',$datos['apellido_materno_contacto']).'</button>';
+
+							$arreglo[$i]['cantidad_opciones_cotizadas']='
+							<button class="btn btn-outline-primary opciones" value="'.$datos['Id_contizacion_autos'].'">
+								'.$datos['cantidad_aseguradoras'].'
+							</button>';
+
+							$arreglo[$i]['tipo_contacto']=str_replace('_',' ',$datos['tipo_contacto']);
+							$arreglo[$i]['paquete_solicitado']=$datos['paquete_solicitado'];
+
+							/*$hora=date('H',strtotime($datos['hora_solicitada']));
+							if(intval($hora)>11 && intval($hora)<24)
+							{
+								$arreglo[$i]['hora_solicitada']=date('H:i',strtotime($datos['hora_solicitada'])).' P.M.';
+							}
+							else
+							{
+								$arreglo[$i]['hora_solicitada']=date('H:i',strtotime($datos['hora_solicitada'])).' A.M.';
+							}*/
+							$arreglo[$i]['hora_solicitada']=date('H:i',strtotime($datos['hora_solicitada']));
+							$arreglo[$i]['hora_envio']=date('H:i',strtotime($datos['fecha_alta_auto']));
+
+
+							$arreglo[$i]['descripcion']=$datos['marca_auto'].' - '.$datos['descripcion_auto'].' '.$datos['modelo_auto'];
+							
+							
+							$hora_inicial=new DateTime($datos['hora_solicitada']);
+							$hora_final=new DateTime(date('H:i:s',strtotime($datos['fecha_alta_auto'])));
+							
+							//$tiempo=$hora_final->diff($hora_inicial);
+							//$arreglo[$i]['tiempo_respuesta']=$tiempo->format('%H horas %i minutos %s seconds');
+							$tiempo=$hora_final->diff($hora_inicial);
+							$arreglo[$i]['tiempo_respuesta']=($tiempo->h*60)+$tiempo->i;
+
+							switch ($datos['estatus_concretar_cotizacion']) {
+								case '0'://cotizada
+									$arreglo[$i]['estatus_cotizacion']='COTIZADA';
+									$arreglo[$i]['aseguradora_concretada']='';
+										$arreglo[$i]['prima_neta_concretada']='';
+										$arreglo[$i]['prima_total_anual_concretada']='';
+										$arreglo[$i]['primer_pago']='';
+										$arreglo[$i]['numero_poliza']='';
+										$arreglo[$i]['inicio_vigencia']='';
+										$arreglo[$i]['motivos']='';
+										$arreglo[$i]['concretar']='
+										<button class="btn btn-success btn-sm si_concretar" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-check"></i></button>
+										<button class="btn btn-danger btn-sm no_concretar" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-times"></i></button>';
+									break;
+								case '1'://concretada
+									$arreglo[$i]['estatus_cotizacion']='CONCRETADA';
+									//buscar la opcion cno la que se concreto
+									
+										$buscando_opcion="SELECT*from opciones_cotizaciones
+										where
+										id_opciones=:id_opciones
+										and
+										Id_tabla_contizacion_autos_opciones=:Id_tabla_contizacion_autos_opciones
+										";
+										$query_opcion_co=$conexion->prepare($buscando_opcion);
+										$query_opcion_co->execute(array(
+												":id_opciones"=>$datos['opcion_concreto'],
+												":Id_tabla_contizacion_autos_opciones"=>$datos['Id_contizacion_autos']
+										));	
+										$data_con_final=$query_opcion_co->fetch(PDO::FETCH_ASSOC);
+										$arreglo[$i]['aseguradora_concretada']=$data_con_final['aseguradora_opciones'];
+										$arreglo[$i]['prima_neta_concretada']=$data_con_final['prima_neta_anual_opciones'];
+										$arreglo[$i]['prima_total_anual_concretada']=$data_con_final['prima_total_anual_opciones'];
+										$arreglo[$i]['primer_pago']=$data_con_final['primer_pago_opciones'];
+										$arreglo[$i]['numero_poliza']=$datos['numero_poliza'];
+										$arreglo[$i]['inicio_vigencia']=$datos['inicio_vigencia_poliza'];
+										$arreglo[$i]['motivos']='';
+								
+
+									switch ($tipo_usuario) 
+									{
+										case '1':
+											$arreglo[$i]['concretar']='
+												<button class="btn btn-success btn-sm si_concretar" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-check"></i></button>
+
+
+												<button class="btn btn-danger btn-sm no_concretar" disabled value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-times"></i></button>
+
+												<button class="btn btn-primary btn-sm anular_concretar" style="width:30px;" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-trash-alt"></i></button>
+												';
+
+
+											break;
+										
+										default:
+										$arreglo[$i]['concretar']='
+												<button class="btn btn-success btn-sm si_concretar" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-check"></i></button>
+
+
+												<button class="btn btn-danger btn-sm no_concretar" disabled value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-times"></i></button>';
+											break;
+									}
+
+									
+
+									break;
+								case '2'://emitida
+									$arreglo[$i]['estatus_cotizacion']='EMITIDA';
+									break;
+								case '3'://rechazada
+									$arreglo[$i]['estatus_cotizacion']='RECHAZADA';
+									$arreglo[$i]['aseguradora_concretada']='';
+										$arreglo[$i]['prima_neta_concretada']='';
+										$arreglo[$i]['prima_total_anual_concretada']='';
+										$arreglo[$i]['primer_pago']='';
+										$arreglo[$i]['numero_poliza']='';
+										$arreglo[$i]['inicio_vigencia']='';
+										$arreglo[$i]['motivos']=$datos['motivos_no_concretacion'];
+
+										switch ($tipo_usuario) 
+										{
+											case '1':
+											$arreglo[$i]['concretar']='
+												<button class="btn btn-success btn-sm si_concretar" disabled value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-check"></i></button>
+												<button class="btn btn-danger btn-sm no_concretar" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-times"></i></button>
+
+												<button class="btn btn-primary btn-sm anular_concretar" style="width:30px;" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-trash-alt"></i></button>
+
+												';
+
+												break;
+											
+											default:
+											$arreglo[$i]['concretar']='
+												<button class="btn btn-success btn-sm si_concretar" disabled value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-check"></i></button>
+												<button class="btn btn-danger btn-sm no_concretar" value="'.$datos['Id_contizacion_autos'].'*'.$datos['tipo_cotizacion'].'"><i class="fas fa-times"></i></button>';
+												break;
+										}
+										
+
+									break;
+								default:
+									# code...
+									break;
+							}
+							
+							
+							//buscando opciones
+							$opciones = "SELECT
+							*
+							from
+							opciones_cotizaciones
+							where 
+							Id_tabla_contizacion_autos_opciones=:Id_tabla_contizacion_autos_opciones
+							and
+							fecha_alta_opciones=:fecha_alta_opciones
+							order by prima_total_anual_opciones asc limit 1
+							";
+							$query_opciones=$conexion->prepare($opciones);
+							$query_opciones->execute(array(
+								":Id_tabla_contizacion_autos_opciones"=>$datos['Id_contizacion_autos'],
+								":fecha_alta_opciones"=>$datos['fecha_alta_auto']
+								
+							));
+							$datos_opciones=$query_opciones->fetch(PDO::FETCH_ASSOC);
+
+							$arreglo[$i]['forma_de_pago']=$datos_opciones['forma_de_pago_opciones'];
+							$arreglo[$i]['objetivo_minimo_concretar']=$datos_opciones['aseguradora_opciones'];
+
+							$arreglo[$i]['prima_neta']=$datos_opciones['prima_neta_anual_opciones'];
+							$arreglo[$i]['prima_total_anual']=$datos_opciones['prima_total_anual_opciones'];
+						//	$arreglo[$i]['primer_pago']=$datos_opciones['primer_pago_opciones'];
+							
+							$i++;
+						}
+
+						$datos_finales['data']=$arreglo;
+						echo json_encode($datos_finales);
+					}
+					else
+					{
+						$datos_finales['data']=$arreglo;
+						echo json_encode($datos_finales);
+					}
+				
+		}	
+		else
+		{
+			echo'ERROR 362.BUSCANDO_COTIZACIONES_NUEVAS.EL servidor no responde';
+		}
+	}
+	catch (PDOException $e) 
+	{
+		
+	}
+}
+function cotizacion_autos_alta()
+{
+	try 
+	{
+		$conexion=llamar_conexion();
+		if($conexion)
+		{
+			$tipo_cotizacion =$_POST['tipo_cotizacion'];
+			$hora_solicitada="";
+			$id_contactos =$_POST['contactos'];
+			$prospectos_asegurados=$_POST['prospectos_asegurados'];
+			$marca =mb_strtoupper($_POST['marca'],'UTF-8');
+			$descripcion =mb_strtoupper($_POST['descripcion'],'UTF-8');
+			$modelo =$_POST['modelo'];
+			$uso_de_unidad =mb_strtoupper($_POST['uso_de_unidad'],'UTF-8');
+			$tipo_auto =$_POST['tipo_auto'];
+			$carga="";
+			if(isset($_POST['carga']) && strcmp($_POST['carga'],'0')!=0)
+			{
+				$carga=$_POST['carga'];
+			}
+			$compañia_actual="";
+			$fecha_vigencia="";
+			$poliza_a_renovar ="";
+			$prima_año ="";
+			switch ($tipo_cotizacion) 
+			{
+				case 'NUEVA':
+					$hora_solicitada=$_POST['hora_solicitada'];
+					break;
+				case 'RENOVACION':
+					$compañia_actual=mb_strtoupper($_POST['compañia_actual'],'UTF-8');
+					$fecha_vigencia=$_POST['fecha_vigencia'];
+					$poliza_a_renovar =$_POST['poliza_a_renovar'];
+					$prima_año =$_POST['prima_año'];
+					break;
+			}
+			$paquete =$_POST['paquete'];
+			$cantidad_aseguradoras =$_POST['cantidad_aseguradoras'];
+			$fecha_hoy=date('Y-m-d H:i:s',time());
+			$usuario = $_SESSION['usuario']['user'];
+
+			//aqui insertamos los datos previos
+			$insertar_datos_previos="
+			INSERT INTO
+			cotizacion_autos 
+			(
+				tipo_cotizacion,
+				hora_solicitada,
+				Id_contacto_tabla_autos,
+				Id_prospecto_tabla_autos,
+				marca_auto,
+				descripcion_auto,
+				modelo_auto,
+				uso_de_unidad_auto,
+				tipo_auto,
+				compania_autos,
+				fecha_vigencia_autos,
+				poliza_renovar_autos,
+				prima_ano_autos,
+				tipo_de_carga,
+				paquete_solicitado,
+				cantidad_aseguradoras,
+				fecha_alta_auto,
+				dio_alta_auto
+			) 
+			values
+			(
+				:tipo_cotizacion,
+				:hora_solicitada,
+				:Id_contacto_tabla_autos,
+				:Id_prospecto_tabla_autos,
+				:marca_auto,
+				:descripcion_auto,
+				:modelo_auto,
+				:uso_de_unidad_auto,
+				:tipo_auto,
+				:compania_autos,
+				:fecha_vigencia_autos,
+				:poliza_renovar_autos,
+				:prima_ano_autos,
+				:tipo_de_carga,
+				:paquete_solicitado,
+				:cantidad_aseguradoras,
+				:fecha_alta_auto,
+				:dio_alta_auto
+			)";
+			$query_datos_pre=$conexion->prepare($insertar_datos_previos);
+			$query_datos_pre->execute(array(
+				":tipo_cotizacion"=>$tipo_cotizacion,
+				":hora_solicitada"=>$hora_solicitada,
+				":Id_contacto_tabla_autos"=>$id_contactos,
+				":Id_prospecto_tabla_autos"=>$prospectos_asegurados,
+				":marca_auto"=>$marca,
+				":descripcion_auto"=>$descripcion,
+				":modelo_auto"=>$modelo,
+				":uso_de_unidad_auto"=>$uso_de_unidad,
+				":tipo_auto"=>$tipo_auto,
+				":compania_autos"=>$compañia_actual,
+				":fecha_vigencia_autos"=>$fecha_vigencia,
+				":poliza_renovar_autos"=>$poliza_a_renovar,
+				":prima_ano_autos"=>$prima_año,
+				":tipo_de_carga"=>$carga,
+				":paquete_solicitado"=>$paquete,
+				":cantidad_aseguradoras"=>$cantidad_aseguradoras,
+				":fecha_alta_auto"=>$fecha_hoy,
+				":dio_alta_auto"=>$usuario
+			));
+
+			//buscando el id de la insercion anterior para insertar la cantidad de opciones
+			$select_id_primario_tabla="SELECT
+			Id_contizacion_autos
+			from
+			cotizacion_autos
+			where
+			tipo_cotizacion=:tipo_cotizacion
+			and
+			fecha_alta_auto=:fecha_alta_auto
+			and
+			dio_alta_auto=:dio_alta_auto
+			and
+			estatus_concretar_cotizacion=:estatus_concretar_cotizacion
+			order by Id_contizacion_autos desc limit 1";
+			$query=$conexion->prepare($select_id_primario_tabla);
+			$query->execute(array(
+				":tipo_cotizacion"=>$tipo_cotizacion,
+				":fecha_alta_auto"=>$fecha_hoy,
+				":dio_alta_auto"=>$usuario,
+				":estatus_concretar_cotizacion"=>0,
+				
+			));
+			$dato_final=$query->fetch(PDO::FETCH_ASSOC);
+			//VARIABLES DE LAS OPCIONES
+		
+
+
+		$empresas_opcion1 ="";
+		$daños_opcion1_selec ="";
+		$daños_material_importe_factura_1="";
+		$deducible_opcion1 ="";
+		$cristales_opcion1_selec ="";
+		$robo_opcion1_selec ="";
+		$robo_importe_factura_1="";
+		$deducible_rt1="";
+		$daños_tercero_opcion_1="";
+		$fallecimiento_opcion_1 ="";
+		$deducible_de_rc_opcion1="";
+		$gastos_medicos_opcion_1 ="";
+		$accidente_conducir_opcion_1 ="";
+
+		$proteccion_opcion1_selec="";
+		$asistencia_vial_opcion1_selec="";
+		$daños_carga_opcion_selec_1 ="";
+		$adaptaciones_opcion_1 ="";
+		$extension_rc_opcion1  ="";
+
+		$cobertura_opcion_1="";
+		$cobertura_opcion_2="";
+		$cobertura_opcion_1_select ="";
+		$cobertura_opcion_2_1_select ="";
+
+		$cantidad_prima_neta_opcion1 ="";
+		$cantidad_total_anual_opcion_1 ="";
+		$primer_pago_opcion_1 ="";
+		$query_opciones="";
+		
+		$forma_de_pago =$_POST['forma_de_pago'];
+		$descripcion_tabla =mb_strtoupper($_POST['descripcion_tabla'],'UTF-8');	
+
+		$derecho_valor="";
+		$recargo_valor="";
+
+			for ($i=0; $i <$cantidad_aseguradoras ; $i++) 
+			{ 	
+				switch ($i) 
+				{
+					case 0://opcion 1
+						$empresas_opcion1 =$_POST['empresas_opcion1'];
+						if(isset($_POST['daños_opcion1_selec']))
+						{
+							$_POST['daños_opcion1_selec'];
+							$daños_opcion1_selec =$_POST['daños_opcion1_selec'];
+						}
+						if(isset($_POST['daños_material_importe_factura_1']))
+						{
+							$daños_material_importe_factura_1=$_POST['daños_material_importe_factura_1'];
+						}
+						if(isset($_POST['deducible_opcion1']))
+						{
+							$deducible_opcion1 =$_POST['deducible_opcion1'];	
+						}
+						if(isset($_POST['cristales_opcion1_selec']))
+						{
+							$cristales_opcion1_selec =$_POST['cristales_opcion1_selec'];
+						}
+						if(isset($_POST['robo_opcion1_selec']))
+						{
+							$robo_opcion1_selec=$_POST['robo_opcion1_selec'];
+						}
+						if(isset($_POST['robo_importe_factura_1']))
+						{
+							$robo_importe_factura_1=$_POST['robo_importe_factura_1'];
+						}
+						if(isset($_POST['deducible_rt1']))
+						{
+								$deducible_rt1=$_POST['deducible_rt1'];	
+						}
+						$daños_tercero_opcion_1=$_POST['daños_tercero_opcion_1'];
+						$deducible_de_rc_opcion1=$_POST['deducible_de_rc_opcion1'];
+						$fallecimiento_opcion_1 =$_POST['fallecimiento_opcion_1'];
+						$gastos_medicos_opcion_1 =$_POST['gastos_medicos_opcion_1'];
+						$accidente_conducir_opcion_1 =$_POST['accidente_conducir_opcion_1'];
+						
+						$proteccion_opcion1_selec=$_POST['proteccion_opcion1_selec'];
+						$asistencia_vial_opcion1_selec=$_POST['asistencia_vial_opcion1_selec'];
+						$daños_carga_opcion_selec_1 =$_POST['daños_carga_opcion_selec_1'];
+						$adaptaciones_opcion_1 =$_POST['adaptaciones_opcion_1'];
+						$extension_rc_opcion1  =$_POST['extension_rc_opcion1'];
+
+						if(!empty($_POST['cobertura_opcion_1']))
+						{
+							$cobertura_opcion_1=mb_strtoupper($_POST['cobertura_opcion_1'],'UTF-8');
+							$cobertura_opcion_1_select =$_POST['cobertura_opcion_1_select'];
+						}
+						if(!empty($_POST['cobertura_opcion_2']))
+						{
+							$cobertura_opcion_2=mb_strtoupper($_POST['cobertura_opcion_2'],'UTF-8');
+							$cobertura_opcion_2_1_select =$_POST['cobertura_opcion_2_1_select'];
+						}
+
+						$cantidad_prima_neta_opcion1 =$_POST['cantidad_prima_neta_opcion1'];
+						$cantidad_total_anual_opcion_1 =$_POST['cantidad_total_anual_opcion_1'];
+						$primer_pago_opcion_1 =$_POST['primer_pago_opcion_1'];
+
+						
+
+						$derecho = "SELECT*from costo_derecho_poliza
+						where id_tabla_aseguradora=:id_tabla_aseguradora";
+						$query_derecho= $conexion->prepare($derecho);
+						$query_derecho->execute(array(
+							":id_tabla_aseguradora"=>$_POST['empresas_opcion1']
+						));
+
+						
+						$derecho_final=$query_derecho->fetch(PDO::FETCH_ASSOC);
+						$derecho_valor=$derecho_final['derecho_costo'];
+						
+						
+					
+						
+						switch ($forma_de_pago) 
+						{
+							case 'ANUAL':
+								$recargo_valor="";
+								break;
+							
+							default:
+								$recargo = "SELECT*from recargo_por_cargo_fraccionado
+								where id_tabla_aseguradoras_recargo=:id_tabla_aseguradoras_recargo
+								and
+								forma_de_pago=:forma_de_pago";
+								$query_recargo= $conexion->prepare($recargo);
+								$query_recargo->execute(array(
+									":id_tabla_aseguradoras_recargo"=>$_POST['empresas_opcion1'],
+									":forma_de_pago"=>$forma_de_pago
+								));
+								$recargo_final=$query_recargo->fetch(PDO::FETCH_ASSOC);
+								$recargo_valor=$recargo_final['cantidad_recargo'];
+								break;
+						}
+
+
+						$aseguradora_ins="SELECT * from aseguradoras
+						where id_aseguradora=:id_aseguradora";
+						$query_ase=$conexion->prepare($aseguradora_ins);
+						$query_ase->execute(array(
+							":id_aseguradora"=>$empresas_opcion1
+						));
+						$nombre_final=$query_ase->fetch(PDO::FETCH_ASSOC);
+						$empresas_opcion1=str_replace('_',' ',$nombre_final['nombre_aseguradora']);
+					break;
+					
+					case 1://opcion 2
+					$empresas_opcion1 =$_POST['empresas_opcion2'];
+						if(isset($_POST['daños_opcion2_selec']))
+						{
+							$daños_opcion1_selec =$_POST['daños_opcion2_selec'];
+						}
+						if(isset($_POST['daños_material_importe_factura_2']))
+						{
+							$daños_material_importe_factura_1=$_POST['daños_material_importe_factura_2'];
+						}
+						if(isset($_POST['deducible_opcion2']))
+						{
+							$deducible_opcion1 =$_POST['deducible_opcion2'];	
+						}
+						if(isset($_POST['cristales_opcion2_selec']))
+						{
+							$cristales_opcion1_selec =$_POST['cristales_opcion2_selec'];
+						}
+						if(isset($_POST['robo_opcion2_selec']))
+						{
+							$robo_opcion1_selec=$_POST['robo_opcion2_selec'];
+						}
+						if(isset($_POST['robo_importe_factura_2']))
+						{
+							$robo_importe_factura_1=$_POST['robo_importe_factura_2'];
+						}
+						if(isset($_POST['deducible_rt2']))
+						{
+								$deducible_rt1=$_POST['deducible_rt2'];	
+						}
+						$daños_tercero_opcion_1=$_POST['daños_tercero_opcion_2'];
+						$deducible_de_rc_opcion1=$_POST['deducible_de_rc_opcion2'];
+						$fallecimiento_opcion_1 =$_POST['fallecimiento_opcion_2'];
+						$gastos_medicos_opcion_1 =$_POST['gastos_medicos_opcion_2'];
+						$accidente_conducir_opcion_1 =$_POST['accidente_conducir_opcion_2'];
+						
+						$proteccion_opcion1_selec=$_POST['proteccion_opcion2_selec'];
+						$asistencia_vial_opcion1_selec=$_POST['asistencia_vial_opcion2_selec'];
+						$daños_carga_opcion_selec_1 =$_POST['daños_carga_opcion_selec_2'];
+						$adaptaciones_opcion_1 =$_POST['adaptaciones_opcion_2'];
+						$extension_rc_opcion1  =$_POST['extension_rc_opcion2'];
+
+						if(!empty($_POST['cobertura_opcion_1']))
+						{
+							$cobertura_opcion_1=mb_strtoupper($_POST['cobertura_opcion_1'],'UTF-8');
+							$cobertura_opcion_1_select =$_POST['cobertura_opcion_2_select'];
+						}
+						if(!empty($_POST['cobertura_opcion_2']))
+						{
+							$cobertura_opcion_2=mb_strtoupper($_POST['cobertura_opcion_2'],'UTF-8');
+							$cobertura_opcion_2_1_select =$_POST['cobertura_opcion_2_2_select'];
+						}
+
+						$cantidad_prima_neta_opcion1 =$_POST['cantidad_prima_neta_opcion2'];
+						$cantidad_total_anual_opcion_1 =$_POST['cantidad_total_anual_opcion_2'];
+						$primer_pago_opcion_1 =$_POST['primer_pago_opcion_2'];
+
+						
+
+						$derecho = "SELECT*from costo_derecho_poliza
+						where id_tabla_aseguradora=:id_tabla_aseguradora";
+						$query_derecho= $conexion->prepare($derecho);
+						$query_derecho->execute(array(
+							":id_tabla_aseguradora"=>$_POST['empresas_opcion1']
+						));
+
+						
+						$derecho_final=$query_derecho->fetch(PDO::FETCH_ASSOC);
+						$derecho_valor=$derecho_final['derecho_costo'];
+						
+						
+					
+						
+						switch ($forma_de_pago) 
+						{
+							case 'ANUAL':
+								$recargo_valor="";
+								break;
+							
+							default:
+								$recargo = "SELECT*from recargo_por_cargo_fraccionado
+								where id_tabla_aseguradoras_recargo=:id_tabla_aseguradoras_recargo
+								and
+								forma_de_pago=:forma_de_pago";
+								$query_recargo= $conexion->prepare($recargo);
+								$query_recargo->execute(array(
+									":id_tabla_aseguradoras_recargo"=>$_POST['empresas_opcion1'],
+									":forma_de_pago"=>$forma_de_pago
+								));
+								$recargo_final=$query_recargo->fetch(PDO::FETCH_ASSOC);
+								$recargo_valor=$recargo_final['cantidad_recargo'];
+								break;
+						}
+
+
+						$aseguradora_ins="SELECT * from aseguradoras
+						where id_aseguradora=:id_aseguradora";
+						$query_ase=$conexion->prepare($aseguradora_ins);
+						$query_ase->execute(array(
+							":id_aseguradora"=>$empresas_opcion1
+						));
+						$nombre_final=$query_ase->fetch(PDO::FETCH_ASSOC);
+						$empresas_opcion1=str_replace('_',' ',$nombre_final['nombre_aseguradora']);
+
+
+
+					break;
+					case 2://opcion 3
+					$empresas_opcion1 =$_POST['empresas_opcion3'];
+						if(isset($_POST['daños_opcion3_selec']))
+						{
+							$daños_opcion1_selec =$_POST['daños_opcion3_selec'];
+						}
+						if(isset($_POST['daños_material_importe_factura_3']))
+						{
+							$daños_material_importe_factura_1=$_POST['daños_material_importe_factura_3'];
+						}
+						if(isset($_POST['deducible_opcion3']))
+						{
+							$deducible_opcion1 =$_POST['deducible_opcion3'];	
+						}
+						if(isset($_POST['cristales_opcion3_selec']))
+						{
+							$cristales_opcion1_selec =$_POST['cristales_opcion3_selec'];
+						}
+						if(isset($_POST['robo_opcion3_selec']))
+						{
+							$robo_opcion1_selec=$_POST['robo_opcion3_selec'];
+						}
+						if(isset($_POST['robo_importe_factura_3']))
+						{
+							$robo_importe_factura_1=$_POST['robo_importe_factura_3'];
+						}
+						if(isset($_POST['deducible_rt3']))
+						{
+								$deducible_rt1=$_POST['deducible_rt3'];	
+						}
+						$daños_tercero_opcion_1=$_POST['daños_tercero_opcion_3'];
+						$deducible_de_rc_opcion1=$_POST['deducible_de_rc_opcion3'];
+						$fallecimiento_opcion_1 =$_POST['fallecimiento_opcion_3'];
+						$gastos_medicos_opcion_1 =$_POST['gastos_medicos_opcion_3'];
+						$accidente_conducir_opcion_1 =$_POST['accidente_conducir_opcion_3'];
+						
+						$proteccion_opcion1_selec=$_POST['proteccion_opcion3_selec'];
+						$asistencia_vial_opcion1_selec=$_POST['asistencia_vial_opcion3_selec'];
+						$daños_carga_opcion_selec_1 =$_POST['daños_carga_opcion_selec_3'];
+						$adaptaciones_opcion_1 =$_POST['adaptaciones_opcion_3'];
+						$extension_rc_opcion1  =$_POST['extension_rc_opcion3'];
+
+						if(!empty($_POST['cobertura_opcion_1']))
+						{
+							$cobertura_opcion_1=mb_strtoupper($_POST['cobertura_opcion_1'],'UTF-8');
+							$cobertura_opcion_1_select =$_POST['cobertura_opcion_3_select'];
+						}
+						if(!empty($_POST['cobertura_opcion_2']))
+						{
+							$cobertura_opcion_2=mb_strtoupper($_POST['cobertura_opcion_2'],'UTF-8');
+							$cobertura_opcion_2_1_select =$_POST['cobertura_opcion_2_3_select'];
+						}
+
+						$cantidad_prima_neta_opcion1 =$_POST['cantidad_prima_neta_opcion3'];
+						$cantidad_total_anual_opcion_1 =$_POST['cantidad_total_anual_opcion_3'];
+						$primer_pago_opcion_1 =$_POST['primer_pago_opcion_3'];
+
+							$derecho = "SELECT*from costo_derecho_poliza
+						where id_tabla_aseguradora=:id_tabla_aseguradora";
+						$query_derecho= $conexion->prepare($derecho);
+						$query_derecho->execute(array(
+							":id_tabla_aseguradora"=>$_POST['empresas_opcion1']
+						));
+
+						
+						$derecho_final=$query_derecho->fetch(PDO::FETCH_ASSOC);
+						$derecho_valor=$derecho_final['derecho_costo'];
+						
+						
+					
+						
+						switch ($forma_de_pago) 
+						{
+							case 'ANUAL':
+								$recargo_valor="";
+								break;
+							
+							default:
+								$recargo = "SELECT*from recargo_por_cargo_fraccionado
+								where id_tabla_aseguradoras_recargo=:id_tabla_aseguradoras_recargo
+								and
+								forma_de_pago=:forma_de_pago";
+								$query_recargo= $conexion->prepare($recargo);
+								$query_recargo->execute(array(
+									":id_tabla_aseguradoras_recargo"=>$_POST['empresas_opcion1'],
+									":forma_de_pago"=>$forma_de_pago
+								));
+								$recargo_final=$query_recargo->fetch(PDO::FETCH_ASSOC);
+								$recargo_valor=$recargo_final['cantidad_recargo'];
+								break;
+						}
+
+
+						$aseguradora_ins="SELECT * from aseguradoras
+						where id_aseguradora=:id_aseguradora";
+						$query_ase=$conexion->prepare($aseguradora_ins);
+						$query_ase->execute(array(
+							":id_aseguradora"=>$empresas_opcion1
+						));
+						$nombre_final=$query_ase->fetch(PDO::FETCH_ASSOC);
+						$empresas_opcion1=str_replace('_',' ',$nombre_final['nombre_aseguradora']);
+
+
+					break;
+					case 3://opcion 4
+					$empresas_opcion1 =$_POST['empresas_opcion4'];
+						if(isset($_POST['daños_opcion4_selec']))
+						{
+							$daños_opcion1_selec =$_POST['daños_opcion4_selec'];
+						}
+						if(isset($_POST['daños_material_importe_factura_4']))
+						{
+							$daños_material_importe_factura_1=$_POST['daños_material_importe_factura_4'];
+						}
+						if(isset($_POST['deducible_opcion4']))
+						{
+							$deducible_opcion1 =$_POST['deducible_opcion4'];	
+						}
+						if(isset($_POST['cristales_opcion4_selec']))
+						{
+							$cristales_opcion1_selec =$_POST['cristales_opcion4_selec'];
+						}
+						if(isset($_POST['robo_opcion4_selec']))
+						{
+							$robo_opcion1_selec=$_POST['robo_opcion4_selec'];
+						}
+						if(isset($_POST['robo_importe_factura_4']))
+						{
+							$robo_importe_factura_1=$_POST['robo_importe_factura_4'];
+						}
+						if(isset($_POST['deducible_rt4']))
+						{
+								$deducible_rt1=$_POST['deducible_rt4'];	
+						}
+						$daños_tercero_opcion_1=$_POST['daños_tercero_opcion_4'];
+						$deducible_de_rc_opcion1=$_POST['deducible_de_rc_opcion4'];
+						$fallecimiento_opcion_1 =$_POST['fallecimiento_opcion_4'];
+						$gastos_medicos_opcion_1 =$_POST['gastos_medicos_opcion_4'];
+						$accidente_conducir_opcion_1 =$_POST['accidente_conducir_opcion_4'];
+						
+						$proteccion_opcion1_selec=$_POST['proteccion_opcion4_selec'];
+						$asistencia_vial_opcion1_selec=$_POST['asistencia_vial_opcion4_selec'];
+						$daños_carga_opcion_selec_1 =$_POST['daños_carga_opcion_selec_4'];
+						$adaptaciones_opcion_1 =$_POST['adaptaciones_opcion_4'];
+						$extension_rc_opcion1  =$_POST['extension_rc_opcion4'];
+
+						if(!empty($_POST['cobertura_opcion_1']))
+						{
+							$cobertura_opcion_1=mb_strtoupper($_POST['cobertura_opcion_1'],'UTF-8');
+							$cobertura_opcion_1_select =$_POST['cobertura_opcion_4_select'];
+						}
+						if(!empty($_POST['cobertura_opcion_2']))
+						{
+							$cobertura_opcion_2=mb_strtoupper($_POST['cobertura_opcion_2'],'UTF-8');
+							$cobertura_opcion_2_1_select =$_POST['cobertura_opcion_2_4_select'];
+						}
+
+						$cantidad_prima_neta_opcion1 =$_POST['cantidad_prima_neta_opcion4'];
+						$cantidad_total_anual_opcion_1 =$_POST['cantidad_total_anual_opcion_4'];
+						$primer_pago_opcion_1 =$_POST['primer_pago_opcion_4'];
+
+							$derecho = "SELECT*from costo_derecho_poliza
+						where id_tabla_aseguradora=:id_tabla_aseguradora";
+						$query_derecho= $conexion->prepare($derecho);
+						$query_derecho->execute(array(
+							":id_tabla_aseguradora"=>$_POST['empresas_opcion1']
+						));
+
+						
+						$derecho_final=$query_derecho->fetch(PDO::FETCH_ASSOC);
+						$derecho_valor=$derecho_final['derecho_costo'];
+						
+						
+					
+						
+						switch ($forma_de_pago) 
+						{
+							case 'ANUAL':
+								$recargo_valor="";
+								break;
+							
+							default:
+								$recargo = "SELECT*from recargo_por_cargo_fraccionado
+								where id_tabla_aseguradoras_recargo=:id_tabla_aseguradoras_recargo
+								and
+								forma_de_pago=:forma_de_pago";
+								$query_recargo= $conexion->prepare($recargo);
+								$query_recargo->execute(array(
+									":id_tabla_aseguradoras_recargo"=>$_POST['empresas_opcion1'],
+									":forma_de_pago"=>$forma_de_pago
+								));
+								$recargo_final=$query_recargo->fetch(PDO::FETCH_ASSOC);
+								$recargo_valor=$recargo_final['cantidad_recargo'];
+								break;
+						}
+
+
+						$aseguradora_ins="SELECT * from aseguradoras
+						where id_aseguradora=:id_aseguradora";
+						$query_ase=$conexion->prepare($aseguradora_ins);
+						$query_ase->execute(array(
+							":id_aseguradora"=>$empresas_opcion1
+						));
+						$nombre_final=$query_ase->fetch(PDO::FETCH_ASSOC);
+						$empresas_opcion1=str_replace('_',' ',$nombre_final['nombre_aseguradora']);
+
+
+
+					break;
+					case 4://opcion 5
+
+					$empresas_opcion1 =$_POST['empresas_opcion5'];
+						if(isset($_POST['daños_opcion5_selec']))
+						{
+							$daños_opcion1_selec =$_POST['daños_opcion5_selec'];
+						}
+						if(isset($_POST['daños_material_importe_factura_5']))
+						{
+							$daños_material_importe_factura_1=$_POST['daños_material_importe_factura_5'];
+						}
+						if(isset($_POST['deducible_opcion5']))
+						{
+							$deducible_opcion1 =$_POST['deducible_opcion5'];	
+						}
+						if(isset($_POST['cristales_opcion5_selec']))
+						{
+							$cristales_opcion1_selec =$_POST['cristales_opcion5_selec'];
+						}
+						if(isset($_POST['robo_opcion5_selec']))
+						{
+							$robo_opcion1_selec=$_POST['robo_opcion5_selec'];
+						}
+						if(isset($_POST['robo_importe_factura_5']))
+						{
+							$robo_importe_factura_1=$_POST['robo_importe_factura_5'];
+						}
+						if(isset($_POST['deducible_rt5']))
+						{
+								$deducible_rt1=$_POST['deducible_rt5'];	
+						}
+						$daños_tercero_opcion_1=$_POST['daños_tercero_opcion_5'];
+						$deducible_de_rc_opcion1=$_POST['deducible_de_rc_opcion5'];
+						$fallecimiento_opcion_1 =$_POST['fallecimiento_opcion_5'];
+						$gastos_medicos_opcion_1 =$_POST['gastos_medicos_opcion_5'];
+						$accidente_conducir_opcion_1 =$_POST['accidente_conducir_opcion_5'];
+						
+						$proteccion_opcion1_selec=$_POST['proteccion_opcion5_selec'];
+						$asistencia_vial_opcion1_selec=$_POST['asistencia_vial_opcion5_selec'];
+						$daños_carga_opcion_selec_1 =$_POST['daños_carga_opcion_selec_5'];
+						$adaptaciones_opcion_1 =$_POST['adaptaciones_opcion_5'];
+						$extension_rc_opcion1  =$_POST['extension_rc_opcion5'];
+
+						if(!empty($_POST['cobertura_opcion_1']))
+						{
+							$cobertura_opcion_1=mb_strtoupper($_POST['cobertura_opcion_1'],'UTF-8');
+							$cobertura_opcion_1_select =$_POST['cobertura_opcion_5_select'];
+						}
+						if(!empty($_POST['cobertura_opcion_2']))
+						{
+							$cobertura_opcion_2=mb_strtoupper($_POST['cobertura_opcion_2'],'UTF-8');
+							$cobertura_opcion_2_1_select =$_POST['cobertura_opcion_2_5_select'];
+						}
+
+						$cantidad_prima_neta_opcion1 =$_POST['cantidad_prima_neta_opcion5'];
+						$cantidad_total_anual_opcion_1 =$_POST['cantidad_total_anual_opcion_5'];
+						$primer_pago_opcion_1 =$_POST['primer_pago_opcion_5'];
+
+							$derecho = "SELECT*from costo_derecho_poliza
+						where id_tabla_aseguradora=:id_tabla_aseguradora";
+						$query_derecho= $conexion->prepare($derecho);
+						$query_derecho->execute(array(
+							":id_tabla_aseguradora"=>$_POST['empresas_opcion1']
+						));
+
+						
+						$derecho_final=$query_derecho->fetch(PDO::FETCH_ASSOC);
+						$derecho_valor=$derecho_final['derecho_costo'];
+						
+						
+					
+						
+						switch ($forma_de_pago) 
+						{
+							case 'ANUAL':
+								$recargo_valor="";
+								break;
+							
+							default:
+								$recargo = "SELECT*from recargo_por_cargo_fraccionado
+								where id_tabla_aseguradoras_recargo=:id_tabla_aseguradoras_recargo
+								and
+								forma_de_pago=:forma_de_pago";
+								$query_recargo= $conexion->prepare($recargo);
+								$query_recargo->execute(array(
+									":id_tabla_aseguradoras_recargo"=>$_POST['empresas_opcion1'],
+									":forma_de_pago"=>$forma_de_pago
+								));
+								$recargo_final=$query_recargo->fetch(PDO::FETCH_ASSOC);
+								$recargo_valor=$recargo_final['cantidad_recargo'];
+								break;
+						}
+
+
+						$aseguradora_ins="SELECT * from aseguradoras
+						where id_aseguradora=:id_aseguradora";
+						$query_ase=$conexion->prepare($aseguradora_ins);
+						$query_ase->execute(array(
+							":id_aseguradora"=>$empresas_opcion1
+						));
+						$nombre_final=$query_ase->fetch(PDO::FETCH_ASSOC);
+						$empresas_opcion1=str_replace('_',' ',$nombre_final['nombre_aseguradora']);
+
+
+
+					break;
+
+						
+						
+				}
+			
+			$insertar_opciones="
+					INSERT INTO
+					opciones_cotizaciones
+					(
+						Id_tabla_contizacion_autos_opciones,
+						aseguradora_opciones,
+						danos_materiales_opciones,
+						importe_factura_danos_materiales_opciones,
+						deducible_dm_opciones,
+						cristales_opciones,
+						robo_total_opciones,
+						importe_factura_robo_total_opciones,
+						deducible_rt_opciones,
+						rc_danos_a_terceros_opciones,
+						deducible_de_rc_opciones,
+						rc_fallecimiento_opciones,
+						gastos_medicos_opciones,
+						accidentes_conductor_opciones,
+						proteccion_legal_opciones,
+						asistencia_legal_opciones,
+						danos_por_la_carga_opciones,
+						adaptaciones_opciones,
+						descripcion_opciones,
+						extension_rc_opciones,
+						opcion1_nombre_opciones,
+						opcion1_valor_opciones,
+						opcion2_nombre_opciones,
+						opcion2_valor_opciones,
+						forma_de_pago_opciones,
+						prima_neta_anual_opciones,
+						prima_total_anual_opciones,
+						primer_pago_opciones,
+						derecho_pago_opciones,
+						recargo_por_cargo_opciones,
+						fecha_alta_opciones
+					)
+					values
+					(
+						:Id_tabla_contizacion_autos_opciones,
+						:aseguradora_opciones,
+						:danos_materiales_opciones,
+						:importe_factura_danos_materiales_opciones,
+						:deducible_dm_opciones,
+						:cristales_opciones,
+						:robo_total_opciones,
+						:importe_factura_robo_total_opciones,
+						:deducible_rt_opciones,
+						:rc_danos_a_terceros_opciones,
+						:deducible_de_rc_opciones,
+						:rc_fallecimiento_opciones,
+						:gastos_medicos_opciones,
+						:accidentes_conductor_opciones,
+						:proteccion_legal_opciones,
+						:asistencia_legal_opciones,
+						:danos_por_la_carga_opciones,
+						:adaptaciones_opciones,
+						:descripcion_opciones,
+						:extension_rc_opciones,
+						:opcion1_nombre_opciones,
+						:opcion1_valor_opciones,
+						:opcion2_nombre_opciones,
+						:opcion2_valor_opciones,
+						:forma_de_pago_opciones,
+						:prima_neta_anual_opciones,
+						:prima_total_anual_opciones,
+						:primer_pago_opciones,
+						:derecho_pago_opciones,
+						:recargo_por_cargo_opciones,
+						:fecha_alta_opciones
+					)";
+					$query_opciones=$conexion->prepare($insertar_opciones);
+					$query_opciones->execute(array(
+						":Id_tabla_contizacion_autos_opciones"=>$dato_final['Id_contizacion_autos'],
+						":aseguradora_opciones"=>$empresas_opcion1,
+						":danos_materiales_opciones"=>$daños_opcion1_selec,
+						":importe_factura_danos_materiales_opciones"=>$daños_material_importe_factura_1,
+						":deducible_dm_opciones"=>$deducible_opcion1,
+						":cristales_opciones"=>$cristales_opcion1_selec,
+						":robo_total_opciones"=>$robo_opcion1_selec,
+						":importe_factura_robo_total_opciones"=>$robo_importe_factura_1,
+						":deducible_rt_opciones"=>$deducible_rt1,
+						":rc_danos_a_terceros_opciones"=>$daños_tercero_opcion_1,
+						":deducible_de_rc_opciones"=>$deducible_de_rc_opcion1,
+						":rc_fallecimiento_opciones"=>$fallecimiento_opcion_1,
+						":gastos_medicos_opciones"=>$gastos_medicos_opcion_1,
+						":accidentes_conductor_opciones"=>$accidente_conducir_opcion_1,
+						":proteccion_legal_opciones"=>$proteccion_opcion1_selec,
+						":asistencia_legal_opciones"=>$asistencia_vial_opcion1_selec,
+						":danos_por_la_carga_opciones"=>$daños_carga_opcion_selec_1,
+						":adaptaciones_opciones"=>$adaptaciones_opcion_1,
+						":descripcion_opciones"=>$descripcion_tabla,
+						":extension_rc_opciones"=>$extension_rc_opcion1,
+						":opcion1_nombre_opciones"=>$cobertura_opcion_1,
+						":opcion1_valor_opciones"=>$cobertura_opcion_1_select,
+						":opcion2_nombre_opciones"=>$cobertura_opcion_2,
+						":opcion2_valor_opciones"=>$cobertura_opcion_2_1_select,
+						":forma_de_pago_opciones"=>$forma_de_pago,
+						":prima_neta_anual_opciones"=>$cantidad_prima_neta_opcion1,
+						":prima_total_anual_opciones"=>$cantidad_total_anual_opcion_1,
+						":primer_pago_opciones"=>$primer_pago_opcion_1,
+						":derecho_pago_opciones"=>$derecho_valor,
+						":recargo_por_cargo_opciones"=>$recargo_valor,
+						":fecha_alta_opciones"=>$fecha_hoy
+					));
+			}//aqui termina el for
+			if($query_opciones==true)
+				{
+					//buscando el nombre del prospecto o asegurado
+					$asegurado = "SELECT*
+					from
+					prospectos
+					where id_prospectos=:id_prospectos
+					";
+					$query_asegurado=$conexion->prepare($asegurado);
+					$query_asegurado->execute(array(
+						":id_prospectos"=>$prospectos_asegurados
+					));
+					$datos_finales=$query_asegurado->fetch(PDO::FETCH_ASSOC);
+
+					$nombre_mandar="";
+					if(!empty($datos_finales['nombre_prospecto']))
+					{
+						$nombre_mandar=str_replace('_',' ',$datos_finales['nombre_prospecto']);
+
+					}
+					else
+					{
+						$nombre_mandar=str_replace('_',' ',$datos_finales['nombres_persona_prospecto']).' '.str_replace('_',' ',$datos_finales['apellido_parteno_prospecto']).' '.str_replace('_',' ',$datos_finales['apellido_materno_prospecto']).' ';
+						
+					}
+					echo'1*'.$dato_final['Id_contizacion_autos'].'*'.$nombre_mandar.'-'.$descripcion;
+				}
+				else
+				{
+					echo'0';
+				}
+		}
+		else
+		{
+			echo'ERROR 341.ALTA_COTIZACION_AUTOS.El servidor no responde';
+		}
+	} 
+	catch (PDOException $e) 
+	{
+		echo $e;	
+	}
+}
+
+ ?>

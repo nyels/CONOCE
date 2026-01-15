@@ -1,0 +1,930 @@
+<?php 
+require('metodos/conexion.php');
+
+
+$id_cotizacion = $_POST['pdf'];
+$id_cotizacion=explode('*',$id_cotizacion);
+//$id_cotizacion='1';
+
+$conexion=new conexion();
+$conexion_final=$conexion->abrir();
+$datos_principales = "SELECT
+
+Id_contizacion_autos,
+tipo_cotizacion,
+hora_solicitada,
+Id_contacto_tabla_autos,
+Id_prospecto_tabla_autos,
+marca_auto,
+descripcion_auto,
+modelo_auto,
+uso_de_unidad_auto,
+tipo_auto,
+compania_autos,
+fecha_vigencia_autos,
+poliza_renovar_autos,
+prima_ano_autos,
+tipo_de_carga,
+paquete_solicitado,
+cantidad_aseguradoras,
+fecha_alta_auto,
+dio_alta_auto,
+c.apellido_paterno_contacto,
+c.apellido_materno_contacto,
+c.nombre_contacto,
+p.tipo_prospecto,
+p.nombre_prospecto,
+p.apellido_parteno_prospecto,
+p.apellido_materno_prospecto,
+p.nombres_persona_prospecto,
+p.codigo_postal_prospecto,
+p.colonia_prospecto,
+p.estado_prospecto,
+e.nombre_estado,
+u.nombre_persona
+from
+cotizacion_autos
+left join contactos c on c.id_contacto=cotizacion_autos.Id_contacto_tabla_autos
+left join prospectos p on p.id_prospectos=cotizacion_autos.Id_prospecto_tabla_autos
+left join estados e on e.id_estados=p.estado_prospecto
+left join usuarios u on u.nombre_usuario=cotizacion_autos.dio_alta_auto
+where Id_contizacion_autos=:Id_contizacion_autos";
+$query_principal=$conexion_final->prepare($datos_principales);
+$query_principal->execute(array(
+	":Id_contizacion_autos"=>$id_cotizacion[0]
+));
+
+$datos_finales=$query_principal->fetch(PDO::FETCH_ASSOC);
+
+
+$datos_opciones="SELECT
+Id_tabla_contizacion_autos_opciones,
+aseguradora_opciones,
+danos_materiales_opciones,
+importe_factura_danos_materiales_opciones,
+deducible_dm_opciones,
+cristales_opciones,
+robo_total_opciones,
+importe_factura_robo_total_opciones,
+deducible_rt_opciones,
+rc_danos_a_terceros_opciones,
+deducible_de_rc_opciones,
+rc_fallecimiento_opciones,
+gastos_medicos_opciones,
+accidentes_conductor_opciones,
+proteccion_legal_opciones,
+asistencia_legal_opciones,
+danos_por_la_carga_opciones,
+adaptaciones_opciones,
+descripcion_opciones,
+extension_rc_opciones,
+opcion1_nombre_opciones,
+opcion1_valor_opciones,
+opcion2_nombre_opciones,
+opcion2_valor_opciones,
+forma_de_pago_opciones,
+prima_neta_anual_opciones,
+prima_total_anual_opciones,
+primer_pago_opciones,
+a.foto
+from
+opciones_cotizaciones
+left join aseguradoras a on a.nombre_aseguradora=opciones_cotizaciones.aseguradora_opciones
+where 
+Id_tabla_contizacion_autos_opciones=:Id_tabla_contizacion_autos_opciones
+order by id_opciones asc
+";
+$query_opcion=$conexion_final->prepare($datos_opciones);
+$query_opcion->execute(array(
+	":Id_tabla_contizacion_autos_opciones"=>$id_cotizacion[0]
+));
+$i=0;
+$arreglo=array();
+foreach ($query_opcion as $datos) 
+{
+
+	$arreglo[$i]['aseguradora_opciones']=$datos['aseguradora_opciones'];
+	$arreglo[$i]['foto']=$datos['foto'];
+	$arreglo[$i]['danos_materiales_opciones']=$datos['danos_materiales_opciones'];
+	$arreglo[$i]['importe_factura_danos_materiales_opciones']=$datos['importe_factura_danos_materiales_opciones'];
+	$arreglo[$i]['deducible_dm_opciones']=$datos['deducible_dm_opciones'];
+	$arreglo[$i]['cristales_opciones']=$datos['cristales_opciones'];
+	$arreglo[$i]['robo_total_opciones']=$datos['robo_total_opciones'];
+	$arreglo[$i]['importe_factura_robo_total_opciones']=$datos['importe_factura_robo_total_opciones'];
+	$arreglo[$i]['deducible_rt_opciones']=$datos['deducible_rt_opciones'];
+	$arreglo[$i]['rc_danos_a_terceros_opciones']=$datos['rc_danos_a_terceros_opciones'];
+	$arreglo[$i]['deducible_de_rc_opciones']=$datos['deducible_de_rc_opciones'];
+	$arreglo[$i]['rc_fallecimiento_opciones']=$datos['rc_fallecimiento_opciones'];
+	$arreglo[$i]['gastos_medicos_opciones']=$datos['gastos_medicos_opciones'];
+	$arreglo[$i]['accidentes_conductor_opciones']=$datos['accidentes_conductor_opciones'];
+	$arreglo[$i]['proteccion_legal_opciones']=$datos['proteccion_legal_opciones'];
+	$arreglo[$i]['asistencia_legal_opciones']=$datos['asistencia_legal_opciones'];
+	$arreglo[$i]['danos_por_la_carga_opciones']=$datos['danos_por_la_carga_opciones'];
+	$arreglo[$i]['adaptaciones_opciones']=$datos['adaptaciones_opciones'];
+	$arreglo[$i]['descripcion_opciones']=$datos['descripcion_opciones'];
+	$arreglo[$i]['extension_rc_opciones']=$datos['extension_rc_opciones'];
+	$arreglo[$i]['opcion1_nombre_opciones']=$datos['opcion1_nombre_opciones'];
+	$arreglo[$i]['opcion1_valor_opciones']=$datos['opcion1_valor_opciones'];
+	$arreglo[$i]['opcion2_nombre_opciones']=$datos['opcion2_nombre_opciones'];
+	$arreglo[$i]['opcion2_valor_opciones']=$datos['opcion2_valor_opciones'];
+	$arreglo[$i]['forma_de_pago_opciones']=$datos['forma_de_pago_opciones'];
+	$arreglo[$i]['prima_neta_anual_opciones']=$datos['prima_neta_anual_opciones'];
+	$arreglo[$i]['prima_total_anual_opciones']=$datos['prima_total_anual_opciones'];
+	$arreglo[$i]['prima_total_anual_opciones']=$datos['prima_total_anual_opciones'];
+	$arreglo[$i]['primer_pago_opciones']=$datos['primer_pago_opciones'];
+	$i++;
+
+}
+
+$nombre="";
+$asegurado_imagen="";
+ ?>
+
+
+		<table class="table-condensed" border="0" align="center" style="text-align:center; border-collapse: collapse;margin-top: 30px;">
+			<tr>
+				<td  style="width: 400px;"><br><span style="font-size: 12px;">Cotización de Seguro de Automóviles Negocio:</span><br><br><span style="font-size: 12px;"><?php echo $datos_finales['tipo_cotizacion']?></span></td>
+				<td><img style="width: 250px;" src="img/logo_conoce.png"></td>
+			</tr>
+			<tr>
+				<td style="width:700px;text-align: center;font-size: 12px;" colspan="2">PONEMOS A SU CONSIDERACION LA SIGUIENTE PROPUESTA DE COTIZACION</td>
+				
+			</tr>
+
+		</table>
+
+	
+		<table class="table-condensed" border="0" align="center" style="text-align:center; border-collapse: collapse;margin-top: 10px;">
+			<tr>
+				<td style="width: 700px;" colspan="6" style="font-size: 12px;background-color: #ccc;">INFORMACIÓN DEL ASEGURADO</td>
+			
+			</tr>
+			
+			<tr>
+				<td style="font-size: 10px;width: 100px;">Nombre:</td>
+				<?php 
+						switch ($datos_finales['tipo_prospecto']) 
+						{
+							case 'FISICA':
+								$nombre=$datos_finales['nombres_persona_prospecto'].' '.$datos_finales['apellido_parteno_prospecto'].' '.str_replace('_',' ',$datos_finales['apellido_materno_prospecto']);
+								break;
+							case 'MORAL':
+								$nombre=str_replace('_',' ',$datos_finales['nombre_prospecto']);
+								break;
+						}
+				 ?>
+				<td colspan="5" style="font-size: 12px;width: 593px;border-bottom: 1px black solid;"><?php echo $nombre; ?></td>	
+			</tr>
+			<tr>
+				<td style="font-size: 10px;">CP:</td>
+				<td style="font-size: 12px;border-bottom: 1px black solid;"><?php echo$datos_finales['codigo_postal_prospecto'];?></td>
+				<td style="font-size: 10px;">Colonia:</td>
+				<td style="font-size: 12px;border-bottom: 1px black solid;"><?php echo$datos_finales['colonia_prospecto'];?></td>
+				<td style="font-size: 10px;">Estado:</td>
+				<td style="font-size: 12px;border-bottom: 1px black solid;"><?php echo$datos_finales['nombre_estado'];?></td>
+					
+			</tr>
+		</table>
+	
+	<table class="table-condensed" border="0" align="center" style="text-align:center; border-collapse: collapse;margin-top: 10px;">
+			<tr>
+				<td style="width: 700px;font-size: 12px;background-color: #ccc;" colspan="6">DESCRIPCION DEL VEHICULO</td>
+			
+			</tr>
+
+			<tr>
+				<td style="font-size: 10px;text-align:left;">Marca:</td>
+				<td colspan="2" style="font-size: 12px;border-bottom: 1px black solid;"><?php echo$datos_finales['marca_auto'];?></td>
+				<td style="font-size: 10px;">Tipo:</td>
+				<td colspan="2" style="font-size: 12px;border-bottom: 1px black solid;"><?php echo$datos_finales['tipo_auto'];?></td>
+					
+			</tr>
+			<tr>
+				<td style="font-size: 10px;text-align:left;">Descripción:</td>
+				<td colspan="5" style="text-align:center;font-size: 12px;border-bottom: 1px black solid;"><?php echo$datos_finales['descripcion_auto'];?></td>				
+			</tr>
+
+			<tr>
+				<td style="font-size: 10px;text-align:left;">Modelo:</td>
+				<td colspan="2" style="font-size: 12px;border-bottom: 1px black solid;"><?php echo$datos_finales['modelo_auto'];?></td>
+				<td style="font-size: 10px;">Uso de la unidad:</td>
+				<td colspan="2" style="font-size: 12px;border-bottom: 1px black solid;"><?php echo$datos_finales['uso_de_unidad_auto'];?></td>
+				
+				<?php 
+						switch ($datos_finales['tipo_auto']) 
+						{
+
+							case 'AUTO':
+				
+
+				?>
+						</tr>
+								<tr>
+								<td style="font-size: 10px;text-align:left;">Carga:</td>
+								<td  colspan="5" style="font-size: 12px;border-bottom: 1px black solid;">NO APLICA</td>	
+							</tr>
+				<?php			
+							break;
+
+								case 'MOTO':
+				
+
+				?>
+						</tr>
+								<tr>
+								<td style="font-size: 10px;text-align:left;">Carga:</td>
+								<td  colspan="5" style="font-size: 12px;border-bottom: 1px black solid;">NO APLICA</td>	
+							</tr>
+				<?php			
+							break;
+							default:
+				?>
+						</tr>
+								<tr>
+								<td style="font-size: 10px;text-align:left;">Carga:</td>
+								<td colspan="2" style="font-size: 10px;">Descripcion de la carga:</td>
+								<td colspan="3" style="font-size: 12px;border-bottom: 1px black solid;"><?php echo $datos_finales['tipo_de_carga'] ?></td>	
+							</tr>
+				<?php
+								break;
+						}
+				 ?>	
+			
+			
+		</table>
+		<?php 
+
+				switch ($datos_finales['tipo_cotizacion']) 
+				{
+					case 'RENOVACION':
+			?>
+				<table class="table-condensed" border="0" align="center" style="text-align:center; border-collapse: collapse;margin-top: 10px;">
+					<tr>
+						<td style="width: 700px;" colspan="6" style="font-size: 12px;background-color: #ccc;">INFORMACION POLIZA A RENOVAR</td>
+					
+					</tr>
+
+					<tr>
+						
+						<td colspan="2" style="font-size: 10px;width: 170px;">Compañía actual:</td>
+						<td style="font-size: 12px;width: 170px;border-bottom: 1px black solid;"><?php echo$datos_finales['compania_autos'] ?></td>
+						<td style="font-size: 10px;width: 170px;" colspan="2">Fin de vigencia:</td>
+						<td style="font-size: 12px;width: 170px;border-bottom: 1px black solid;"><?php echo $datos_finales['fecha_vigencia_autos'] ?></td>
+						
+					</tr>
+
+					<tr>
+						
+						<td colspan="2" style="font-size: 10px;">Póliza a renovar:</td>
+						<td style="font-size: 12px;border-bottom: 1px black solid;"><?php echo $datos_finales['poliza_renovar_autos'] ?></td>
+						<td colspan="2" style="font-size: 10px;">Prima total año anterior:</td>
+						<td style="font-size: 12px;border-bottom: 1px black solid;">$ <?php echo $datos_finales['prima_ano_autos'] ?></td>
+							
+					</tr>
+				</table>
+			<?php
+						break;
+				}
+		 ?>
+		
+
+		<table class="table-condensed" border="0" align="center" style="text-align:center; border-collapse: collapse;margin-top: 10px;width: 700px;">
+			<tr>
+				<td style="font-size: 10px;" colspan="3" style="width: 347px;text-align: right;">Paquete solicitado o contratado:</td>
+				<td  colspan="3" style="width: 347px;font-size: 12px;border-bottom: 1px black solid;text-align: center;"><?php echo$datos_finales['paquete_solicitado'] ?></td>
+			
+			</tr>
+		</table>
+
+		<table class="table-condensed" border="1" align="center" style="text-align:center; border-collapse: collapse;margin-top: 10px;width: 700px;">
+			<tr>
+				<td colspan="6" style="width: 700px; font-size: 12px;">ASEGURADORAS</td>
+			</tr>
+			<tr>
+				<td style="font-size:12px;padding-top: 0px;text-align:center;">COBERTURAS</td>
+				<?php
+				for ($m=0; $m <intval($datos_finales['cantidad_aseguradoras']) ; $m++) 
+				{ 
+
+					if(isset($arreglo[$m]['aseguradora_opciones']))
+					{
+						/*switch ($arreglo[$m]['aseguradora_opciones']) 
+									{
+										case 'AXA':
+											$asegurado_imagen='img/axa.png';
+											break;
+										case 'BANORTE':
+											$asegurado_imagen='img/banorte.png';
+											break;
+										case 'BX+':
+											$asegurado_imagen='img/bx.png';
+											break;
+										case 'CHUBB':
+											$asegurado_imagen='img/chubb.png';
+											break;
+										case 'GNP':
+											$asegurado_imagen='img/gnp.png';
+											break;
+										case 'HDI SEGUROS':
+											$asegurado_imagen='img/hdi.png';
+											break;
+										case 'QUALITAS':
+											$asegurado_imagen='img/qualitas.png';
+											break;
+									}*/
+						
+							echo'<td><img  style="width: 80px;" src="'.$arreglo[$m]['foto'].'"></td>';
+						
+					}
+					else
+					{
+						?>
+						<td  style="font-size:12px;padding-left: :0px;padding-right: 100px;"></td>
+						<?php
+					}
+				}
+				
+					switch ($datos_finales['cantidad_aseguradoras']) 
+					{
+						case '1':
+						?>
+						<td  style="font-size:12px;padding-left: :0px;padding-right: 100px;"></td>
+						<td  style="font-size:12px;padding-left: :0px;padding-right: 100px;"></td>
+						<td  style="font-size:12px;padding-left: :0px;padding-right: 100px;"></td>
+						<td  style="font-size:12px;padding-left: :0px;padding-right: 100px;"></td>
+						
+
+						<?php
+						break;
+						case '2':
+						?>
+						<td  style="font-size:12px;padding-left: :0px;padding-right: 100px;"></td>
+						<td  style="font-size:12px;padding-left: :0px;padding-right: 100px;"></td>
+						<td  style="font-size:12px;padding-left: :0px;padding-right: 100px;"></td>
+						<?php
+						break;
+						case '3':
+						?>
+						
+						<td  style="font-size:12px;padding-left: :0px;padding-right: 100px;"></td>
+						<td  style="font-size:12px;padding-left: :0px;padding-right: 100px;"></td>
+						<?php
+						break;
+						case '4':
+						?>
+						<td  style="font-size:12px;padding-left: :0px;padding-right: 100px;"></td>
+						<?php
+						break;
+					}
+								
+
+
+				 ?>
+				
+				
+				
+				
+			</tr>
+				
+
+				<?php 
+
+					switch ($datos_finales['paquete_solicitado']) 
+					{
+						case 'AMPLIA':
+							?>
+							<tr>
+								<td style="font-size:10px;padding-top: 0px;text-align:left;">Daños Materiales</td>
+								<td style="font-size: 12px;"><?php echo $arreglo[0]['danos_materiales_opciones'] ?></td>
+								<td style="font-size: 12px;"><?php if(isset($arreglo[1]['danos_materiales_opciones'])){echo$arreglo[1]['danos_materiales_opciones'];} ?></td>
+								<td style="font-size: 12px;"><?php if(isset($arreglo[2]['danos_materiales_opciones'])){echo$arreglo[2]['danos_materiales_opciones'];} ?></td>
+								<td style=" font-size:12px;"><?php if(isset($arreglo[3]['danos_materiales_opciones'])){echo$arreglo[3]['danos_materiales_opciones'];} ?></td>
+								<td style="font-size:12px;"><?php if(isset($arreglo[4]['danos_materiales_opciones'])){echo$arreglo[4]['danos_materiales_opciones'];} ?></td>
+								
+							</tr>
+
+
+							
+								<?php 
+
+									switch ($arreglo[0]['danos_materiales_opciones']) 
+									{
+										case 'V.FACTURA':
+										?>
+										<tr>
+											<td style="font-size:10px;padding-top: 0px;text-align:left;">Importe Factura</td>
+											<td style="font-size: 12px;"><?php echo '$'.number_format(floatval(str_replace(',','',$arreglo[0]['importe_factura_danos_materiales_opciones'])),2) ?></td>
+											<td style="font-size: 12px;"><?php if(isset($arreglo[1]['importe_factura_danos_materiales_opciones']) && !empty($arreglo[1]['importe_factura_danos_materiales_opciones'])){echo'$'.number_format(floatval(str_replace(',','',$arreglo[1]['importe_factura_danos_materiales_opciones'])),2);} ?></td>
+											<td style="font-size: 12px;"><?php if(isset($arreglo[2]['importe_factura_danos_materiales_opciones'])&& !empty($arreglo[2]['importe_factura_danos_materiales_opciones'])){echo'$'.number_format(floatval(str_replace(',','',$arreglo[2]['importe_factura_danos_materiales_opciones'])),2);} ?></td>
+											<td style=" font-size:12px;"><?php if(isset($arreglo[3]['importe_factura_danos_materiales_opciones'])&& !empty($arreglo[3]['importe_factura_danos_materiales_opciones'])){echo'$'.number_format(floatval(str_replace(',','',$arreglo[3]['importe_factura_danos_materiales_opciones'])),2);} ?></td>
+											<td style="font-size:12px;"><?php if(isset($arreglo[4]['importe_factura_danos_materiales_opciones'])&& !empty($arreglo[4]['importe_factura_danos_materiales_opciones'])){echo'$'.number_format(floatval(str_replace(',','',$arreglo[4]['importe_factura_danos_materiales_opciones'])),2);} ?></td>
+										</tr>
+										<?php
+											break;
+										
+										default:
+											# code...
+											break;
+									}
+								 ?>
+								
+
+								
+							
+
+							<tr>
+								<td style="font-size:10px;padding-top: 0px;text-align:left;">Deducible DM</td>
+								<td style="font-size:12px;"><?php echo '$'.number_format(floatval(str_replace(',','',$arreglo[0]['deducible_dm_opciones'])),2) ?></td>
+								<td style="font-size:12px;"><?php if(isset($arreglo[1]['deducible_dm_opciones']) && !empty($arreglo[1]['deducible_dm_opciones'])){echo'$'.number_format(floatval(str_replace(',','',$arreglo[1]['deducible_dm_opciones'])),2);} ?></td>
+								<td style="font-size:12px;"><?php if(isset($arreglo[2]['deducible_dm_opciones']) && !empty($arreglo[2]['deducible_dm_opciones'])){echo'$'.number_format(floatval(str_replace(',','',$arreglo[2]['deducible_dm_opciones'])),2);} ?></td>
+								<td style="font-size:12px;"><?php if(isset($arreglo[3]['deducible_dm_opciones']) && !empty($arreglo[3]['deducible_dm_opciones'])){echo'$'.number_format(floatval(str_replace(',','',$arreglo[3]['deducible_dm_opciones'])),2);} ?></td>
+								<td style="font-size:12px;"><?php if(isset($arreglo[4]['deducible_dm_opciones']) && !empty($arreglo[4]['deducible_dm_opciones'])){echo'$'.number_format(floatval(str_replace(',','',$arreglo[4]['deducible_dm_opciones'])),2);} ?></td>
+								
+							</tr>
+
+
+							<tr>
+								<td style="font-size:10px;padding-top: 0px;text-align:left;">Cristales</td>
+								<td style="font-size:12px;"><?php echo $arreglo[0]['cristales_opciones'] ?></td>
+								<td style="font-size:12px;"><?php if(isset($arreglo[1]['cristales_opciones']) && !empty($arreglo[1]['cristales_opciones'])){echo$arreglo[1]['cristales_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[2]['cristales_opciones']) && !empty($arreglo[2]['cristales_opciones'])){echo$arreglo[2]['cristales_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[3]['cristales_opciones']) && !empty($arreglo[3]['cristales_opciones'])){echo$arreglo[3]['cristales_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[4]['cristales_opciones']) && !empty($arreglo[4]['cristales_opciones'])){echo$arreglo[4]['cristales_opciones'];} ?></td>
+								
+							</tr>
+
+							<tr>
+								<td style="font-size:10px;padding-top: 0px;text-align:left;">Robo Total</td>
+								<td style="font-size:12px;"><?php echo $arreglo[0]['robo_total_opciones'] ?></td>
+								<td style="font-size:12px;"><?php if(isset($arreglo[1]['robo_total_opciones']) && !empty($arreglo[1]['robo_total_opciones'])){echo$arreglo[1]['robo_total_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[2]['robo_total_opciones']) && !empty($arreglo[2]['robo_total_opciones'])){echo$arreglo[2]['robo_total_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[3]['robo_total_opciones']) && !empty($arreglo[3]['robo_total_opciones'])){echo$arreglo[3]['robo_total_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[4]['robo_total_opciones']) && !empty($arreglo[4]['robo_total_opciones'])){echo$arreglo[4]['robo_total_opciones'];} ?></td>
+								
+								
+							</tr>
+
+							<?php 
+
+										switch ($arreglo[0]['robo_total_opciones']) 
+										{
+											case 'V.FACTURA':
+											?>
+											<tr>
+												<td style="font-size:10px;padding-top: 0px;text-align:left;">Importe factura</td>
+												<td style="font-size:12px;"><?php echo '$'.number_format(floatval(str_replace(',','',$arreglo[0]['importe_factura_robo_total_opciones'])),2); ?></td>
+												<td style="font-size:12px;"><?php if(isset($arreglo[1]['importe_factura_robo_total_opciones']) && strcmp($arreglo[1]['importe_factura_robo_total_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[1]['importe_factura_robo_total_opciones'])),2);} ?></td>
+												<td style="font-size:12px;"><?php if(isset($arreglo[2]['importe_factura_robo_total_opciones']) && strcmp($arreglo[2]['importe_factura_robo_total_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[2]['importe_factura_robo_total_opciones'])),2);} ?></td>
+												<td style="font-size:12px;"><?php if(isset($arreglo[3]['importe_factura_robo_total_opciones']) && strcmp($arreglo[3]['importe_factura_robo_total_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[3]['importe_factura_robo_total_opciones'])),2);} ?></td>
+												<td style="font-size:12px;"><?php if(isset($arreglo[4]['importe_factura_robo_total_opciones']) && strcmp($arreglo[4]['importe_factura_robo_total_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[4]['importe_factura_robo_total_opciones'])),2);} ?></td>
+												
+											</tr>
+											<?php
+												break;
+											
+											default:
+												# code...
+												break;
+										}
+
+								 ?>
+
+								
+							<?php 
+								
+							 ?>
+							<tr>
+								<td style="font-size:10px;padding-top: 0px;text-align:left;">Deducible RT</td>
+								<td style="font-size:12px;"><?php echo $arreglo[0]['deducible_rt_opciones'].'%' ?></td>
+								<td style="font-size:12px;"><?php if(isset($arreglo[1]['deducible_rt_opciones']) &&strcmp($arreglo[1]['deducible_rt_opciones'],'')!=0){echo$arreglo[1]['deducible_rt_opciones'].'%';} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[2]['deducible_rt_opciones']) &&strcmp($arreglo[2]['deducible_rt_opciones'],'')!=0){echo$arreglo[2]['deducible_rt_opciones'].'%';} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[3]['deducible_rt_opciones']) &&strcmp($arreglo[3]['deducible_rt_opciones'],'')!=0){echo$arreglo[3]['deducible_rt_opciones'].'%';} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[4]['deducible_rt_opciones']) &&strcmp($arreglo[4]['deducible_rt_opciones'],'')!=0){echo$arreglo[4]['deducible_rt_opciones'].'%';} ?></td>
+								
+							</tr>
+
+							
+							<?php
+							break;
+
+							case 'LIMITADA':
+
+							?>
+							<tr>
+								<td style="font-size:10px;padding-top: 0px;text-align:left;">Robo Total</td>
+								<td style="font-size:12px;"><?php echo $arreglo[0]['robo_total_opciones'] ?></td>
+								<td style="font-size:12px;"><?php if(isset($arreglo[1]['robo_total_opciones']) && strcmp($arreglo[1]['robo_total_opciones'],'')!=0){echo$arreglo[1]['robo_total_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[2]['robo_total_opciones']) && strcmp($arreglo[2]['robo_total_opciones'],'')!=0){echo$arreglo[2]['robo_total_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[3]['robo_total_opciones']) && strcmp($arreglo[3]['robo_total_opciones'],'')!=0){echo$arreglo[3]['robo_total_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[4]['robo_total_opciones']) && strcmp($arreglo[4]['robo_total_opciones'],'')!=0){echo$arreglo[4]['robo_total_opciones'];} ?></td>
+								
+								
+							</tr>
+								<?php 
+
+										switch ($arreglo[0]['robo_total_opciones']) 
+										{
+											case 'V.FACTURA':
+											?>
+											<tr>
+												<td style="font-size:10px;padding-top: 0px;text-align:left;">Importe factura</td>
+												<td style="font-size:12px;"><?php echo '$'.number_format(floatval(str_replace(',','',$arreglo[0]['importe_factura_robo_total_opciones'])),2);?></td>
+												<td style="font-size:12px;"><?php if(isset($arreglo[1]['importe_factura_robo_total_opciones']) && strcmp($arreglo[1]['importe_factura_robo_total_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[1]['importe_factura_robo_total_opciones'])),2);} ?></td>
+												<td style="font-size:12px;"><?php if(isset($arreglo[2]['importe_factura_robo_total_opciones']) && strcmp($arreglo[2]['importe_factura_robo_total_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[2]['importe_factura_robo_total_opciones'])),2);} ?></td>
+												<td style="font-size:12px;"><?php if(isset($arreglo[3]['importe_factura_robo_total_opciones']) && strcmp($arreglo[3]['importe_factura_robo_total_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[3]['importe_factura_robo_total_opciones'])),2);} ?></td>
+												<td style="font-size:12px;"><?php if(isset($arreglo[4]['importe_factura_robo_total_opciones']) && strcmp($arreglo[4]['importe_factura_robo_total_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[4]['importe_factura_robo_total_opciones'])),2);} ?></td>
+												
+											</tr>
+											<?php
+												break;
+											
+											default:
+												# code...
+												break;
+										}
+
+								 ?>
+
+						
+
+							<tr>
+								<td style="font-size:10px;padding-top: 0px;text-align:left;">Deducible RT</td>
+								<td style="font-size:12px;"><?php echo $arreglo[0]['deducible_rt_opciones'].'%' ?></td>
+								<td style="font-size:12px;"><?php if(isset($arreglo[1]['deducible_rt_opciones']) && strcmp($arreglo[1]['deducible_rt_opciones'],'')!=0){echo$arreglo[1]['deducible_rt_opciones'].'%';} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[2]['deducible_rt_opciones']) && strcmp($arreglo[2]['deducible_rt_opciones'],'')!=0){echo$arreglo[2]['deducible_rt_opciones'].'%';} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[3]['deducible_rt_opciones']) && strcmp($arreglo[3]['deducible_rt_opciones'],'')!=0){echo$arreglo[3]['deducible_rt_opciones'].'%';} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[4]['deducible_rt_opciones']) && strcmp($arreglo[4]['deducible_rt_opciones'],'')!=0){echo$arreglo[4]['deducible_rt_opciones'].'%';} ?></td>
+								
+							</tr>
+							<?php
+							break;
+					
+					}
+
+
+				 ?>
+			
+			
+			<tr>
+				<td style="font-size:10px;padding-top: 0px;text-align:left;">R.C. Daños a Terceros</td>
+				<td style="font-size:12px;"><?php echo '$'.number_format(floatval(str_replace(',','',$arreglo[0]['rc_danos_a_terceros_opciones'])),2);?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['rc_danos_a_terceros_opciones']) && strcmp($arreglo[1]['rc_danos_a_terceros_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[1]['rc_danos_a_terceros_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[2]['rc_danos_a_terceros_opciones']) && strcmp($arreglo[2]['rc_danos_a_terceros_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[2]['rc_danos_a_terceros_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[3]['rc_danos_a_terceros_opciones']) && strcmp($arreglo[3]['rc_danos_a_terceros_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[3]['rc_danos_a_terceros_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[4]['rc_danos_a_terceros_opciones']) && strcmp($arreglo[4]['rc_danos_a_terceros_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[4]['rc_danos_a_terceros_opciones'])),2);} ?></td>
+				
+			</tr>
+
+			<tr>
+				<td style="font-size:10px;padding-top: 0px;text-align:left;">Deducible de R.C.</td>
+				<td style="font-size:12px;"><?php echo $arreglo[0]['deducible_de_rc_opciones'].'%' ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['deducible_de_rc_opciones']) && strcmp($arreglo[1]['deducible_de_rc_opciones'],'')!=0){echo$arreglo[1]['deducible_de_rc_opciones'].'%';} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[2]['deducible_de_rc_opciones']) && strcmp($arreglo[2]['deducible_de_rc_opciones'],'')!=0){echo$arreglo[2]['deducible_de_rc_opciones'].'%';} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[3]['deducible_de_rc_opciones']) && strcmp($arreglo[3]['deducible_de_rc_opciones'],'')!=0){echo$arreglo[3]['deducible_de_rc_opciones'].'%';} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[4]['deducible_de_rc_opciones']) && strcmp($arreglo[4]['deducible_de_rc_opciones'],'')!=0){echo$arreglo[4]['deducible_de_rc_opciones'].'%';} ?></td>
+				
+			</tr>
+			
+			<tr>
+				<td style="font-size:10px;padding-top: 0px;text-align:left;">R.C. Fallecimiento</td>
+				<td style="font-size:12px;"><?php echo '$'.number_format(floatval(str_replace(',','',$arreglo[0]['rc_fallecimiento_opciones'])),2); ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['rc_fallecimiento_opciones']) && strcmp($arreglo[1]['rc_fallecimiento_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[1]['rc_fallecimiento_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[2]['rc_fallecimiento_opciones']) && strcmp($arreglo[2]['rc_fallecimiento_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[2]['rc_fallecimiento_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[3]['rc_fallecimiento_opciones']) && strcmp($arreglo[3]['rc_fallecimiento_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[3]['rc_fallecimiento_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[4]['rc_fallecimiento_opciones']) && strcmp($arreglo[4]['rc_fallecimiento_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[4]['rc_fallecimiento_opciones'])),2);} ?></td>
+				
+			</tr>
+
+				<tr>
+				<td style="font-size:10px;padding-top: 0px;text-align:left;">Gastos Médicos Ocupantes</td>
+				<td style="font-size:12px;"><?php echo '$'.number_format(floatval(str_replace(',','',$arreglo[0]['gastos_medicos_opciones'])),2); ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['gastos_medicos_opciones']) && strcmp($arreglo[1]['gastos_medicos_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[1]['gastos_medicos_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[2]['gastos_medicos_opciones']) && strcmp($arreglo[2]['gastos_medicos_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[2]['gastos_medicos_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[3]['gastos_medicos_opciones']) && strcmp($arreglo[3]['gastos_medicos_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[3]['gastos_medicos_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[4]['gastos_medicos_opciones']) && strcmp($arreglo[4]['gastos_medicos_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[4]['gastos_medicos_opciones'])),2);} ?></td>
+				
+			</tr>
+			<tr>
+				<td style="font-size:10px;padding-top: 0px;text-align:left;">Accidentes al Conductor</td>
+				<td style="font-size:12px;"><?php echo '$'.number_format(floatval(str_replace(',','',$arreglo[0]['accidentes_conductor_opciones'])),2);?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['accidentes_conductor_opciones']) && strcmp($arreglo[1]['accidentes_conductor_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[1]['accidentes_conductor_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[2]['accidentes_conductor_opciones']) && strcmp($arreglo[2]['accidentes_conductor_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[2]['accidentes_conductor_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[3]['accidentes_conductor_opciones']) && strcmp($arreglo[3]['accidentes_conductor_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[3]['accidentes_conductor_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[4]['accidentes_conductor_opciones']) && strcmp($arreglo[4]['accidentes_conductor_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[4]['accidentes_conductor_opciones'])),2);} ?></td>
+				
+			</tr>
+			<tr>
+				<td style="font-size:10px;padding-top: 0px;text-align:left;">Protección legal</td>
+			<td style="font-size:12px;"><?php echo $arreglo[0]['proteccion_legal_opciones'] ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['proteccion_legal_opciones']) && strcmp($arreglo[1]['proteccion_legal_opciones'],'')!=0){echo$arreglo[1]['proteccion_legal_opciones'];} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[2]['proteccion_legal_opciones']) && strcmp($arreglo[2]['proteccion_legal_opciones'],'')!=0){echo$arreglo[2]['proteccion_legal_opciones'];} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[3]['proteccion_legal_opciones']) && strcmp($arreglo[3]['proteccion_legal_opciones'],'')!=0){echo$arreglo[3]['proteccion_legal_opciones'];} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[4]['proteccion_legal_opciones']) && strcmp($arreglo[4]['proteccion_legal_opciones'],'')!=0){echo$arreglo[4]['proteccion_legal_opciones'];} ?></td>
+				
+			</tr>
+			<tr>
+				<td style="font-size:10px;padding-top: 0px;text-align:left;">Asistencia Vial</td>
+			<td style="font-size:12px;"><?php echo $arreglo[0]['asistencia_legal_opciones'] ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['asistencia_legal_opciones']) && strcmp($arreglo[1]['asistencia_legal_opciones'],'')!=0){echo$arreglo[1]['asistencia_legal_opciones'];} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[2]['asistencia_legal_opciones']) && strcmp($arreglo[2]['asistencia_legal_opciones'],'')!=0){echo$arreglo[2]['asistencia_legal_opciones'];} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[3]['asistencia_legal_opciones']) && strcmp($arreglo[3]['asistencia_legal_opciones'],'')!=0){echo$arreglo[3]['asistencia_legal_opciones'];} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[4]['asistencia_legal_opciones']) && strcmp($arreglo[4]['asistencia_legal_opciones'],'')!=0){echo$arreglo[4]['asistencia_legal_opciones'];} ?></td>
+				
+			</tr>
+			<tr>
+				<td style="font-size:10px;padding-top: 0px;text-align:left;">Daños por la carga</td>
+				<td style="font-size:12px;"><?php echo $arreglo[0]['danos_por_la_carga_opciones'] ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['danos_por_la_carga_opciones']) && strcmp($arreglo[1]['danos_por_la_carga_opciones'],'')!=0){echo$arreglo[1]['danos_por_la_carga_opciones'];} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[2]['danos_por_la_carga_opciones']) && strcmp($arreglo[2]['danos_por_la_carga_opciones'],'')!=0){echo$arreglo[2]['danos_por_la_carga_opciones'];} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[3]['danos_por_la_carga_opciones']) && strcmp($arreglo[3]['danos_por_la_carga_opciones'],'')!=0){echo$arreglo[3]['danos_por_la_carga_opciones'];} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[4]['danos_por_la_carga_opciones']) && strcmp($arreglo[4]['danos_por_la_carga_opciones'],'')!=0){echo$arreglo[4]['danos_por_la_carga_opciones'];} ?></td>
+				
+			</tr>
+				
+
+			<tr>
+				<td style="font-size:10px;padding-top: 0px;text-align:left;">Extension de RC</td>
+				<td style="font-size:12px;"><?php echo $arreglo[0]['extension_rc_opciones'] ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['extension_rc_opciones']) && strcmp($arreglo[1]['extension_rc_opciones'],'')!=0){echo$arreglo[1]['extension_rc_opciones'];} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[2]['extension_rc_opciones']) && strcmp($arreglo[2]['extension_rc_opciones'],'')!=0){echo$arreglo[2]['extension_rc_opciones'];} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[3]['extension_rc_opciones']) && strcmp($arreglo[3]['extension_rc_opciones'],'')!=0){echo$arreglo[3]['extension_rc_opciones'];} ?></td>
+				<td  style="font-size:12px;"><?php if(isset($arreglo[4]['extension_rc_opciones']) && strcmp($arreglo[4]['extension_rc_opciones'],'')!=0){echo$arreglo[4]['extension_rc_opciones'];} ?></td>
+				
+			</tr>
+			
+			<tr>
+				<td style="font-size:10px;padding-top: 0px;text-align:left;">Adaptaciones,Conversiones, <br> y/o Equipo Especial</td>
+				<td style="font-size:12px;"><?php echo '$'.number_format(floatval(str_replace(',','',$arreglo[0]['adaptaciones_opciones'])),2); ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['adaptaciones_opciones']) && strcmp($arreglo[1]['adaptaciones_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[1]['adaptaciones_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[2]['adaptaciones_opciones']) && strcmp($arreglo[2]['adaptaciones_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[2]['adaptaciones_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[3]['adaptaciones_opciones']) && strcmp($arreglo[3]['adaptaciones_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[3]['adaptaciones_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[4]['adaptaciones_opciones']) && strcmp($arreglo[4]['adaptaciones_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[4]['adaptaciones_opciones'])),2);} ?></td>
+				
+			</tr>
+			<tr>
+				<td style="font-size:10px;padding-top: 0px;text-align:left;">Descripción</td>
+				<td colspan="5" style="font-size: 12px;text-align: left;"><?php echo$arreglo[0]['descripcion_opciones'] ?></td>
+				
+			</tr>
+
+				<?php 
+						if(!empty($arreglo[0]['opcion1_nombre_opciones']))
+						{
+							?>
+							<tr>
+								<td style="font-size:10px;padding-top: 0px;text-align:left;"><?php echo$arreglo[0]['opcion1_nombre_opciones'] ?></td>
+								<td style="font-size:12px;"><?php echo $arreglo[0]['opcion1_valor_opciones'] ?></td>
+								<td style="font-size:12px;"><?php if(isset($arreglo[1]['opcion1_valor_opciones']) && !empty($arreglo[1]['opcion1_valor_opciones'])){echo$arreglo[1]['opcion1_valor_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[2]['opcion1_valor_opciones']) && !empty($arreglo[2]['opcion1_valor_opciones'])){echo$arreglo[2]['opcion1_valor_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[3]['opcion1_valor_opciones']) && !empty($arreglo[3]['opcion1_valor_opciones'])){echo$arreglo[3]['opcion1_valor_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[4]['opcion1_valor_opciones']) && !empty($arreglo[4]['opcion1_valor_opciones'])){echo$arreglo[4]['opcion1_valor_opciones'];} ?></td>
+								
+							</tr>
+							<?php
+						}
+
+				 ?>
+			
+		
+				<?php 
+						if(!empty($arreglo[0]['opcion2_nombre_opciones']))
+						{
+							?>
+							<tr>
+								<td style="font-size:10px;padding-top: 0px;text-align:left;"><?php echo$arreglo[0]['opcion2_nombre_opciones'] ?></td>
+								<td style="font-size:12px;"><?php echo $arreglo[0]['opcion2_valor_opciones'] ?></td>
+								<td style="font-size:12px;"><?php if(isset($arreglo[1]['opcion2_valor_opciones']) && !empty($arreglo[1]['opcion2_valor_opciones'])){echo$arreglo[1]['opcion2_valor_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[2]['opcion2_valor_opciones']) && !empty($arreglo[2]['opcion2_valor_opciones'])){echo$arreglo[2]['opcion2_valor_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[3]['opcion2_valor_opciones']) && !empty($arreglo[3]['opcion2_valor_opciones'])){echo$arreglo[3]['opcion2_valor_opciones'];} ?></td>
+								<td  style="font-size:12px;"><?php if(isset($arreglo[4]['opcion2_valor_opciones']) && !empty($arreglo[4]['opcion2_valor_opciones'])){echo$arreglo[4]['opcion2_valor_opciones'];} ?></td>
+								
+							</tr>
+							<?php
+						}
+
+				 ?>
+				
+			<tr style="border:none;margin-top: 10px; margin-bottom: 10px;">
+				<td style="font-size:12px;border-left:0px;border-right: 0px;border-bottom: 0px;" colspan="6"></td>			
+			</tr>
+			
+			<tr style="border:none;margin-top: 10px; margin-bottom: 10px;">
+				<td style="font-size:12px;background-color: #ccc;border-left:0px;border-right: 0px;border-bottom: 0px;border-top: 0px;" colspan="6">FORMA DE PAGO: <?php echo $arreglo[0]['forma_de_pago_opciones'] ?></td>			
+			</tr>
+
+			<tr style="border:none;margin-top: 10px; margin-bottom: 10px;">
+				<td style="font-size:12px;border-left:0px;border-right: 0px;border-top: 0px;border-bottom: 0px;" colspan="6"></td>			
+			</tr>
+			<tr>
+				<td style="font-size:12px;background-color: #ccc;border-left:0px;border-right: 0px;border-top: 0px;" colspan="6">DESGLOSE DE PRIMA</td>
+			</tr>
+
+		
+
+			<tr>
+				<td style="font-size:10px;text-align: left;">Prima Neta Anual</td>
+				<td style="font-size:12px;"><?php echo '$'.number_format(floatval(str_replace(',','',$arreglo[0]['prima_neta_anual_opciones'])),2) ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['prima_neta_anual_opciones']) && strcmp($arreglo[1]['prima_neta_anual_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[1]['prima_neta_anual_opciones'])),2) ;} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[2]['prima_neta_anual_opciones']) && strcmp($arreglo[2]['prima_neta_anual_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[2]['prima_neta_anual_opciones'])),2) ;} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[3]['prima_neta_anual_opciones']) && strcmp($arreglo[3]['prima_neta_anual_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[3]['prima_neta_anual_opciones'])),2) ;} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[4]['prima_neta_anual_opciones']) && strcmp($arreglo[4]['prima_neta_anual_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[4]['prima_neta_anual_opciones'])),2) ;} ?></td>
+			</tr>
+				<tr>
+				<td style="font-size:10px;text-align: left;">Prima Total Anual</td>
+				<td style="font-size:12px;"><?php echo '$'.number_format(floatval(str_replace(',','',$arreglo[0]['prima_total_anual_opciones'])),2); ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['prima_total_anual_opciones']) && strcmp($arreglo[1]['prima_total_anual_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[1]['prima_total_anual_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[2]['prima_total_anual_opciones']) && strcmp($arreglo[2]['prima_total_anual_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[2]['prima_total_anual_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[3]['prima_total_anual_opciones']) && strcmp($arreglo[3]['prima_total_anual_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[3]['prima_total_anual_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[4]['prima_total_anual_opciones']) && strcmp($arreglo[4]['prima_total_anual_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[4]['prima_total_anual_opciones'])),2);} ?></td>
+			</tr>
+
+			<tr>
+				<td style="font-size:10px;text-align: left;">Primer Pago</td>
+				<td style="font-size:12px;"><?php echo '$'.number_format(floatval(str_replace(',','',$arreglo[0]['primer_pago_opciones'])),2)?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[1]['primer_pago_opciones']) && strcmp($arreglo[1]['primer_pago_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[1]['primer_pago_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[2]['primer_pago_opciones']) && strcmp($arreglo[2]['primer_pago_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[2]['primer_pago_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[3]['primer_pago_opciones']) && strcmp($arreglo[3]['primer_pago_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[3]['primer_pago_opciones'])),2);} ?></td>
+				<td style="font-size:12px;"><?php if(isset($arreglo[4]['primer_pago_opciones']) && strcmp($arreglo[4]['primer_pago_opciones'],'')!=0){echo'$'.number_format(floatval(str_replace(',','',$arreglo[4]['primer_pago_opciones'])),2);} ?></td>
+			</tr>
+			<tr>
+				<?php
+					$valor=0;
+					$pago1="";
+					$pago2="";
+					$pago3="";
+					$pago4="";
+					$pago5="";
+
+							switch ($arreglo[0]['forma_de_pago_opciones']) 
+							{
+							 	
+							 	
+							 	case 'SEMESTRAL':
+							 		$valor=1;
+							 		if(isset($arreglo[0]['prima_total_anual_opciones']) &&!empty($arreglo[0]['prima_total_anual_opciones'])) 
+									{
+											$pago1=floatval(str_replace(',','',$arreglo[0]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[0]['primer_pago_opciones']));
+											$pago1='$'.number_format($pago1,2);	
+									}
+
+									if(isset($arreglo[1]['prima_total_anual_opciones']) &&!empty($arreglo[1]['prima_total_anual_opciones'])) 
+									{
+											$pago2=floatval(str_replace(',','',$arreglo[1]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[1]['primer_pago_opciones']));
+										$pago2='$'.number_format($pago2,2);		
+									}
+
+									if(isset($arreglo[2]['prima_total_anual_opciones']) &&!empty($arreglo[2]['prima_total_anual_opciones'])) 
+									{
+											$pago3=floatval(str_replace(',','',$arreglo[2]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[2]['primer_pago_opciones']));
+											$pago3='$'.number_format($pago3,2);		
+									}
+
+									if(isset($arreglo[3]['prima_total_anual_opciones']) &&!empty($arreglo[3]['prima_total_anual_opciones'])) 
+									{
+											$pago4=floatval(str_replace(',','',$arreglo[3]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[3]['primer_pago_opciones']));
+											$pago4='$'.number_format($pago4,2);		
+									}
+									if(isset($arreglo[4]['prima_total_anual_opciones']) &&!empty($arreglo[4]['prima_total_anual_opciones'])) 
+									{
+											$pago5=floatval(str_replace(',','',$arreglo[4]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[4]['primer_pago_opciones']));
+											$pago5='$'.number_format($pago5,2);			
+									}
+							 	break;
+							 	case 'TRIMESTRAL':
+							 		$valor=3;
+							 		if(isset($arreglo[0]['prima_total_anual_opciones']) &&!empty($arreglo[0]['prima_total_anual_opciones'])) 
+									{
+											$pago1=(floatval(str_replace(',','',$arreglo[0]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[0]['primer_pago_opciones'])))/3;
+											$pago1='$'.number_format($pago1,2);	
+									}
+
+									if(isset($arreglo[1]['prima_total_anual_opciones']) &&!empty($arreglo[1]['prima_total_anual_opciones'])) 
+									{
+											$pago2=(floatval(str_replace(',','',$arreglo[1]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[1]['primer_pago_opciones'])))/3;
+											$pago2='$'.number_format($pago2,2);			
+									}
+
+									if(isset($arreglo[2]['prima_total_anual_opciones']) &&!empty($arreglo[2]['prima_total_anual_opciones'])) 
+									{
+											$pago3=(floatval(str_replace(',','',$arreglo[2]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[2]['primer_pago_opciones'])))/3;
+											$pago3='$'.number_format($pago3,2);			
+		
+									}
+
+									if(isset($arreglo[3]['prima_total_anual_opciones']) &&!empty($arreglo[3]['prima_total_anual_opciones'])) 
+									{
+											$pago4=(floatval(str_replace(',','',$arreglo[3]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[3]['primer_pago_opciones'])))/3;
+											$pago4='$'.number_format($pago4,2);	
+									}
+									if(isset($arreglo[4]['prima_total_anual_opciones']) &&!empty($arreglo[4]['prima_total_anual_opciones'])) 
+									{
+											$pago5=(floatval(str_replace(',','',$arreglo[4]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[4]['primer_pago_opciones'])))/3;
+											$pago5='$'.number_format($pago5,2);	
+									}
+							 	break;
+							 	case 'MENSUAL':
+							 		$valor=11;
+
+							 		if(isset($arreglo[0]['prima_total_anual_opciones']) &&!empty($arreglo[0]['prima_total_anual_opciones'])) 
+									{
+										$arreglo[0]['primer_pago_opciones'];
+											$pago1=(floatval(str_replace(',','',$arreglo[0]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[0]['primer_pago_opciones'])))/11;
+											$pago1='$'.number_format($pago1,2);	
+									}
+
+									if(isset($arreglo[1]['prima_total_anual_opciones']) &&!empty($arreglo[1]['prima_total_anual_opciones'])) 
+									{
+											$pago2=(floatval(str_replace(',','',$arreglo[1]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[1]['primer_pago_opciones'])))/11;
+											$pago2='$'.number_format($pago2,2);			
+									}
+
+									if(isset($arreglo[2]['prima_total_anual_opciones']) &&!empty($arreglo[2]['prima_total_anual_opciones'])) 
+									{
+											$pago3=(floatval(str_replace(',','',$arreglo[2]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[2]['primer_pago_opciones'])))/11;
+											$pago3='$'.number_format($pago3,2);			
+		
+									}
+
+									if(isset($arreglo[3]['prima_total_anual_opciones']) &&!empty($arreglo[3]['prima_total_anual_opciones'])) 
+									{
+											$pago4=(floatval(str_replace(',','',$arreglo[3]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[3]['primer_pago_opciones'])))/11;
+											$pago4='$'.number_format($pago4,2);	
+									}
+									if(isset($arreglo[4]['prima_total_anual_opciones']) &&!empty($arreglo[4]['prima_total_anual_opciones'])) 
+									{
+											$pago5=(floatval(str_replace(',','',$arreglo[4]['prima_total_anual_opciones']))-floatval(str_replace(',','',$arreglo[4]['primer_pago_opciones'])))/11;
+											$pago5='$'.number_format($pago5,2);	
+									}
+							 	break;
+							 	
+							 	default:
+							 		# code...
+							 		break;
+							 } 
+				 ?>
+				<td style="font-size:10px;text-align: left;">Subsecuentes: <?php echo$valor ?></td>
+				<td style="font-size:12px;"><?php echo$pago1; ?></td>
+				<td style="font-size:12px;"><?php echo$pago2; ?></td>
+				<td style="font-size:12px;"><?php echo$pago3; ?></td>
+				<td style="font-size:12px;"><?php echo$pago4; ?></td>
+				<td style="font-size:12px;"><?php echo$pago5; ?></td>
+			</tr>
+
+		</table>
+
+		
+		<div style="page-break-inside: avoid;">
+			
+		<table  class="" n border="0" align="center" style=" text-align:center; border-collapse: collapse;margin-top: 10px;">
+				
+			<tr>
+				<td colspan="6" style="font-size:10px;width: 700px;text-align:left;font-weight: bold;">Notas sobre la cotización.</td>
+				
+			</tr>
+			<tr>
+				<td colspan="6" style="font-size:10px;width: 700px;text-align:left;">*La Prima Total Anual, incluye derecho de póliza, iva y recargo por pago fraccionado, si la forma de pago es diferente a ANUAL.</td>
+				
+			</tr>
+			<tr>
+				<td colspan="6" style="font-size:10px;width: 700px;text-align:left;">*La presente cotización tiene una vigencia de 15 días naturales contados a partir de la fecha de elaboración y/o vnecimiento de su póliza a renovar.</td>
+				
+			</tr>
+			<tr>
+				<td colspan="6" style="font-size:10px;width: 700px;text-align:left;">*En ningún caso se considera que esta cotización es una póliza de seguro.</td>
+				
+			</tr>
+
+			<tr>
+				<td colspan="6" style="font-size:10px;width: 700px;text-align:left;">*En caso de contratar el seguro, el periodo de gracias para pagar la pólizas es de 30 días naturales contados partir de la fecha de inicio de vigencia
+de su póliza, Excepto Qualitas y GNP que solo otorgan 14 días.</td>
+				
+			</tr>
+			
+		</table>
+</div>
+		
+<div style="page-break-inside: avoid;">
+		<table  class="" border="0" align="center" style="text-align:center; border-collapse: collapse;margin-top: 10px;">
+			<tr>
+				<td colspan="6" style="width: 700px;font-size:12px;color:#632533;font-weight: bold;">CONOCE AGENTE DE SEGUROS Y DE FIANZAS, S.A. DE C.V.</td>
+				
+			</tr>
+			<tr>
+				<td colspan="6" style="width: 700px;font-size:10px;;color:#632533;">Calle 8 No- 424-E x 21 Col. Díaz Ordaz, Mérida, Yucatán, México, C.P. 97130 Tel. (999) 944-68-35 , 944-68-39 , 944-68-75 <img  style="width: 25px;padding-top: 10px;" src="img/whatsapp.png">(999) 1630369 </td>
+				
+			</tr>
+		</table>
+</div>
+
+<div style="page-break-inside: avoid;">
+		<table  class="" border="0" align="center" style="text-align:center; border-collapse: collapse;margin-top: 10px;">
+			<tr>
+				<td colspan="3" style="width: 347px;"><span style="font-size:10px;">Elaboró: </span style="font-size:12px;"><?php echo mb_strtoupper(str_replace('_',' ',$datos_finales['nombre_persona']),'UTF-8') ?></td>
+				<td colspan="3" style="width: 347px;"><span style="font-size:10px;">Fecha de elaboración: </span style="font-size:12px;"><?php echo date('d/m/Y',strtotime($datos_finales['fecha_alta_auto'])) ?></td>
+
+
+				
+				
+			</tr>
+		</table>
+</div>
