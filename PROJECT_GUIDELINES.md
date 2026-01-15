@@ -308,6 +308,59 @@ URL Laragon: http://cotizador-autos.test (si está configurado)
 
 ---
 
+## 📝 ESTÁNDAR DE COMMITS (Conventional Commits)
+
+> **Formato:** `tipo(scope): descripción breve en español`
+
+### Tipos de Commit (en inglés)
+
+| Tipo | Uso |
+|------|-----|
+| `feat` | Nueva funcionalidad |
+| `fix` | Corrección de errores |
+| `docs` | Cambios en documentación |
+| `style` | Formato, espacios, puntos y comas (sin cambio de código) |
+| `refactor` | Refactorización de código existente |
+| `perf` | Mejoras de rendimiento |
+| `test` | Agregar o corregir tests |
+| `chore` | Tareas de mantenimiento, dependencias |
+| `ci` | Cambios en CI/CD |
+| `build` | Cambios en sistema de build |
+
+### Ejemplos
+
+```bash
+# ✅ CORRECTO
+feat(auth): implementar login con 2FA
+fix(quotes): corregir cálculo de prima con recargos
+docs(readme): actualizar instrucciones de instalación
+refactor(models): extraer lógica de cálculo a servicio
+chore(deps): actualizar Laravel a versión 12.47
+
+# ❌ INCORRECTO
+arreglé el bug del login
+cambios varios
+WIP
+.
+```
+
+### Cuerpo del Commit (opcional)
+
+Para commits importantes, agregar cuerpo explicativo en español:
+
+```bash
+feat(dashboard): agregar widget de estadísticas mensuales
+
+- Se agregó card con gráfica de cotizaciones por mes
+- Integración con Chart.js para visualización
+- Filtros por rango de fechas
+- Responsive para móviles
+
+Closes #123
+```
+
+---
+
 ## 📚 REFERENCIAS
 
 - [Laravel 12 Documentation](https://laravel.com/docs/12.x)
