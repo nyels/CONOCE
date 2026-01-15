@@ -8,6 +8,20 @@
 
 > Ordenado de forma **DESCENDENTE** - Los cambios más recientes van ARRIBA
 
+### 2026-01-15 10:30 CST - Testing, Error Handling, Git Strategy y Code Review
+**Autor:** Claude AI + Usuario  
+**Cambios:**
+- Agregada sección completa de Testing Guidelines (Unit, Feature, E2E)
+- Agregada sección de Error Handling y Logging estructurado
+- Agregada Git Branching Strategy (GitFlow simplificado)
+- Agregado Code Review Checklist completo
+- Ejemplos de excepciones personalizadas de dominio
+- Comandos de testing con cobertura
+
+**Razón:** Completar las directrices con prácticas profesionales de desarrollo
+
+---
+
 ### 2026-01-15 10:26 CST - Directrices de Seguridad, Performance y Código Limpio
 **Autor:** Claude AI + Usuario  
 **Cambios:**
@@ -730,7 +744,343 @@ class EloquentQuoteRepository implements QuoteRepositoryInterface
             ->get();
     }
 }
-```---
+```
+
+---
+
+## 🧪 TESTING GUIDELINES
+
+> **Objetivo:** Mínimo 80% de cobertura en lógica de negocio crítica
+
+### Tipos de Tests
+
+| Tipo | Ubicación | Qué testea | Velocidad |
+|------|-----------|------------|-----------|
+| **Unit** | `tests/Unit/` | Clases individuales (Services, Value Objects) | Muy rápido |
+| **Feature** | `tests/Feature/` | Flujos completos (HTTP, BD) | Rápido |
+| **Integration** | `tests/Integration/` | Interacción entre componentes | Medio |
+| **E2E** | `tests/Browser/` | UI con navegador real (Dusk) | Lento |
+
+### Estructura de Tests
+
+```php
+// tests/Unit/Domain/Quote/Services/PremiumCalculatorServiceTest.php
+class PremiumCalculatorServiceTest extends TestCase
+{
+    private PremiumCalculatorService $calculator;
+    
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->calculator = new PremiumCalculatorService();
+    }
+    
+    /** @test */
+    public function it_calculates_annual_premium_correctly(): void
+    {
+        // Arrange
+        $netPremium = Money::fromPesos(15000);
+        $policyFee = Money::fromPesos(500);
+        
+        // Act
+        $result = $this->calculator->calculate($netPremium, $policyFee);
+        
+        // Assert
+        $this->assertEquals(15500_00, $result->total()->cents());
+    }
+    
+    /** @test */
+    public function it_applies_surcharge_for_monthly_payment(): void
+    {
+        // Arrange
+        $netPremium = Money::fromPesos(12000);
+        
+        // Act
+        $result = $this->calculator->withSurcharge($netPremium, PaymentFrequency::MONTHLY);
+        
+        // Assert
+        $this->assertTrue($result->greaterThan($netPremium));
+    }
+}
+```
+
+### Feature Tests
+
+```php
+// tests/Feature/QuoteCreationTest.php
+class QuoteCreationTest extends TestCase
+{
+    use RefreshDatabase;
+    
+    /** @test */
+    public function authenticated_user_can_create_quote(): void
+    {
+        // Arrange
+        $user = User::factory()->create();
+        $customer = Customer::factory()->create();
+        
+        // Act
+        $response = $this->actingAs($user)
+            ->post('/quotes', [
+                'customer_id' => $customer->id,
+                'type' => 'NEW',
+                'vehicle_data' => [
+                    'brand' => 'Toyota',
+                    'model' => 'Corolla',
+                    'year' => 2024,
+                ],
+            ]);
+        
+        // Assert
+        $response->assertRedirect();
+        $this->assertDatabaseHas('quotes', [
+            'customer_id' => $customer->id,
+            'type' => 'NEW',
+        ]);
+    }
+    
+    /** @test */
+    public function guest_cannot_create_quote(): void
+    {
+        $response = $this->post('/quotes', []);
+        
+        $response->assertRedirect('/login');
+    }
+}
+```
+
+### Convenciones de Testing
+
+```php
+// ✅ CORRECTO - Nombres descriptivos
+public function it_rejects_expired_quotes_for_conversion(): void
+
+// ❌ INCORRECTO - Nombres genéricos
+public function testQuote(): void
+public function test1(): void
+```
+
+### Comandos de Testing
+
+```bash
+# Ejecutar todos los tests
+php artisan test
+
+# Solo unit tests
+php artisan test --testsuite=Unit
+
+# Con cobertura
+php artisan test --coverage --min=80
+
+# Test específico
+php artisan test --filter=PremiumCalculatorServiceTest
+```
+
+---
+
+## 🚨 ERROR HANDLING Y LOGGING
+
+> **Principio:** Los errores son información valiosa. Nunca silenciarlos, siempre manejarlos.
+
+### Excepciones Personalizadas
+
+```php
+// app/Exceptions/Domain/QuoteException.php
+namespace App\Exceptions\Domain;
+
+class QuoteException extends \DomainException
+{
+    public static function alreadyConcluded(string $folio): self
+    {
+        return new self("La cotización {$folio} ya fue concluida y no puede modificarse.");
+    }
+    
+    public static function expired(string $folio): self
+    {
+        return new self("La cotización {$folio} ha expirado.");
+    }
+    
+    public static function maxOptionsReached(): self
+    {
+        return new self("Se ha alcanzado el máximo de opciones permitidas (5).");
+    }
+}
+
+// Uso
+if ($quote->status->isFinal()) {
+    throw QuoteException::alreadyConcluded($quote->folio);
+}
+```
+
+### Handler de Excepciones
+
+```php
+// bootstrap/app.php o app/Exceptions/Handler.php
+->withExceptions(function (Exceptions $exceptions) {
+    // Log errores críticos
+    $exceptions->report(function (Throwable $e) {
+        if ($e instanceof \App\Exceptions\Domain\QuoteException) {
+            Log::channel('business')->warning($e->getMessage(), [
+                'user_id' => auth()->id(),
+                'url' => request()->fullUrl(),
+            ]);
+        }
+    });
+    
+    // Renderizar errores de dominio como respuesta amigable
+    $exceptions->render(function (QuoteException $e, Request $request) {
+        if ($request->expectsJson()) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+        
+        return back()->with('error', $e->getMessage());
+    });
+})
+```
+
+### Logging Estructurado
+
+```php
+// ✅ CORRECTO - Log con contexto
+Log::info('Cotización creada', [
+    'quote_id' => $quote->id,
+    'folio' => $quote->folio,
+    'customer_id' => $quote->customer_id,
+    'agent_id' => $quote->agent_id,
+    'total_premium' => $quote->total_premium_cents,
+]);
+
+// ❌ INCORRECTO - Log sin contexto
+Log::info('Quote created');
+Log::info("Quote {$quote->id} created"); // Difícil de parsear
+```
+
+### Niveles de Log
+
+| Nivel | Uso | Ejemplo |
+|-------|-----|---------|
+| `emergency` | Sistema inutilizable | BD caída |
+| `alert` | Acción inmediata requerida | API de aseguradora no responde |
+| `critical` | Condiciones críticas | Error de pago |
+| `error` | Errores de runtime | Validación fallida |
+| `warning` | Situaciones anormales | Cotización expirada |
+| `notice` | Eventos normales significativos | Usuario logueado |
+| `info` | Información general | Cotización creada |
+| `debug` | Información detallada para debug | Query ejecutada |
+
+### Try-Catch Apropiado
+
+```php
+// ✅ CORRECTO - Catch específico
+try {
+    $result = $this->externalApi->getQuote($data);
+} catch (ApiConnectionException $e) {
+    Log::error('Error de conexión con API', ['error' => $e->getMessage()]);
+    throw new ServiceUnavailableException('Servicio temporalmente no disponible');
+} catch (ApiValidationException $e) {
+    Log::warning('Datos inválidos para API', ['errors' => $e->getErrors()]);
+    throw new ValidationException($e->getErrors());
+}
+
+// ❌ INCORRECTO - Catch genérico que oculta errores
+try {
+    $result = $this->externalApi->getQuote($data);
+} catch (\Exception $e) {
+    return null; // Error silenciado, imposible de debuggear
+}
+```
+
+---
+
+## 🌿 GIT BRANCHING STRATEGY
+
+> **Modelo:** GitFlow simplificado
+
+### Ramas Principales
+
+| Rama | Propósito | Protegida |
+|------|-----------|-----------|
+| `main` | Producción, siempre deployable | ✅ Sí |
+| `develop` | Integración de features | ✅ Sí |
+
+### Ramas de Trabajo
+
+| Prefijo | Propósito | Ejemplo |
+|---------|-----------|---------|
+| `feature/` | Nueva funcionalidad | `feature/crud-cotizaciones` |
+| `fix/` | Corrección de bugs | `fix/calculo-prima-mensual` |
+| `hotfix/` | Corrección urgente en producción | `hotfix/login-timeout` |
+| `refactor/` | Mejora de código sin cambio funcional | `refactor/quote-service` |
+| `docs/` | Documentación | `docs/api-endpoints` |
+
+### Flujo de Trabajo
+
+```bash
+# 1. Crear rama desde develop
+git checkout develop
+git pull origin develop
+git checkout -b feature/nueva-funcionalidad
+
+# 2. Hacer commits (Conventional Commits)
+git commit -m "feat(quotes): agregar filtro por fecha"
+git commit -m "feat(quotes): agregar paginacion"
+
+# 3. Push y crear PR
+git push origin feature/nueva-funcionalidad
+# Crear Pull Request en GitHub: feature/nueva-funcionalidad → develop
+
+# 4. Después del merge, eliminar rama local
+git checkout develop
+git pull origin develop
+git branch -d feature/nueva-funcionalidad
+```
+
+### Reglas de Merge
+
+- ✅ **Squash merge** para features (un commit limpio)
+- ✅ **Merge commit** para releases a main
+- ❌ **NO force push** en ramas protegidas
+- ❌ **NO commits directos** a main o develop
+
+---
+
+## 👀 CODE REVIEW CHECKLIST
+
+> Antes de aprobar un PR, verificar cada punto
+
+### Funcionalidad
+- [ ] ¿El código hace lo que se supone que debe hacer?
+- [ ] ¿Están cubiertos los edge cases?
+- [ ] ¿Se manejan correctamente los errores?
+
+### Seguridad
+- [ ] ¿Se validan todos los inputs?
+- [ ] ¿Se verifican permisos/autorización?
+- [ ] ¿No hay datos sensibles hardcodeados?
+- [ ] ¿Las consultas están protegidas contra SQL injection?
+
+### Performance
+- [ ] ¿No hay queries N+1?
+- [ ] ¿Se usa eager loading cuando es necesario?
+- [ ] ¿Se implementa caché donde aplica?
+
+### Código Limpio
+- [ ] ¿Los nombres son descriptivos?
+- [ ] ¿Los métodos son pequeños y hacen una sola cosa?
+- [ ] ¿No hay código duplicado?
+- [ ] ¿Se siguen los patrones del proyecto?
+
+### Testing
+- [ ] ¿Hay tests para la nueva funcionalidad?
+- [ ] ¿Pasan todos los tests existentes?
+- [ ] ¿Se testean los casos de error?
+
+### Documentación
+- [ ] ¿El código tiene PHPDoc cuando es necesario?
+- [ ] ¿Se actualizó PROJECT_GUIDELINES.md si aplica?
+- [ ] ¿El mensaje de commit sigue el estándar?
+
+---
 
 ## 🏛️ ARQUITECTURA DEL SISTEMA
 
