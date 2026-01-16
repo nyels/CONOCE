@@ -256,13 +256,13 @@ Este documento detalla el plan de implementación para transformar el sistema de
 ### Fase 5: Frontend Vue 3 (Semana 9-12)
 **Estado: 🔲 Pendiente**
 
-- [ ] Layout principal y navegación
-- [ ] Dashboard con estadísticas
-- [ ] CRUD de Clientes
-- [ ] CRUD de Aseguradoras
-- [ ] Wizard de Cotizaciones
+- [x] Layout principal y navegación
+- [x] Dashboard con estadísticas
+- [x] CRUD de Clientes
+- [x] CRUD de Aseguradoras
+- [x] Wizard de Cotizaciones
 - [ ] Visualizador/Editor de Opciones
-- [ ] Generación y envío de PDFs
+- [x] Generación y envío de PDFs
 - [ ] Reportes y exportaciones
 
 ### Fase 6: QA y Optimización (Semana 13-14)

@@ -101,9 +101,10 @@ class Quote extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['status', 'type', 'issued_policy_number', 'rejection_reason'])
+            ->logAll()
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
+            ->useLogName('quote')
             ->setDescriptionForEvent(fn(string $eventName) => "Cotización {$this->folio} {$eventName}");
     }
 

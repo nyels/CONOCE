@@ -13,10 +13,16 @@
         rel="stylesheet">
 
     <style>
-        * {
+        /* Reset base - consistente con app.blade.php */
+        *, *::before, *::after {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
         }
 
         body {
@@ -24,6 +30,7 @@
             min-height: 100vh;
             display: flex;
             background: #f8fafc;
+            -webkit-font-smoothing: antialiased;
         }
 
         /* Panel Izquierdo - Branding */

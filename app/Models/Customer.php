@@ -69,10 +69,11 @@ class Customer extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'type', 'rfc', 'email', 'is_active'])
+            ->logAll()
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
-            ->setDescriptionForEvent(fn(string $eventName) => "Cliente {$eventName}");
+            ->useLogName('customer')
+            ->setDescriptionForEvent(fn(string $eventName) => "Cliente {$eventName} ({$this->name})");
     }
 
     // ==========================================

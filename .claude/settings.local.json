@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/laragon/www/cotizador-autos log --oneline -15)",
+      "Bash(php artisan optimize:clear:*)",
+      "Bash(php artisan:*)",
+      "Bash(php -r:*)",
+      "Bash(php test_dashboard.php:*)"
+    ]
+  }
+}

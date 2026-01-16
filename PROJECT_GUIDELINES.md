@@ -8,6 +8,20 @@
 
 > Ordenado de forma **DESCENDENTE** - Los cambios más recientes van ARRIBA
 
+### 2026-01-15 13:45 CST - Implementación de Dashboard Multi-Rol (Admin & Operador)
+**Autor:** Antigravity + Usuario
+**Cambios:**
+- Implementación de Arquitectura de Dashboard por Rol (Controller + Services + Views).
+- Creación de `OperatorDashboardService` (Datos operativos, filtrado por `agent_id`).
+- Creación de `AdminDashboardService` (Datos globales financieros, sin filtros).
+- Vista `Dashboard/Operator.vue`: Foco en ejecución y acción inmediata (Nivel 1-4).
+- Vista `Dashboard/Admin.vue`: Foco en estrategia global y KPIs financieros (Nivel 1-4).
+- Routing en `DashboardController` actualizado (actualmente priorizando Admin).
+
+**Razón:** Cumplir con las directrices de "Dashboard Multi-Rol" para separar claramente la ejecución operativa de la visión estratégica global.
+
+---
+
 ### 2026-01-15 10:37 CST - Arquitectura del Importador de Cotizaciones
 **Autor:** Claude AI + Usuario  
 **Cambios:**
@@ -96,6 +110,258 @@
 ## 🧠 REGLAS ESTRICTAS PARA INTELIGENCIA ARTIFICIAL
 
 > **TODA IA QUE TRABAJE EN ESTE PROYECTO DEBE CUMPLIR ESTAS REGLAS SIN EXCEPCIÓN**
+DASHBOARD MULTI-ROL – DIRECTRICES OBLIGATORIAS DE DISEÑO (CRÍTICO)
+
+Esta sección es de CUMPLIMIENTO OBLIGATORIO.
+Cualquier IA o desarrollador que la ignore está incumpliendo las reglas del proyecto.
+
+❗ PRINCIPIO FUNDAMENTAL (NO NEGOCIABLE)
+
+El dashboard NO es una vista única con widgets dinámicos.
+El dashboard es una CAPA DE ORQUESTACIÓN DE INFORMACIÓN que cambia POR ROL.
+
+❌ Prohibido:
+
+Mostrar el mismo layout a todos los roles
+
+Ocultar solo “widgets”
+
+Usar cards genéricas sin jerarquía
+
+Priorizar estética sobre decisión operativa
+
+✅ Obligatorio:
+
+Jerarquía cognitiva clara
+
+Prioridades distintas por rol
+
+Layout estructural diferente según rol
+
+Información orientada a acción, no a decoración
+
+🧠 JERARQUÍA COGNITIVA OBLIGATORIA (MODELO ENTERPRISE)
+
+Todo dashboard DEBE respetar este orden visual y funcional:
+
+Nivel	Nombre	Propósito
+Nivel 1	Acción inmediata	Qué debe hacer el usuario AHORA
+Nivel 2	Flujo operativo	Trabajo en curso
+Nivel 3	Estado del negocio	Métricas resumidas
+Nivel 4	Sistema / Auditoría	Logs, eventos, históricos
+
+❌ Prohibido mezclar niveles en la misma fila visual
+❌ Prohibido que Nivel 4 compita visualmente con Nivel 1
+
+👥 DEFINICIÓN FORMAL DE DASHBOARD POR ROL
+🟢 OPERADOR
+
+Objetivo: Ejecutar cotizaciones rápido y sin errores
+
+Prioridad visual:
+
+Cotizaciones pendientes hoy
+
+Cotizaciones bloqueadas / con error
+
+Pipeline de trabajo
+
+Métricas mínimas
+
+NO mostrar:
+
+Gráficas históricas
+
+KPIs financieros globales
+
+Auditoría completa
+
+🔵 MANAGER / SUPERVISOR
+
+Objetivo: Controlar desempeño y cuellos de botella
+
+Prioridad visual:
+
+Cotizaciones en riesgo
+
+Productividad por agente
+
+Aseguradoras lentas / fallidas
+
+KPIs semanales
+
+🟣 DIRECCIÓN / ADMIN
+
+Objetivo: Tomar decisiones estratégicas
+
+Prioridad visual:
+
+KPIs financieros consolidados
+
+Tendencias (mensual / trimestral)
+
+Conversión por aseguradora
+
+Alertas críticas del sistema
+
+NO mostrar:
+
+Listados operativos detallados
+
+Formularios
+
+Flujos de captura
+
+🚫 ANTI-PATRONES ABSOLUTAMENTE PROHIBIDOS
+
+Dashboards basados en “cards bonitas”
+
+Grids simétricos sin jerarquía
+
+KPIs sin contexto ni acción asociada
+
+Auditoría visible como elemento principal
+
+Sidebars secundarias dentro del contenido
+
+“Un dashboard para todos”
+
+🤖 REGLAS ESPECÍFICAS PARA IAs (CLAUDE / GEMINI / CHATGPT)
+
+Antes de generar cualquier UI de dashboard, la IA DEBE:
+
+Identificar el rol activo
+
+Seleccionar el layout correspondiente
+
+Definir prioridades Nivel 1 → Nivel 4
+
+Presentar wireframe lógico en texto
+
+Esperar aprobación antes de aplicar estilos
+
+❌ Si la IA genera colores, iconos o estilos antes del layout → está MAL
+❌ Si la IA propone cards sin justificar su jerarquía → está MAL
+
+
+2️⃣ MODELO DE DASHBOARD CORRECTO (WIRE FRAME LÓGICO)
+
+Este modelo DEBE ser el único aceptado.
+
+📊 DASHBOARD – OPERADOR (Layout lógico)
+[ HEADER ]
+- Rol: Operador
+- Fecha / Turno
+- Alertas críticas
+
+-----------------------------------------
+[ NIVEL 1 – ACCIÓN INMEDIATA ]
+- Cotizaciones pendientes HOY
+- Cotizaciones con error / bloqueo
+- Botón: Nueva Cotización
+
+-----------------------------------------
+[ NIVEL 2 – FLUJO DE TRABAJO ]
+- Pipeline de cotizaciones (tabla o kanban)
+- Filtros rápidos
+
+-----------------------------------------
+[ NIVEL 3 – MÉTRICAS BÁSICAS ]
+- Cotizaciones creadas hoy
+- Cotizaciones enviadas hoy
+
+-----------------------------------------
+[ NIVEL 4 – SISTEMA ]
+(oculto por defecto)
+- Últimas acciones propias
+
+📊 DASHBOARD – MANAGER
+[ NIVEL 1 ]
+- Cotizaciones en riesgo
+- Agentes con backlog
+
+[ NIVEL 2 ]
+- Tabla comparativa por agente
+- Estado por aseguradora
+
+[ NIVEL 3 ]
+- KPIs semanales
+- Conversión %
+
+[ NIVEL 4 ]
+- Auditoría del equipo
+
+📊 DASHBOARD – DIRECCIÓN
+[ NIVEL 1 ]
+- KPIs financieros clave
+
+[ NIVEL 2 ]
+- Tendencias y comparativas
+
+[ NIVEL 3 ]
+- Conversión por aseguradora
+
+[ NIVEL 4 ]
+- Alertas críticas del sistema
+
+3️⃣ PASOS TÉCNICOS EXACTOS PARA IMPLEMENTARLO (SIN ROMPER TU SISTEMA)
+PASO 1 – Controller ÚNICO, lógica por rol
+class DashboardController extends Controller
+{
+    public function index()
+    {
+        $user = auth()->user();
+
+        return match (true) {
+            $user->hasRole('operator') => inertia('Dashboard/Operator'),
+            $user->hasRole('manager')  => inertia('Dashboard/Manager'),
+            $user->hasRole('admin'),
+            $user->hasRole('super_admin') => inertia('Dashboard/Admin'),
+            default => abort(403),
+        };
+    }
+}
+
+PASO 2 – Vistas Vue separadas (NO widgets)
+resources/js/Pages/Dashboard/
+├── Operator.vue
+├── Manager.vue
+└── Admin.vue
+
+
+❌ Prohibido: Dashboard.vue con ifs por rol
+✅ Cada rol = layout propio
+
+PASO 3 – Servicios backend por rol
+app/
+├── Services/
+│   └── Dashboard/
+│       ├── OperatorDashboardService.php
+│       ├── ManagerDashboardService.php
+│       └── AdminDashboardService.php
+
+
+Cada servicio solo devuelve datos relevantes para ese rol.
+
+PASO 4 – Sin colores hasta el final
+
+Primero:
+
+Jerarquía
+
+Tamaños
+
+Espaciado
+
+Prioridades
+
+Después:
+
+Branding
+
+Colores
+
+Estilo
 
 ### 🎯 PRINCIPIOS FUNDAMENTALES
 
@@ -1325,13 +1591,53 @@ src/
 - **Principal:** Plus Jakarta Sans (Google Fonts)
 - **Fallback:** -apple-system, BlinkMacSystemFont, sans-serif
 
-### Principios de Diseño
+### 📱 RESPONSIVE & MOBILE FIRST (Obligatorio)
 
-1. **Profesional y Premium:** Diseño limpio, espaciado generoso
-2. **SaaS Moderno:** Interfaces tipo dashboard, cards, estadísticas
-3. **Responsive First:** Diseño que funcione en móvil primero
-4. **Consistencia:** Usar componentes reutilizables
-5. **Accesibilidad:** Contraste adecuado, etiquetas descriptivas
+> **Regla de Oro:** Todo componente DEBE funcionar perfectamente en Mobile (320px+), Tablet (768px+) y Desktop (1024px+).
+
+#### Puntos Críticos de Responsividad:
+1. **Tablas de Datos:**
+   - En móvil: Usar tarjetas (cards) o scroll horizontal con indicador.
+   - Ocultar columas no críticas en pantallas pequeñas.
+2. **Navegación:**
+   - Sidebar colapsable en móvil (Grid -> Hamburger Menu).
+   - Menús dropdown accesibles con touch.
+3. **Formularios:**
+   - Inputs de tamaño adecuado para dedos (min 44px de altura).
+   - Wizard pasos con navegación clara en móvil.
+   - Teclado numérico automático para campos de moneda/teléfono (`type="tel"` o `inputmode="numeric"`).
+4. **Modales:**
+   - Full screen en móvil, centrados en desktop.
+   - Botón de cierre accesible y visible.
+
+### 🌟 UX/UI - EXPERIENCIA DE USUARIO (SaaS Premium)
+
+> **Filosofía:** "Don't Make Me Think" - Intuitivo, Rápido y Fácil.
+
+#### Principios de Diseño:
+1. **Claridad sobre Creatividad:** La interfaz debe ser obvia. Si hay que explicarla, no sirve.
+2. **Feedback Inmediato:**
+   - Botones con estado `loading` al hacer click.
+   - Toasts/Alertas para éxito o error (desaparecen auto).
+   - Validaciones en tiempo real (mientras se escribe).
+3. **Jerarquía Visual:**
+   - Lo más importante es lo más grande/contrastado.
+   - Usar espacios en blanco para separar grupos de información.
+4. **Consistencia:**
+   - El mismo botón de "Guardar" siempre está en el mismo lugar.
+   - Los colores de estado (verde=éxito, rojo=error) son universales.
+5. **Reducción de Fricción:**
+   - Autocompletar todo lo posible (Direcciones, CP).
+   - Valores por defecto inteligentes.
+   - Mínimos clics para completar una tarea.
+
+#### Checklist de Calidad UI:
+- [ ] ¿Se lee bien en móvil sin hacer zoom?
+- [ ] ¿Los botones son fáciles de tocar (min 44x44px)?
+- [ ] ¿El contraste de texto cumple WCAG AA?
+- [ ] ¿Hay feedback visual al interactuar?
+- [ ] ¿Los tiempos de carga son menores a 1s?
+
 
 ---
 

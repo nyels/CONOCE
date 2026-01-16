@@ -1,47 +1,69 @@
 <?php
-
+// app/Http/Controllers/DashboardController.php
 namespace App\Http\Controllers;
 
+use App\Services\Dashboard\AdminDashboardService;
+use App\Services\Dashboard\OperatorDashboardService;
+use App\Services\Dashboard\ManagerDashboardService;
 use Illuminate\Http\Request;
-use App\Models\Quote;
-use Src\Domain\Quote\Enums\QuoteStatus;
+use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        private AdminDashboardService $adminService,
+    ) {}
+
     public function index(Request $request)
     {
         $user = $request->user();
 
-        // Query base según permisos
-        $baseQuery = Quote::query();
+        // For now, default to Admin dashboard for all authenticated users
+        // TODO: Implement role-based routing when spatie/permission is configured
 
-        if (!$user->canViewAllQuotes()) {
-            $baseQuery->where('agent_id', $user->id);
+        try {
+            $dashboardData = $this->adminService->getData();
+        } catch (\Exception $e) {
+            // Fallback with empty data if service fails
+            $dashboardData = [
+                'financialKpis' => [],
+                'trends' => ['monthly' => [], 'summary' => ['growth_quotes' => 0, 'growth_premium' => 0]],
+                'conversionByInsurer' => [],
+                'systemAlerts' => [],
+                'period' => ['current' => now()->format('F Y'), 'previous' => now()->subMonth()->format('F Y')],
+                'timestamp' => now()->toIso8601String(),
+            ];
         }
 
-        // Estadísticas del mes
-        $stats = [
-            'quotes_this_month' => (clone $baseQuery)->thisMonth()->count(),
-            'pending_quotes' => (clone $baseQuery)->sent()->count(),
-            'concreted_quotes' => (clone $baseQuery)->thisMonth()->whereIn('status', [
-                QuoteStatus::CONCRETED,
-                QuoteStatus::ISSUED,
-            ])->count(),
-        ];
+        return Inertia::render('Dashboard/Admin', [
+            'dashboardData' => $dashboardData,
+            'userRole' => 'admin'
+        ]);
 
-        // Calcular tasa de conversión
-        $totalMonth = $stats['quotes_this_month'];
-        $stats['conversion_rate'] = $totalMonth > 0
-            ? round(($stats['concreted_quotes'] / $totalMonth) * 100, 1)
-            : 0;
+        /*
+        // FUTURE: Role-based routing
+        if ($user->hasRole(['super_admin', 'admin'])) {
+            return Inertia::render('Dashboard/Admin', [
+                'dashboardData' => $this->adminService->getData(),
+                'userRole' => 'admin'
+            ]);
+        }
 
-        // Cotizaciones recientes
-        $recentQuotes = (clone $baseQuery)
-            ->with(['customer:id,name', 'agent:id,name'])
-            ->orderByDesc('created_at')
-            ->limit(5)
-            ->get();
+        if ($user->hasRole('manager')) {
+            return Inertia::render('Dashboard/Manager', [
+                'dashboardData' => $this->managerService->getData(),
+                'userRole' => 'manager'
+            ]);
+        }
 
-        return view('dashboard', compact('stats', 'recentQuotes'));
+        if ($user->hasRole('operator')) {
+            return Inertia::render('Dashboard/Operator', [
+                'dashboardData' => $this->operatorService->getData(),
+                'userRole' => 'operator'
+            ]);
+        }
+
+        abort(403, 'No tienes permisos para acceder al dashboard');
+        */
     }
 }
