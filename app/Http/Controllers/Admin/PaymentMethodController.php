@@ -20,7 +20,8 @@ class PaymentMethodController extends Controller
                 'installments' => $m->installments,
                 'surcharge_percentage' => $m->surcharge_percentage,
                 'is_active' => $m->is_active,
-            ]);
+            ])
+            ->values();
 
         return Inertia::render('Admin/PaymentMethods/Index', [
             'methods' => $methods,

@@ -22,7 +22,11 @@ class VehicleBrandController extends Controller
                 'name' => $brand->name,
                 'logo_url' => $brand->logo_path ? Storage::url($brand->logo_path) : null,
                 'is_active' => $brand->is_active,
-            ]);
+            ])
+            ->values();
+
+        // DEBUG: Force output to verifying data
+        // dd($brands->toArray());
 
         return Inertia::render('Admin/VehicleBrands/Index', [
             'brands' => $brands,

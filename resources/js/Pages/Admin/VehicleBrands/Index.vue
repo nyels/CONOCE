@@ -126,6 +126,7 @@ const previewUrl = computed(() => {
                     </button>
                 </div>
                 
+                
                 <!-- Table -->
                 <CrudTable
                     :data="brands"

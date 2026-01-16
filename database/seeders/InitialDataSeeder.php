@@ -51,6 +51,7 @@ class InitialDataSeeder extends Seeder
                 'name' => 'AXA Seguros',
                 'short_name' => 'AXA',
                 'code' => 'AXA',
+                'logo_path' => 'images/allianz.jpeg', // Using allianz as placeholder for AXA
                 'primary_color' => '00008F',
                 'policy_fee' => 450.00,
                 'surcharge_semi' => 0.03,
@@ -61,6 +62,7 @@ class InitialDataSeeder extends Seeder
                 'name' => 'GNP Seguros',
                 'short_name' => 'GNP',
                 'code' => 'GNP',
+                'logo_path' => 'images/gnp.jpeg',
                 'primary_color' => 'FF6B00',
                 'policy_fee' => 480.00,
                 'surcharge_semi' => 0.025,
@@ -71,6 +73,7 @@ class InitialDataSeeder extends Seeder
                 'name' => 'Qualitas Compañía de Seguros',
                 'short_name' => 'Qualitas',
                 'code' => 'QUAL',
+                'logo_path' => 'images/qualitas.jpeg',
                 'primary_color' => '1E3A5F',
                 'policy_fee' => 400.00,
                 'surcharge_semi' => 0.02,
@@ -81,6 +84,7 @@ class InitialDataSeeder extends Seeder
                 'name' => 'Chubb Seguros México',
                 'short_name' => 'Chubb',
                 'code' => 'CHUBB',
+                'logo_path' => 'images/chubb.jpeg',
                 'primary_color' => 'C41230',
                 'policy_fee' => 520.00,
                 'surcharge_semi' => 0.035,
@@ -91,6 +95,7 @@ class InitialDataSeeder extends Seeder
                 'name' => 'HDI Seguros',
                 'short_name' => 'HDI',
                 'code' => 'HDI',
+                'logo_path' => 'images/hdi seguros.jpeg',
                 'primary_color' => '00A651',
                 'policy_fee' => 380.00,
                 'surcharge_semi' => 0.02,
@@ -101,6 +106,7 @@ class InitialDataSeeder extends Seeder
                 'name' => 'Mapfre México',
                 'short_name' => 'Mapfre',
                 'code' => 'MAPFRE',
+                'logo_path' => 'images/mapfre.jpeg',
                 'primary_color' => 'DA291C',
                 'policy_fee' => 460.00,
                 'surcharge_semi' => 0.028,
@@ -111,6 +117,7 @@ class InitialDataSeeder extends Seeder
                 'name' => 'Zurich Seguros',
                 'short_name' => 'Zurich',
                 'code' => 'ZURICH',
+                'logo_path' => 'images/zurich.jpeg',
                 'primary_color' => '003399',
                 'policy_fee' => 500.00,
                 'surcharge_semi' => 0.03,
@@ -121,6 +128,7 @@ class InitialDataSeeder extends Seeder
                 'name' => 'Seguros Banorte',
                 'short_name' => 'Banorte',
                 'code' => 'BANORTE',
+                'logo_path' => 'images/banorte.jpeg',
                 'primary_color' => 'EC1C24',
                 'policy_fee' => 420.00,
                 'surcharge_semi' => 0.025,
@@ -130,12 +138,13 @@ class InitialDataSeeder extends Seeder
         ];
 
         foreach ($insurers as $index => $data) {
-            $insurer = Insurer::firstOrCreate(
+            $insurer = Insurer::updateOrCreate(
                 ['code' => $data['code']],
                 [
                     'uuid' => (string) \Illuminate\Support\Str::uuid(),
                     'name' => $data['name'],
                     'short_name' => $data['short_name'],
+                    'logo_path' => $data['logo_path'] ?? null,
                     'primary_color' => $data['primary_color'],
                     'is_active' => true,
                     'sort_order' => $index + 1,

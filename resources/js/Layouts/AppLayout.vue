@@ -10,6 +10,8 @@ const showUserMenu = ref(false);
 const showNotifications = ref(false);
 const searchQuery = ref('');
 const searchFocused = ref(false);
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200);
+const isDesktop = computed(() => windowWidth.value >= 1024);
 
 // ===== PAGE DATA =====
 const page = usePage();
@@ -43,6 +45,14 @@ onMounted(() => {
     };
     updateTime();
     setInterval(updateTime, 60000);
+
+    // Close mobile sidebar on resize to desktop
+    window.addEventListener('resize', () => {
+        windowWidth.value = window.innerWidth;
+        if (isDesktop.value) {
+            sidebarOpen.value = false;
+        }
+    });
 });
 
 // ===== NAVIGATION BY ROLE =====
@@ -220,15 +230,18 @@ const closeDropdowns = () => {
 
 <template>
     <div class="app-layout" @click="closeDropdowns">
-        <!-- Mobile Sidebar Backdrop -->
-        <Transition name="fade">
-            <div v-show="sidebarOpen" 
-                 class="sidebar-backdrop"
-                 @click.stop="sidebarOpen = false"></div>
-        </Transition>
+        <!-- DEBUG MARKER: APPLAYOUT V4 -->
+        <div id="debug-marker" style="display:none">v4</div>
+        
+        <!-- Mobile Sidebar Backdrop REMOVED TO PREVENT LOCKS -->
 
         <!-- ===== SIDEBAR ===== -->
         <aside class="sidebar" 
+               :style="{ 
+                   transform: (isDesktop || sidebarOpen) ? 'translateX(0)' : 'translateX(-100%)',
+                   width: (isDesktop && sidebarCollapsed) ? '80px' : '280px',
+                   position: isDesktop ? 'relative' : 'fixed'
+               }"
                :class="{ 
                    'sidebar--collapsed': sidebarCollapsed,
                    'sidebar--open': sidebarOpen 
@@ -246,8 +259,10 @@ const closeDropdowns = () => {
                     </div>
                 </div>
                 
-                <button @click="sidebarCollapsed = !sidebarCollapsed" 
-                        class="sidebar__toggle hidden lg:flex"
+                <button v-if="isDesktop"
+                        @click="sidebarCollapsed = !sidebarCollapsed" 
+                        class="sidebar__toggle"
+                        style="display: flex !important"
                         :title="sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'">
                     <svg class="w-4 h-4 transition-transform duration-300" 
                          :class="{ 'rotate-180': sidebarCollapsed }"
@@ -256,7 +271,7 @@ const closeDropdowns = () => {
                     </svg>
                 </button>
                 
-                <button @click="sidebarOpen = false" class="sidebar__close lg:hidden">
+                <button v-if="!isDesktop && sidebarOpen" @click="sidebarOpen = false" class="sidebar__close" style="display: flex !important">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -352,7 +367,7 @@ const closeDropdowns = () => {
             <!-- Header -->
             <header class="main-header">
                 <div class="main-header__left">
-                    <button @click="sidebarOpen = true" class="main-header__menu lg:hidden">
+                    <button v-if="!isDesktop" @click="sidebarOpen = true" class="main-header__menu">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
@@ -470,7 +485,7 @@ const closeDropdowns = () => {
     background: #F8FAFC;
 }
 
-/* ===== BACKDROP ===== */
+/* ===== BACKDROP (DISABLED FOR DEBUG) =====
 .sidebar-backdrop {
     position: fixed;
     inset: 0;
@@ -478,6 +493,7 @@ const closeDropdowns = () => {
     backdrop-filter: blur(4px);
     z-index: 40;
 }
+*/
 
 /* ===== SIDEBAR ===== */
 .sidebar {

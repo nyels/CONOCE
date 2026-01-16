@@ -494,4 +494,72 @@ class QuoteController extends Controller
 
         return $pdf->stream("cotizacion-{$quote->folio}.pdf");
     }
+
+    /**
+     * Vista previa del PDF (BORRADOR - sin guardar)
+     * Recibe datos del formulario y genera un PDF temporal
+     */
+    public function previewDraft(Request $request)
+    {
+        $validated = $request->validate([
+            'customer_name' => 'nullable|string|max:255',
+            'vehicle' => 'required|array',
+            'vehicle.brand' => 'required|string',
+            'vehicle.model' => 'nullable|string',
+            'vehicle.year' => 'required|integer',
+            'options' => 'required|array|min:1',
+            'options.*.insurer_name' => 'required|string',
+            'options.*.insurer_id' => 'required|integer',
+            'options.*.coverage_package' => 'nullable|string',
+            'options.*.payment_frequency' => 'nullable|string',
+            'options.*.net_premium' => 'required|numeric',
+            'options.*.policy_fee' => 'required|numeric',
+            'options.*.iva' => 'required|numeric',
+            'options.*.total' => 'required|numeric',
+        ]);
+
+        if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+            return response()->json([
+                'error' => 'El generador de PDF no está instalado'
+            ], 500);
+        }
+
+        // Crear objeto "fake" para la plantilla
+        $quote = (object) [
+            'folio' => 'BORRADOR-' . date('YmdHis'),
+            'created_at' => now(),
+            'vehicle_data' => $validated['vehicle'],
+            'options' => collect($validated['options'])->map(function ($opt) {
+                return (object) [
+                    'insurer' => (object) [
+                        'name' => $opt['insurer_name'],
+                        'logo_path' => null,
+                    ],
+                    'coverage_package' => $opt['coverage_package'] ?? 'full',
+                    'payment_frequency' => $opt['payment_frequency'] ?? 'ANNUAL',
+                    'net_premium' => $opt['net_premium'],
+                    'policy_fee' => $opt['policy_fee'],
+                    'tax' => $opt['iva'],
+                    'total_premium' => $opt['total'],
+                    'first_payment' => $opt['total'],
+                    'coverages' => [],
+                ];
+            }),
+        ];
+
+        $customer = (object) [
+            'name' => $validated['customer_name'] ?? 'Cliente Prospecto',
+            'zip_code' => '',
+            'city' => '',
+        ];
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.quote', [
+            'quote' => $quote,
+            'customer' => $customer,
+            'options' => $quote->options,
+            'isDraft' => true, // Marca para mostrar watermark BORRADOR
+        ]);
+
+        return $pdf->stream("borrador-cotizacion.pdf");
+    }
 }

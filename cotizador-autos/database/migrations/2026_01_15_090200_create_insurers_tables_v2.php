@@ -71,8 +71,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            // Índices para búsqueda de configuración vigente
-            $table->index(['insurer_id', 'valid_from', 'valid_until']);
+
+            $table->index(['insurer_id', 'valid_from', 'valid_until'], 'idx_fin_settings_dates');
         });
 
         // Catálogo de estados de México
@@ -86,6 +86,7 @@ return new class extends Migration
 
     public function down(): void
     {
+
         Schema::dropIfExists('states');
         Schema::dropIfExists('insurer_financial_settings');
         Schema::dropIfExists('insurers');

@@ -44,6 +44,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('quotes/{quote}/send', [QuoteController::class, 'send'])->name('quotes.send');
     Route::get('quotes/{quote}/pdf', [QuoteController::class, 'generatePdf'])->name('quotes.pdf');
     Route::get('quotes/{quote}/pdf/preview', [QuoteController::class, 'previewPdf'])->name('quotes.pdf-preview');
+    Route::post('quotes/preview-draft', [QuoteController::class, 'previewDraft'])->name('quotes.preview-draft');
 
     // Clientes
     Route::resource('customers', CustomerController::class);

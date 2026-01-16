@@ -18,6 +18,7 @@
     "dependencies": {
         "@inertiajs/vue3": "^2.3.9",
         "vue": "^3.5.26",
+        "vue3-easy-data-table": "^1.5.47",
         "ziggy-js": "^2.6.0"
     }
 }

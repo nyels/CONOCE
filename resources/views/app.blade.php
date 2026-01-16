@@ -20,9 +20,26 @@
 
     <style>
         /* Reset base para consistencia */
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; width: 100%; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; color: #475569; -webkit-font-smoothing: antialiased; }
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            height: 100%;
+            width: 100%;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #f8fafc;
+            color: #475569;
+            -webkit-font-smoothing: antialiased;
+        }
 
         /* Loading screen */
         #app-loading {
@@ -35,15 +52,47 @@
             z-index: 9999;
             transition: opacity 0.3s ease;
         }
-        #app-loading.hidden { opacity: 0; pointer-events: none; }
-        #app-loading .spinner { display: flex; flex-direction: column; align-items: center; gap: 16px; }
-        #app-loading img { height: 48px; width: auto; animation: pulse 2s infinite; }
-        #app-loading p { color: #64748b; font-size: 14px; font-weight: 500; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        #app-loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #app-loading .spinner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        #app-loading img {
+            height: 48px;
+            width: auto;
+            animation: pulse 2s infinite;
+        }
+
+        #app-loading p {
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
     </style>
 </head>
 
 <body>
+    <!-- ROOT PROJECT -->
     <!-- Loading Screen (se oculta cuando Vue monta) -->
     <div id="app-loading">
         <div class="spinner">

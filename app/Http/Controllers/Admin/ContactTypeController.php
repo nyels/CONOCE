@@ -21,7 +21,8 @@ class ContactTypeController extends Controller
                 'name' => $type->name,
                 'is_active' => $type->is_active,
                 'sort_order' => $type->sort_order,
-            ]);
+            ])
+            ->values();
 
         return Inertia::render('Admin/ContactTypes/Index', [
             'contactTypes' => $contactTypes,

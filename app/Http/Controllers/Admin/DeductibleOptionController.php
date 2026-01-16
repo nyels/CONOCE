@@ -18,7 +18,8 @@ class DeductibleOptionController extends Controller
                 'name' => $opt->name,
                 'percentage' => $opt->percentage,
                 'is_active' => $opt->is_active,
-            ]);
+            ])
+            ->values();
 
         return Inertia::render('Admin/DeductibleOptions/Index', [
             'options' => $options,

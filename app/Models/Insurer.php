@@ -156,7 +156,8 @@ class Insurer extends Model
     public function getLogoUrlAttribute(): string
     {
         if ($this->logo_path) {
-            return asset('storage/' . $this->logo_path);
+            // Las imágenes están en public/images
+            return asset($this->logo_path);
         }
 
         // Placeholder con las iniciales

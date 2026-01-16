@@ -26,7 +26,8 @@ class InsurerController extends Controller
                 'primary_color' => $insurer->primary_color,
                 'is_active' => $insurer->is_active,
                 'sort_order' => $insurer->sort_order,
-            ]);
+            ])
+            ->values();
 
         return Inertia::render('Admin/Insurers/Index', [
             'insurers' => $insurers,

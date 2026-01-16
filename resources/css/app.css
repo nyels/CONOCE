@@ -1,3 +1,6 @@
+/* ===== GOOGLE FONTS ===== */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 /* ===== TAILWIND V4 ===== */
 @import 'tailwindcss';
 
@@ -27,22 +30,7 @@
     --color-danger-500: #DC2626;
 }
 
-/* ===== FONTS ===== */
-@font-face {
-    font-family: 'Plus Jakarta Sans';
-    font-style: normal;
-    font-weight: 400 800;
-    font-display: swap;
-    src: url('https://fonts.gstatic.com/s/plusjakartasans/v8/LDIbaomQNQcsA88c7O9yZ4KMCoOg4Ko70yyggA.woff2') format('woff2');
-}
 
-@font-face {
-    font-family: 'JetBrains Mono';
-    font-style: normal;
-    font-weight: 400 700;
-    font-display: swap;
-    src: url('https://fonts.gstatic.com/s/jetbrainsmono/v18/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8A.woff2') format('woff2');
-}
 
 /* ===== BASE STYLES ===== */
 *,

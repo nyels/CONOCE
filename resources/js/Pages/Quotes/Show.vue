@@ -51,8 +51,7 @@ const handleDelete = async () => {
 // PDF Preview (placeholder)
 const showPdfPreview = ref(false);
 const openPdfPreview = () => {
-    // TODO: Implement PDF preview
-    toast.info('Vista previa de PDF próximamente');
+    window.open(route('quotes.pdf-preview', props.quote.id), '_blank');
 };
 </script>
 

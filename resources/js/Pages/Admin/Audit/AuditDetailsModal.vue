@@ -8,241 +8,696 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
-const close = () => {
-    emit('close');
-};
-
-// --- Helpers copiados de Show.vue ---
-const formatDate = (date) => {
-    if (!date) return '—';
-    const d = new Date(date);
-    return d.toLocaleString('es-MX', { 
-        year: 'numeric', month: '2-digit', day: '2-digit', 
-        hour: '2-digit', minute: '2-digit', second: '2-digit' 
+// Helpers
+const formatDate = (date) =>
+    new Date(date).toLocaleString('es-MX', {
+        dateStyle: 'long',
+        timeStyle: 'medium',
     });
-};
-
-const getEventColor = (event) => {
-    switch (event) {
-        case 'created': return 'bg-green-100 text-green-800 border-green-200';
-        case 'updated': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-        case 'deleted': return 'bg-red-100 text-red-800 border-red-200';
-        default: return 'bg-blue-100 text-blue-800 border-blue-200';
-    }
-};
 
 const getEventLabel = (event) => {
-    if (!event) return 'REGISTRO';
+    const map = {
+        created: 'Creación',
+        updated: 'Actualización',
+        deleted: 'Eliminación',
+        restored: 'Restauración',
+    };
+    return map[event] || event;
+};
+
+const getEventClass = (event) => {
     switch (event) {
-        case 'created': return 'CREÓ';
-        case 'updated': return 'ACTUALIZÓ';
-        case 'deleted': return 'ELIMINÓ';
-        default: return event.toUpperCase();
+        case 'created': return 'event-badge--success';
+        case 'updated': return 'event-badge--warning';
+        case 'deleted': return 'event-badge--danger';
+        default: return 'event-badge--default';
     }
 };
 
 const getEventIcon = (event) => {
     switch (event) {
-        case 'created': return '➕';
-        case 'updated': return '📝';
-        case 'deleted': return '🗑️';
-        default: return '📋';
+        case 'created': return '✦';
+        case 'updated': return '↻';
+        case 'deleted': return '✕';
+        default: return '●';
     }
 };
 
+// Diff logic
 const changes = computed(() => {
-    if (!props.activity) return [];
-    
-    const properties = props.activity.properties || {};
-    const old = properties.old || {};
-    const attributes = properties.attributes || {};
-    
-    // Si solo hay atributos (resource created)
-    if (Object.keys(old).length === 0 && Object.keys(attributes).length > 0) {
-        return Object.keys(attributes).map(key => ({
-            key,
-            old: '—', 
-            new: attributes[key],
-            isNew: true
-        }));
-    }
+    if (!props.activity || !props.activity.properties) return [];
 
-    // Si hay old y attributes (resource updated)
-    const allKeys = new Set([...Object.keys(old), ...Object.keys(attributes)]);
-    return Array.from(allKeys).map(key => ({
-        key,
-        old: old[key],
-        new: attributes[key],
-        changed: JSON.stringify(old[key]) !== JSON.stringify(attributes[key])
-    })).filter(item => item.changed); 
+    const old = props.activity.properties.old || {};
+    const attributes = props.activity.properties.attributes || {};
+
+    const allKeys = new Set([
+        ...Object.keys(old),
+        ...Object.keys(attributes),
+    ]);
+
+    const ignored = [
+        'updated_at',
+        'created_at',
+        'id',
+        'password',
+        'remember_token',
+        'deleted_at',
+        'email_verified_at',
+        'two_factor_confirmed_at',
+        'current_team_id',
+        'profile_photo_path',
+    ];
+
+    const diffs = [];
+
+    allKeys.forEach((key) => {
+        if (ignored.includes(key)) return;
+
+        const oldValue = old[key];
+        const newValue = attributes[key];
+
+        if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+            diffs.push({
+                key,
+                old: oldValue ?? '—',
+                new: newValue ?? '—',
+            });
+        }
+    });
+
+    return diffs;
 });
+
+const getInitials = (name) => {
+    return (name || 'SYS').substring(0, 2).toUpperCase();
+};
+
+const formatFieldName = (key) => {
+    return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
 </script>
 
 <template>
-    <div v-if="show" class="fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-0 flex items-center justify-center" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        
-        <!-- Backdrop -->
-        <div class="fixed inset-0 transition-opacity" aria-hidden="true" @click="close">
-            <div class="absolute inset-0 bg-gray-900 opacity-60 backdrop-blur-sm"></div>
-        </div>
+    <Teleport to="body">
+        <Transition name="modal">
+            <div
+                v-if="show"
+                class="modal-overlay"
+                role="dialog"
+                aria-modal="true"
+            >
+                <!-- Backdrop -->
+                <div class="modal-backdrop" @click="$emit('close')" />
 
-        <!-- Modal Panel -->
-        <div class="bg-white rounded-xl shadow-2xl transform transition-all sm:w-full sm:max-w-3xl relative flex flex-col max-h-[90vh]">
-            
-            <!-- Header -->
-            <div class="bg-white px-6 py-5 border-b border-gray-100 flex justify-between items-start shrink-0 rounded-t-xl">
-                <div>
-                    <h3 class="text-xl font-bold text-gray-900">
-                        Detalle del Movimiento
-                    </h3>
-                    <p class="text-sm text-gray-500 mt-1 flex items-center gap-2">
-                        ID: <span class="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-700 text-xs select-all">{{ activity.id }}</span>
-                        <span class="text-gray-300">|</span>
-                        <span>{{ formatDate(activity.created_at) }}</span>
-                    </p>
-                </div>
-                <button @click="close" class="text-gray-400 hover:text-gray-500 hover:bg-gray-50 rounded-full p-2 transition focus:outline-none">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-
-            <!-- Scrollable Content -->
-            <div class="p-8 overflow-y-auto">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-12 mb-10" v-if="activity">
-                    
-                    <!-- Contexto -->
-                    <div>
-                        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 border-b pb-2">Contexto</h4>
-                        <dl class="space-y-4">
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500">Operador Responsable</dt>
-                                <dd class="mt-1 flex items-center">
-                                    <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-gray-800 text-white text-[10px] uppercase font-bold mr-2">
-                                        {{ (activity.causer?.name || 'S').substring(0, 2) }}
-                                    </span>
-                                    <span class="text-sm font-semibold text-gray-900">{{ activity.causer?.name || 'Sistema' }}</span>
-                                </dd>
+                <!-- Modal Panel -->
+                <div class="modal-panel">
+                    <!-- Dark Header -->
+                    <header class="modal-header">
+                        <div class="modal-header__content">
+                            <div class="modal-header__icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clip-rule="evenodd" />
+                                    <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" />
+                                </svg>
                             </div>
-                            
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Acción</dt>
-                                <dd class="mt-1">
-                                    <span :class="['inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold gap-1.5', getEventColor(activity.event)]">
-                                        <span>{{ getEventIcon(activity.event) }}</span>
+                                <h2 class="modal-header__title">Detalle del Evento</h2>
+                                <p class="modal-header__subtitle">
+                                    Transacción <span class="modal-header__id">#{{ activity?.id }}</span>
+                                </p>
+                            </div>
+                        </div>
+                        <button class="modal-close" @click="$emit('close')">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </header>
+
+                    <!-- Content -->
+                    <div class="modal-body" v-if="activity">
+                        <!-- Actor Card -->
+                        <div class="actor-card">
+                            <div class="actor-avatar">{{ getInitials(activity.causer?.name) }}</div>
+                            <div class="actor-info">
+                                <span class="actor-name">{{ activity.causer?.name || 'Sistema Automático' }}</span>
+                                <div class="actor-meta">
+                                    <span class="event-badge" :class="getEventClass(activity.event)">
+                                        <span class="event-badge__icon">{{ getEventIcon(activity.event) }}</span>
                                         {{ getEventLabel(activity.event) }}
                                     </span>
-                                </dd>
+                                    <span class="actor-date">{{ formatDate(activity.created_at) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Info Grid -->
+                        <div class="info-grid">
+                            <div class="info-card">
+                                <div class="info-card__header">
+                                    <span class="info-card__dot info-card__dot--blue"></span>
+                                    Descripción
+                                </div>
+                                <p class="info-card__value">{{ activity.description }}</p>
                             </div>
 
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500">Recurso Afectado</dt>
-                                <dd class="mt-1 text-sm text-gray-900 font-medium">
-                                    {{ activity.subject_type?.split('\\').pop() }} 
-                                    <span class="text-gray-400 font-normal">#{{ activity.subject_id }}</span>
-                                </dd>
+                            <div class="info-card">
+                                <div class="info-card__header">
+                                    <span class="info-card__dot info-card__dot--purple"></span>
+                                    Recurso Afectado
+                                </div>
+                                <p class="info-card__value info-card__value--mono">
+                                    {{ activity.subject_type?.split('\\').pop() || 'N/A' }}
+                                    <span class="info-card__id">#{{ activity.subject_id || 'N/A' }}</span>
+                                </p>
                             </div>
 
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500">Descripción</dt>
-                                <dd class="mt-1 text-sm text-gray-700 italic">
-                                    "{{ activity.description }}"
-                                </dd>
-                            </div>
-                        </dl>
-                    </div>
-
-                    <!-- Trazabilidad Técnica -->
-                    <div>
-                        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 border-b pb-2">Trazabilidad</h4>
-                        <dl class="space-y-4">
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500 flex items-center gap-2">
+                            <div class="info-card" v-if="activity.properties?.ip">
+                                <div class="info-card__header">
+                                    <span class="info-card__dot info-card__dot--green"></span>
                                     Dirección IP
-                                    <span class="bg-gray-100 text-gray-500 px-1.5 rounded text-[10px] font-mono">v4</span>
-                                </dt>
-                                <dd class="mt-1 text-sm font-mono text-gray-800 bg-gray-50 px-2 py-1 rounded w-fit border border-gray-200">
-                                    {{ activity.properties?.ip || 'Desconocida' }}
-                                </dd>
+                                </div>
+                                <p class="info-card__value info-card__value--mono">{{ activity.properties.ip }}</p>
                             </div>
 
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500">Navegador (User Agent)</dt>
-                                <dd class="mt-1 text-xs text-gray-500 font-mono break-words bg-gray-50 p-2 rounded border border-gray-100">
-                                    {{ activity.properties?.user_agent || 'N/A' }}
-                                </dd>
+                            <div class="info-card" v-if="activity.properties?.user_agent">
+                                <div class="info-card__header">
+                                    <span class="info-card__dot info-card__dot--orange"></span>
+                                    User Agent
+                                </div>
+                                <p class="info-card__value info-card__value--small">{{ activity.properties.user_agent }}</p>
                             </div>
+                        </div>
 
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500">Endpoint Solicitado</dt>
-                                <dd class="mt-1 text-xs text-blue-600 font-mono break-all hover:underline cursor-pointer">
-                                    {{ activity.properties?.url || 'N/A' }}
-                                </dd>
+                        <!-- Changes Section -->
+                        <div v-if="changes.length" class="changes-section">
+                            <div class="changes-header">
+                                <h3 class="changes-title">
+                                    Cambios Realizados
+                                    <span class="changes-count">{{ changes.length }}</span>
+                                </h3>
                             </div>
-                        </dl>
+                            
+                            <div class="changes-table-wrapper">
+                                <table class="changes-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="th-field">Campo</th>
+                                            <th class="th-old">Valor Anterior</th>
+                                            <th class="th-new">Valor Nuevo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(change, i) in changes" :key="i">
+                                            <td class="td-field">{{ formatFieldName(change.key) }}</td>
+                                            <td class="td-old">
+                                                <span class="value-pill value-pill--old">{{ change.old }}</span>
+                                            </td>
+                                            <td class="td-new">
+                                                <span class="value-pill value-pill--new">{{ change.new }}</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Empty State -->
+                        <div v-else class="empty-changes">
+                            <div class="empty-changes__icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                                </svg>
+                            </div>
+                            <h4 class="empty-changes__title">Sin cambios registrados</h4>
+                            <p class="empty-changes__text">Este evento no modificó atributos auditables.</p>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Comparativa -->
-                <div v-if="changes.length > 0">
-                    <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center justify-between border-b pb-2">
-                        <span>Comparativa de Cambios</span>
-                        <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] normal-case font-bold">{{ changes.length }} campos modificados</span>
-                    </h4>
-                    
-                    <div class="overflow-hidden bg-white border border-gray-200 rounded-lg">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/4">Campo</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/3">Antes</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/3">Después</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                <tr v-for="(change, idx) in changes" :key="idx" class="hover:bg-gray-50">
-                                    <td class="px-4 py-3 text-sm font-medium text-gray-700">
-                                        {{ change.key }}
-                                    </td>
-                                    <td class="px-4 py-3 text-sm text-red-600 bg-red-50/20 font-mono break-all border-r border-gray-100">
-                                        <div class="flex items-start gap-2">
-                                            <span class="select-none text-red-300">-</span>
-                                            <span v-if="change.old === null || change.old === '—'" class="text-gray-400 italic">null</span>
-                                            <span v-else>{{ change.old }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 text-sm text-green-700 bg-green-50/20 font-mono font-medium break-all">
-                                        <div class="flex items-start gap-2">
-                                            <span class="select-none text-green-300">+</span>
-                                            <span v-if="change.new === null" class="text-gray-400 italic">null</span>
-                                            <span v-else>{{ change.new }}</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <!-- Empty State -->
-                <div v-else class="rounded-lg bg-gray-50 border-2 border-dashed border-gray-200 p-8 text-center">
-                    <div class="mx-auto h-12 w-12 text-gray-400">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                    </div>
-                    <h3 class="mt-2 text-sm font-medium text-gray-900">Sin cambios registrados</h3>
-                    <p class="mt-1 text-sm text-gray-500">Este evento no incluye modificaciones de atributos (ej. login, acceso, descarga).</p>
+                    <!-- Footer -->
+                    <footer class="modal-footer">
+                        <button class="btn-close" @click="$emit('close')">
+                            Cerrar
+                        </button>
+                    </footer>
                 </div>
             </div>
-
-            <!-- Footer -->
-            <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end shrink-0 rounded-b-xl">
-                <button type="button" class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors" @click="close">
-                    Cerrar Detalle
-                </button>
-            </div>
-        </div>
-    </div>
+        </Transition>
+    </Teleport>
 </template>
+
+<style scoped>
+/* ===== MODAL OVERLAY ===== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(4px);
+}
+
+/* ===== MODAL PANEL ===== */
+.modal-panel {
+    position: relative;
+    width: 100%;
+    max-width: 720px;
+    max-height: 90vh;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ===== HEADER ===== */
+.modal-header {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header__content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.modal-header__icon {
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-header__icon svg {
+    width: 24px;
+    height: 24px;
+    color: #94a3b8;
+}
+
+.modal-header__title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+}
+
+.modal-header__subtitle {
+    font-size: 0.8125rem;
+    color: #94a3b8;
+    margin: 0.25rem 0 0;
+}
+
+.modal-header__id {
+    font-family: 'JetBrains Mono', monospace;
+    color: #cbd5e1;
+}
+
+.modal-close {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.modal-close svg {
+    width: 18px;
+    height: 18px;
+    color: #94a3b8;
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.modal-close:hover svg {
+    color: #ffffff;
+}
+
+/* ===== BODY ===== */
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    background: #f8fafc;
+}
+
+/* ===== ACTOR CARD ===== */
+.actor-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 1.25rem;
+}
+
+.actor-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #7B2D3B 0%, #5C1D2A 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.actor-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.actor-name {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.actor-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.375rem;
+    flex-wrap: wrap;
+}
+
+.event-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.event-badge__icon {
+    font-size: 0.625rem;
+}
+
+.event-badge--success { background: #dcfce7; color: #15803d; }
+.event-badge--warning { background: #fef3c7; color: #b45309; }
+.event-badge--danger { background: #fee2e2; color: #b91c1c; }
+.event-badge--default { background: #f1f5f9; color: #475569; }
+
+.actor-date {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+/* ===== INFO GRID ===== */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.info-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid #e2e8f0;
+}
+
+.info-card__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.info-card__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.info-card__dot--blue { background: #3b82f6; }
+.info-card__dot--purple { background: #8b5cf6; }
+.info-card__dot--green { background: #22c55e; }
+.info-card__dot--orange { background: #f97316; }
+
+.info-card__value {
+    font-size: 0.875rem;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.info-card__value--mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+}
+
+.info-card__value--small {
+    font-size: 0.75rem;
+    color: #475569;
+    word-break: break-all;
+}
+
+.info-card__id {
+    color: #94a3b8;
+    margin-left: 0.25rem;
+}
+
+/* ===== CHANGES SECTION ===== */
+.changes-section {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+.changes-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fafafa;
+}
+
+.changes-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.changes-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 0.5rem;
+    background: linear-gradient(135deg, #7B2D3B 0%, #5C1D2A 100%);
+    color: #ffffff;
+    border-radius: 6px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+}
+
+.changes-table-wrapper {
+    overflow-x: auto;
+}
+
+.changes-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.changes-table th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.th-field { color: #64748b; background: #f8fafc; }
+.th-old { color: #dc2626; background: #fef2f2; }
+.th-new { color: #16a34a; background: #f0fdf4; }
+
+.changes-table td {
+    padding: 0.875rem 1rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.changes-table tr:last-child td {
+    border-bottom: none;
+}
+
+.td-field {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.value-pill {
+    display: inline-block;
+    font-size: 0.8125rem;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    max-width: 200px;
+    word-break: break-all;
+}
+
+.value-pill--old {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.value-pill--new {
+    background: #f0fdf4;
+    color: #166534;
+}
+
+/* ===== EMPTY STATE ===== */
+.empty-changes {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: #ffffff;
+    border-radius: 14px;
+    border: 2px dashed #e2e8f0;
+}
+
+.empty-changes__icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 1rem;
+    background: #f1f5f9;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-changes__icon svg {
+    width: 28px;
+    height: 28px;
+    color: #94a3b8;
+}
+
+.empty-changes__title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #334155;
+    margin: 0 0 0.25rem;
+}
+
+.empty-changes__text {
+    font-size: 0.8125rem;
+    color: #64748b;
+    margin: 0;
+}
+
+/* ===== FOOTER ===== */
+.modal-footer {
+    padding: 1rem 1.5rem;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-close {
+    padding: 0.625rem 1.5rem;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn-close:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+}
+
+/* ===== TRANSITIONS ===== */
+.modal-enter-active,
+.modal-leave-active {
+    transition: opacity 0.2s ease;
+}
+
+.modal-enter-active .modal-panel,
+.modal-leave-active .modal-panel {
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+    opacity: 0;
+}
+
+.modal-enter-from .modal-panel,
+.modal-leave-to .modal-panel {
+    transform: scale(0.95) translateY(10px);
+    opacity: 0;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 640px) {
+    .modal-panel {
+        max-height: 100vh;
+        border-radius: 16px 16px 0 0;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .changes-table th,
+    .changes-table td {
+        padding: 0.625rem 0.75rem;
+    }
+    
+    .value-pill {
+        max-width: 120px;
+    }
+}
+</style>

@@ -1,6 +1,6 @@
 <!-- resources/js/Pages/Quotes/Create.vue -->
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, reactive } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -167,6 +167,85 @@ const submit = () => {
 };
 
 const cancel = () => { router.visit(route('dashboard')); };
+
+// Vista previa PDF (Borrador)
+const previewDraft = async () => {
+    if (manualOptions.value.length === 0) {
+        alert('Agrega al menos una opción de aseguradora para ver la vista previa.');
+        return;
+    }
+    
+    // Crear formulario para enviar por POST
+    const formData = {
+        customer_name: selectedCustomer.value?.name || form.new_customer?.name || 'Cliente Prospecto',
+        vehicle: form.vehicle,
+        options: manualOptions.value.map(opt => ({
+            insurer_id: opt.insurer_id,
+            insurer_name: opt.insurer_name,
+            coverage_package: opt.coverage_package,
+            payment_frequency: opt.payment_frequency,
+            net_premium: opt.net_premium,
+            policy_fee: opt.policy_fee,
+            iva: opt.iva,
+            total: opt.total,
+        })),
+    };
+    
+    // Crear form hidden y enviarlo en nueva ventana
+    const form_elem = document.createElement('form');
+    form_elem.method = 'POST';
+    form_elem.action = route('quotes.preview-draft');
+    form_elem.target = '_blank';
+    
+    // CSRF Token
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = '_token';
+    csrfInput.value = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    form_elem.appendChild(csrfInput);
+    
+    // Data como JSON
+    const dataInput = document.createElement('input');
+    dataInput.type = 'hidden';
+    dataInput.name = 'data';
+    dataInput.value = JSON.stringify(formData);
+    form_elem.appendChild(dataInput);
+    
+    // Añadir campos individuales para validación Laravel
+    Object.entries(formData).forEach(([key, value]) => {
+        if (typeof value === 'object') {
+            if (Array.isArray(value)) {
+                value.forEach((item, index) => {
+                    Object.entries(item).forEach(([subKey, subValue]) => {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = `${key}[${index}][${subKey}]`;
+                        input.value = subValue ?? '';
+                        form_elem.appendChild(input);
+                    });
+                });
+            } else {
+                Object.entries(value).forEach(([subKey, subValue]) => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = `${key}[${subKey}]`;
+                    input.value = subValue ?? '';
+                    form_elem.appendChild(input);
+                });
+            }
+        } else {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = value ?? '';
+            form_elem.appendChild(input);
+        }
+    });
+    
+    document.body.appendChild(form_elem);
+    form_elem.submit();
+    document.body.removeChild(form_elem);
+};
 </script>
 
 <template>
@@ -191,6 +270,23 @@ const cancel = () => { router.visit(route('dashboard')); };
                         {{ ['Cliente', 'Vehículo', 'Coberturas', 'Opciones', 'Resumen'][step - 1] }}
                     </div>
                 </div>
+            </div>
+
+            <!-- Navigation Bar (Top) -->
+            <div class="wizard__nav">
+                <button v-if="currentStep > 1" class="btn btn--secondary btn--sm" @click="prevStep">
+                    ← Anterior
+                </button>
+                <div v-else class="btn-placeholder"></div>
+                
+                <span class="nav-indicator">Paso {{ currentStep }} de {{ totalSteps }}</span>
+                
+                <button v-if="currentStep < totalSteps" class="btn btn--primary btn--sm" :disabled="!canGoNext" @click="nextStep">
+                    Siguiente →
+                </button>
+                <button v-else class="btn btn--ghost btn--sm" @click="cancel">
+                    Cancelar
+                </button>
             </div>
 
             <!-- Content -->
@@ -281,110 +377,139 @@ const cancel = () => { router.visit(route('dashboard')); };
                 </div>
 
                 <!-- Step 4: Insurers -->
-                <div v-if="currentStep === 4" class="step">
-                    <h2 class="step__title">📊 Captura de Cotizaciones (Comparativa)</h2>
-                    
-                    <!-- Tabla de Opciones Agregadas -->
-                    <div class="table-container" v-if="manualOptions.length > 0">
-                        <table class="quote-table">
-                            <thead>
-                                <tr>
-                                    <th>Aseguradora</th>
-                                    <th>Paquete</th>
-                                    <th>Pago</th>
-                                    <th class="text-right">Prima Neta</th>
-                                    <th class="text-right">Total</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="(opt, idx) in manualOptions" :key="idx">
-                                    <td>
-                                        <div class="flex items-center gap-2">
-                                            <img v-if="opt.logo_url" :src="opt.logo_url" class="h-6 w-6 object-contain">
-                                            <span>{{ opt.insurer_name }}</span>
-                                        </div>
-                                    </td>
-                                    <td>{{ opt.coverage_package }}</td>
-                                    <td>{{ { ANNUAL: 'Anual', SEMIANNUAL: 'Semestral', QUARTERLY: 'Trimestral', MONTHLY: 'Mensual' }[opt.payment_frequency] }}</td>
-                                    <td class="text-right">{{ formatCurrency(opt.net_premium) }}</td>
-                                    <td class="text-right font-bold">{{ formatCurrency(opt.total) }}</td>
-                                    <td class="text-right">
-                                        <button @click="removeOption(idx)" class="btn-icon text-red-500">🗑️</button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                <div v-if="currentStep === 4" class="step step--capture">
+                    <!-- Main Title Centered -->
+                    <div class="capture-header">
+                        <h2 class="capture-title">📊 Captura de Cotizaciones</h2>
+                        <p class="capture-subtitle">Comparativa de opciones de aseguradoras</p>
                     </div>
 
-                    <div v-else class="empty-state">
-                        <p>No has agregado cotizaciones aún.</p>
-                    </div>
-
-                    <div class="divider"></div>
-
-                    <!-- Formulario de Captura Manual -->
-                    <div class="manual-entry-card fade-in">
-                        <h3 class="font-bold mb-4">➕ Agregar Nueva Opción</h3>
+                    <!-- Add New Option Card -->
+                    <div class="add-option-card">
+                        <h3 class="add-option-title">➕ Agregar Nueva Opción</h3>
                         
-                        <div class="grid grid-cols-2 gap-4 mb-4">
-                            <div class="form-group">
-                                <label>Aseguradora</label>
-                                <select v-model="newOption.insurer_id" class="input">
-                                    <option value="">Seleccionar...</option>
-                                    <option v-for="ins in insurers" :key="ins.id" :value="ins.id">{{ ins.name }}</option>
-                                </select>
+                        <div class="add-option-form">
+                            <div class="form-row">
+                                <div class="form-group form-group--large">
+                                    <label class="form-label">Aseguradora</label>
+                                    <select v-model="newOption.insurer_id" class="form-select">
+                                        <option value="">Seleccionar aseguradora...</option>
+                                        <option v-for="ins in insurers" :key="ins.id" :value="ins.id">{{ ins.name }}</option>
+                                    </select>
+                                </div>
+                                <div class="form-group form-group--large">
+                                    <label class="form-label">Paquete / Cobertura</label>
+                                    <select v-model="newOption.coverage_package" class="form-select">
+                                        <option v-for="pkg in coveragePackages" :key="pkg.id" :value="pkg.code">{{ pkg.name }}</option>
+                                        <option value="full">Cobertura Amplia</option>
+                                        <option value="limited">Cobertura Limitada</option>
+                                        <option value="liability_only">Responsabilidad Civil</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>Paquete / Cobertura</label>
-                                <select v-model="newOption.coverage_package" class="input">
-                                    <option v-for="pkg in coveragePackages" :key="pkg.id" :value="pkg.code">{{ pkg.name }}</option>
-                                    <!-- Fallback si no hay paquetes cargados -->
-                                    <option value="full">Amplia</option>
-                                    <option value="limited">Limitada</option>
-                                    <option value="liability_only">RC</option>
-                                </select>
-                            </div>
-                        </div>
 
-                        <div class="grid grid-cols-3 gap-4 mb-4">
-                             <div class="form-group">
-                                <label>Forma de Pago</label>
-                                <select v-model="newOption.payment_frequency" class="input">
-                                    <option value="ANNUAL">Anual</option>
-                                    <option value="SEMIANNUAL">Semestral</option>
-                                    <option value="QUARTERLY">Trimestral</option>
-                                    <option value="MONTHLY">Mensual</option>
-                                </select>
+                            <div class="form-row form-row--three">
+                                <div class="form-group">
+                                    <label class="form-label">Forma de Pago</label>
+                                    <select v-model="newOption.payment_frequency" class="form-select">
+                                        <option value="ANNUAL">Pago Anual</option>
+                                        <option value="SEMIANNUAL">Pago Semestral</option>
+                                        <option value="QUARTERLY">Pago Trimestral</option>
+                                        <option value="MONTHLY">Pago Mensual</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Prima Neta</label>
+                                    <div class="input-wrapper">
+                                        <span class="input-prefix">$</span>
+                                        <input type="number" v-model.number="newOption.net_premium" class="form-input form-input--currency" placeholder="0.00">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Derecho de Póliza</label>
+                                    <div class="input-wrapper">
+                                        <span class="input-prefix">$</span>
+                                        <input type="number" v-model.number="newOption.policy_fee" class="form-input form-input--currency" placeholder="0.00">
+                                    </div>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>Prima Neta</label>
-                                <input type="number" v-model.number="newOption.net_premium" class="input text-right" placeholder="0.00">
-                            </div>
-                            <div class="form-group">
-                                <label>Der. Póliza</label>
-                                <input type="number" v-model.number="newOption.policy_fee" class="input text-right" placeholder="0.00">
-                            </div>
-                        </div>
 
-                        <div class="grid grid-cols-2 gap-4 mb-4 bg-gray-50 p-3 rounded">
-                            <div class="form-group">
-                                <label>IVA (16%)</label>
-                                <div class="text-right font-mono">{{ formatCurrency(newOption.iva) }}</div>
+                            <div class="totals-row">
+                                <div class="total-item">
+                                    <span class="total-label">IVA (16%)</span>
+                                    <span class="total-value">{{ formatCurrency(newOption.iva) }}</span>
+                                </div>
+                                <div class="total-item total-item--primary">
+                                    <span class="total-label">Total a Pagar</span>
+                                    <span class="total-value total-value--large">{{ formatCurrency(newOption.total) }}</span>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label class="font-bold">Total a Pagar</label>
-                                <div class="text-right font-bold text-lg text-blue-600">{{ formatCurrency(newOption.total) }}</div>
-                            </div>
-                        </div>
 
-                        <button 
-                            @click="addOption" 
-                            :disabled="!newOption.insurer_id || newOption.net_premium <= 0"
-                            class="btn btn--primary w-full"
-                        >
-                            Agregar a Comparativa
-                        </button>
+                            <button 
+                                @click="addOption" 
+                                :disabled="!newOption.insurer_id || newOption.net_premium <= 0"
+                                class="btn-add-option"
+                            >
+                                <span>✓</span> Agregar a Comparativa
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Options Table (Below the add button) -->
+                    <div class="options-list-section" v-if="manualOptions.length > 0">
+                        <h4 class="options-list-title">
+                            Opciones Agregadas 
+                            <span class="options-count">{{ manualOptions.length }}</span>
+                        </h4>
+                        
+                        <div class="options-table-wrapper">
+                            <table class="options-table">
+                                <thead>
+                                    <tr>
+                                        <th>Aseguradora</th>
+                                        <th>Paquete</th>
+                                        <th>Forma de Pago</th>
+                                        <th class="text-right">Prima Neta</th>
+                                        <th class="text-right">Total</th>
+                                        <th class="text-center">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(opt, idx) in manualOptions" :key="idx">
+                                        <td>
+                                            <div class="insurer-cell">
+                                                <img v-if="opt.logo_url && !opt.logo_url.includes('ui-avatars')" 
+                                                     :src="opt.logo_url" 
+                                                     :alt="opt.insurer_name" 
+                                                     class="insurer-logo" />
+                                                <div v-else class="insurer-avatar">{{ opt.insurer_name.substring(0, 2).toUpperCase() }}</div>
+                                                <span class="insurer-name">{{ opt.insurer_name }}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="package-badge">{{ { full: 'Cobertura Amplia', limited: 'Cobertura Limitada', liability_only: 'Responsabilidad Civil' }[opt.coverage_package] || opt.coverage_package }}</span>
+                                        </td>
+                                        <td>{{ { ANNUAL: 'Anual', SEMIANNUAL: 'Semestral', QUARTERLY: 'Trimestral', MONTHLY: 'Mensual' }[opt.payment_frequency] }}</td>
+                                        <td class="text-right font-mono">{{ formatCurrency(opt.net_premium) }}</td>
+                                        <td class="text-right font-mono font-bold text-primary">{{ formatCurrency(opt.total) }}</td>
+                                        <td class="text-center">
+                                            <button @click="removeOption(idx)" class="btn-delete" title="Eliminar">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                                                    <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div v-else class="empty-options">
+                        <div class="empty-options__icon">📋</div>
+                        <p class="empty-options__text">Aún no has agregado opciones de cotización</p>
+                        <p class="empty-options__hint">Completa el formulario de arriba para agregar aseguradoras</p>
                     </div>
                 </div>
 
@@ -405,26 +530,17 @@ const cancel = () => { router.visit(route('dashboard')); };
                     
                     <div class="summary-options">
                         <div class="summary-options__title">Opciones seleccionadas</div>
-                        <div v-for="ins in insurerOptions.filter(i => i.selected)" :key="ins.id" class="summary-option">
-                            <span>{{ ins.name }} {{ { basic: 'Básico', standard: 'Amplio', premium: 'Premium' }[form.coverage_package] }}</span>
-                            <span class="summary-option__price">{{ formatCurrency(ins.total) }}</span>
+                        <div v-for="opt in manualOptions" :key="opt.id" class="summary-option">
+                            <span>{{ opt.insurer_name }} - {{ { full: 'Amplia', limited: 'Limitada', liability_only: 'RC' }[opt.coverage_package] || opt.coverage_package }}</span>
+                            <span class="summary-option__price">{{ formatCurrency(opt.total) }}</span>
                         </div>
                     </div>
                     
                     <div class="action-buttons">
-                        <button class="btn btn--secondary">📄 Vista Previa PDF</button>
+                        <button class="btn btn--secondary" @click="previewDraft">📄 Vista Previa PDF</button>
                         <button class="btn btn--primary" @click="submit">✓ Finalizar Cotización</button>
                     </div>
                 </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="wizard__footer">
-                <button v-if="currentStep > 1" class="btn btn--secondary" @click="prevStep">← Anterior</button>
-                <button class="btn btn--ghost" @click="cancel">Cancelar</button>
-                <button v-if="currentStep < totalSteps" class="btn btn--primary" :disabled="!canGoNext" @click="nextStep">
-                    Siguiente →
-                </button>
             </div>
         </div>
     </AppLayout>
@@ -441,6 +557,31 @@ const cancel = () => { router.visit(route('dashboard')); };
 .progress-step--active .progress-step__number { background: #7B2D3B; color: white; }
 .progress-step--done .progress-step__number { background: #059669; color: white; }
 .progress-step__label { font-size: 0.6875rem; color: #6B7280; text-align: center; }
+
+/* Top Navigation */
+.wizard__nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    border: 1px solid #e2e8f0;
+}
+
+.nav-indicator {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.btn-placeholder { width: 100px; }
+
+.btn--sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.8125rem;
+}
 
 /* Content */
 .wizard__content { background: white; border-radius: 16px; padding: 1.5rem; min-height: 400px; border: 1px solid #E5E7EB; }
@@ -519,4 +660,305 @@ const cancel = () => { router.visit(route('dashboard')); };
 .btn--outline:hover { background: rgba(199,161,114,0.1); }
 .btn--ghost { background: transparent; color: #6B7280; }
 .btn--ghost:hover { color: #7B2D3B; }
+
+/* ===== STEP 4: CAPTURE ===== */
+.step--capture { padding: 0; }
+
+.capture-header {
+    text-align: center;
+    padding: 1.5rem 1rem;
+    border-bottom: 1px solid #E5E7EB;
+    margin-bottom: 1.5rem;
+}
+
+.capture-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0 0 0.25rem;
+}
+
+.capture-subtitle {
+    font-size: 0.875rem;
+    color: #64748b;
+    margin: 0;
+}
+
+/* Add Option Card */
+.add-option-card {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.add-option-title {
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #334155;
+    margin: 0 0 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px dashed #cbd5e1;
+}
+
+.add-option-form {}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.form-row--three {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 768px) {
+    .form-row, .form-row--three { grid-template-columns: 1fr; }
+}
+
+.form-group { display: flex; flex-direction: column; }
+.form-group--large { grid-column: span 1; }
+
+.form-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 0.375rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.form-select, .form-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.9375rem;
+    background: white;
+    transition: all 0.15s;
+}
+
+.form-select:focus, .form-input:focus {
+    outline: none;
+    border-color: #7B2D3B;
+    box-shadow: 0 0 0 3px rgba(123, 45, 59, 0.1);
+}
+
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-prefix {
+    position: absolute;
+    left: 1rem;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.form-input--currency {
+    padding-left: 2rem;
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.totals-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.total-item { display: flex; justify-content: space-between; align-items: center; }
+.total-item--primary { padding-left: 1rem; border-left: 2px solid #7B2D3B; }
+
+.total-label { font-size: 0.8125rem; color: #64748b; font-weight: 500; }
+.total-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #334155; }
+.total-value--large { font-size: 1.25rem; color: #7B2D3B; font-weight: 800; }
+
+.btn-add-option {
+    width: 100%;
+    padding: 0.875rem 1.5rem;
+    background: linear-gradient(135deg, #7B2D3B 0%, #5C1D2A 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-add-option:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(123, 45, 59, 0.3);
+}
+
+.btn-add-option:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Options Table */
+.options-list-section {
+    margin-top: 1rem;
+}
+
+.options-list-title {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.options-count {
+    background: linear-gradient(135deg, #7B2D3B 0%, #5C1D2A 100%);
+    color: white;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.options-table-wrapper {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.options-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.options-table th {
+    background: #f8fafc;
+    padding: 0.75rem 1rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.options-table td {
+    padding: 0.875rem 1rem;
+    font-size: 0.875rem;
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.options-table tr:last-child td { border-bottom: none; }
+.options-table tr:hover { background: #fafafa; }
+
+.insurer-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.insurer-avatar {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #7B2D3B 0%, #5C1D2A 100%);
+    color: white;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6875rem;
+    font-weight: 700;
+}
+
+.insurer-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #e2e8f0;
+}
+
+.insurer-name { font-weight: 600; }
+
+.package-badge {
+    display: inline-block;
+    padding: 0.25rem 0.625rem;
+    background: #f1f5f9;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #475569;
+}
+
+.text-primary { color: #7B2D3B !important; }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.font-bold { font-weight: 700; }
+
+.btn-delete {
+    width: 32px;
+    height: 32px;
+    background: #fee2e2;
+    border: none;
+    border-radius: 8px;
+    color: #dc2626;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.btn-delete:hover {
+    background: #dc2626;
+    color: white;
+}
+
+/* Empty State */
+.empty-options {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: #f8fafc;
+    border: 2px dashed #e2e8f0;
+    border-radius: 16px;
+    margin-top: 1rem;
+}
+
+.empty-options__icon {
+    font-size: 3rem;
+    margin-bottom: 0.75rem;
+}
+
+.empty-options__text {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #475569;
+    margin: 0 0 0.25rem;
+}
+
+.empty-options__hint {
+    font-size: 0.875rem;
+    color: #94a3b8;
+    margin: 0;
+}
 </style>

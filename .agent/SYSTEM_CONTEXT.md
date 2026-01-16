@@ -11,7 +11,7 @@ Antes de cualquier modificacion, el agente DEBE:
 1. Leer este archivo completo
 2. Leer `PROJECT_GUIDELINES.md` para reglas y estandares
 3. Consultar `.agent/artifacts/IMPLEMENTATION_PLAN.md` para el roadmap
-
+4. Consultar `.agent/artifacts/SYSTEM_SPECT_MASTR.MD`
 ---
 
 ## RESUMEN EJECUTIVO

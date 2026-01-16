@@ -187,6 +187,28 @@
 
 <body>
 
+    @if (isset($isDraft) && $isDraft)
+        <div class="watermark">BORRADOR</div>
+        <style>
+            .watermark {
+                position: fixed;
+                top: 35%;
+                left: -10%;
+                width: 120%;
+                text-align: center;
+                font-size: 120px;
+                font-weight: bold;
+                color: rgba(200, 0, 0, 0.15);
+                transform: rotate(-35deg);
+                z-index: 9999;
+                pointer-events: none;
+                letter-spacing: 20px;
+                text-transform: uppercase;
+            }
+        </style>
+    @endif
+
+
     <table class="header-table">
         <tr>
             <td width="60%" style="vertical-align: bottom;">
@@ -208,9 +230,9 @@
                 <div class="info-box">
                     <div class="info-header">Asegurado</div>
                     <div class="info-content">
-                        <div><span class="label">Nombre:</span> {{ $quote->customer->name }}</div>
-                        <div><span class="label">Ubicación:</span> {{ $quote->customer->zip_code }} |
-                            {{ $quote->customer->city }}</div>
+                        <div><span class="label">Nombre:</span> {{ $customer->name ?? 'Cliente Prospecto' }}</div>
+                        <div><span class="label">Ubicación:</span> {{ $customer->zip_code ?? '' }}
+                            {{ $customer->city ?? '' }}</div>
                     </div>
                 </div>
             </td>

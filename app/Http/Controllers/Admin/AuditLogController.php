@@ -22,23 +22,13 @@ class AuditLogController extends Controller
             });
         }
 
-        if ($request->tab === 'users') {
-            $query->where(function ($q) {
-                $q->where('subject_type', 'like', '%User%')
-                    ->orWhere('subject_type', 'like', '%Customer%');
-            });
-        } elseif ($request->tab === 'quotes') {
-            $query->where(function ($q) {
-                $q->where('subject_type', 'like', '%Quote%')
-                    ->orWhere('subject_type', 'like', '%QuoteOption%');
-            });
-        }
+
 
         $activities = $query->paginate(20)->withQueryString();
 
         return Inertia::render('Admin/Audit/Index', [
             'activities' => $activities,
-            'filters' => $request->only(['search', 'tab'])
+            'filters' => $request->only(['search'])
         ]);
     }
 

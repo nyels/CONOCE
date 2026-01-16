@@ -17,7 +17,8 @@ class VehicleTypeController extends Controller
                 'id' => $type->id,
                 'name' => $type->name,
                 'is_active' => $type->is_active,
-            ]);
+            ])
+            ->values();
 
         return Inertia::render('Admin/VehicleTypes/Index', [
             'vehicleTypes' => $vehicleTypes,
