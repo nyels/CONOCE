@@ -28,6 +28,7 @@ class Quote extends Model
         'type',
         'status',
         'vehicle_data',
+        'cargo_description',
         'previous_policy_number',
         'previous_insurer',
         'previous_premium_cents',

@@ -191,6 +191,7 @@ const tableData = computed(() => {
                         v-model="form.phone"
                         label="Teléfono"
                         placeholder="999 123 4567"
+                        mask="phone"
                         :error="form.errors.phone"
                     />
                     <FormInput
@@ -207,6 +208,7 @@ const tableData = computed(() => {
                         v-model="form.rfc"
                         label="RFC"
                         placeholder="XXXX000000XXX"
+                        mask="rfc"
                         :error="form.errors.rfc"
                     />
                     <FormSelect
@@ -241,6 +243,7 @@ const tableData = computed(() => {
                         v-model="form.zip_code"
                         label="C.P."
                         placeholder="97000"
+                        mask="zipcode"
                         :error="form.errors.zip_code"
                     />
                 </div>

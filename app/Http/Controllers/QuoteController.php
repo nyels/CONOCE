@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreQuoteRequest;
 use App\Models\Quote;
 use App\Models\QuoteOption;
 use App\Models\Customer;
@@ -10,6 +11,7 @@ use App\Models\VehicleBrand;
 use App\Models\CoveragePackage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Inertia\Inertia;
 use Src\Domain\Quote\Enums\QuoteStatus;
 use Src\Domain\Quote\Enums\QuoteType;
@@ -125,9 +127,20 @@ class QuoteController extends Controller
 
     /**
      * Buscar clientes (AJAX)
+     * Rate limited: 60 requests por minuto por usuario
      */
     public function searchCustomers(Request $request)
     {
+        $key = 'quote-search-customers:' . ($request->user()?->id ?? $request->ip());
+
+        if (RateLimiter::tooManyAttempts($key, 60)) {
+            return response()->json([
+                'error' => 'Demasiadas solicitudes. Intente de nuevo en un momento.',
+            ], 429);
+        }
+
+        RateLimiter::hit($key, 60);
+
         $term = $request->input('q', '');
 
         $customers = Customer::active()
@@ -152,55 +165,9 @@ class QuoteController extends Controller
     /**
      * Guardar nueva cotización
      */
-    public function store(Request $request)
+    public function store(StoreQuoteRequest $request)
     {
-        $validated = $request->validate([
-            // Cliente
-            'customer_id' => 'nullable|exists:customers,id',
-            'new_customer' => 'nullable|array',
-            'new_customer.name' => 'nullable|required_without:customer_id|string|max:255',
-            'new_customer.phone' => 'nullable|string|max:20',
-            'new_customer.email' => 'nullable|email|max:255',
-            'new_customer.rfc' => 'nullable|string|max:13',
-            'new_customer.type' => 'nullable|string|in:physical,moral',
-
-            // Tipo de cotización
-            'quote_type' => 'required|string|in:new,renewal',
-
-            // Vehículo
-            'vehicle' => 'required|array',
-            'vehicle.brand' => 'required|string|max:100',
-            'vehicle.model' => 'required|string|max:100',
-            'vehicle.year' => 'required|integer|min:1990|max:' . (date('Y') + 1),
-            'vehicle.version' => 'nullable|string|max:100',
-            'vehicle.value' => 'nullable|numeric|min:0',
-            'vehicle.usage' => 'nullable|string|in:personal,commercial',
-
-            // Renovación (si aplica)
-            'renewal' => 'nullable|array',
-            'renewal.insurer' => 'nullable|string|max:100',
-            'renewal.policy_number' => 'nullable|string|max:50',
-            'renewal.previous_premium' => 'nullable|numeric|min:0',
-            'renewal.expires_at' => 'nullable|date',
-
-            // Paquete (mapear nombres UI a enum)
-            'coverage_package' => 'required|string|in:basic,standard,premium,full,limited,liability_only',
-
-            // Opciones de aseguradoras
-            'options' => 'required|array|min:1|max:10',
-            'options.*.insurer_id' => 'required|exists:insurers,id',
-            'options.*.net_premium' => 'required|numeric|min:0',
-            'options.*.policy_fee' => 'required|numeric|min:0',
-            'options.*.iva' => 'required|numeric|min:0',
-            'options.*.total_premium' => 'required|numeric|min:0',
-            'options.*.coverage_package' => 'nullable|string',
-            'options.*.payment_frequency' => 'nullable|string',
-            'options.*.selected' => 'boolean',
-
-            // Extras
-            'validity_days' => 'nullable|integer|min:1|max:30',
-            'notes' => 'nullable|string|max:1000',
-        ]);
+        $validated = $request->validated();
 
         return DB::transaction(function () use ($validated, $request) {
             // Crear cliente si es nuevo
@@ -385,9 +352,20 @@ class QuoteController extends Controller
     /**
      * Calcular primas para aseguradoras (AJAX)
      * Usado en el paso 4 del wizard
+     * Rate limited: 30 requests por minuto por usuario
      */
     public function calculatePremiums(Request $request)
     {
+        $key = 'calculate-premiums:' . ($request->user()?->id ?? $request->ip());
+
+        if (RateLimiter::tooManyAttempts($key, 30)) {
+            return response()->json([
+                'error' => 'Demasiadas solicitudes de cálculo. Intente de nuevo en un momento.',
+            ], 429);
+        }
+
+        RateLimiter::hit($key, 60);
+
         $validated = $request->validate([
             'vehicle_value' => 'required|numeric|min:0',
             'package' => 'required|string|in:basic,standard,premium,full,limited,liability_only',

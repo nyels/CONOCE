@@ -1,6 +1,6 @@
 <!-- resources/js/Components/Crud/FormInput.vue -->
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     modelValue: { type: [String, Number], default: '' },
@@ -9,31 +9,172 @@ const props = defineProps({
     placeholder: { type: String, default: '' },
     error: { type: String, default: '' },
     required: { type: Boolean, default: false },
-    disabled: { type: Boolean, default: false }
+    disabled: { type: Boolean, default: false },
+    // Nuevas props para validación
+    maxlength: { type: Number, default: null },
+    mask: { type: String, default: null }, // 'phone', 'rfc', 'curp', 'zipcode', 'money'
+    validator: { type: Function, default: null }, // Función de validación custom
+    validateOnInput: { type: Boolean, default: true }, // Validar mientras escribe
 });
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'validation']);
 
-const value = computed({
-    get: () => props.modelValue,
-    set: (val) => emit('update:modelValue', val)
+// Error interno de validación en tiempo real
+const internalError = ref('');
+
+// Muestra error del servidor o validación local
+const displayError = computed(() => props.error || internalError.value);
+
+// Formatters según el tipo de máscara
+const formatters = {
+    phone: (val) => {
+        const cleaned = val.replace(/\D/g, '').slice(0, 10);
+        if (cleaned.length >= 6) {
+            return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
+        } else if (cleaned.length >= 3) {
+            return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
+        }
+        return cleaned;
+    },
+    rfc: (val) => val.toUpperCase().replace(/[^A-ZÑ&0-9]/g, '').slice(0, 13),
+    curp: (val) => val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 18),
+    zipcode: (val) => val.replace(/\D/g, '').slice(0, 5),
+    money: (val) => {
+        const num = val.replace(/[^\d.]/g, '');
+        const parts = num.split('.');
+        if (parts.length > 2) return parts[0] + '.' + parts.slice(1).join('');
+        return num;
+    },
+};
+
+// Validators según el tipo de máscara
+const validators = {
+    phone: (val) => {
+        if (!val) return true;
+        const cleaned = val.replace(/\D/g, '');
+        if (cleaned.length !== 10) return 'El teléfono debe tener exactamente 10 dígitos numéricos.';
+        if (/^(\d)\1{9}$/.test(cleaned)) return 'El teléfono no puede ser un número repetido.';
+        if (cleaned[0] === '0' || cleaned[0] === '1') return 'El teléfono debe iniciar con código de área válido (2-9).';
+        return true;
+    },
+    rfc: (val) => {
+        if (!val) return true;
+        const rfc = val.toUpperCase();
+        if (rfc.length !== 12 && rfc.length !== 13) return 'El RFC debe tener 12 caracteres (persona moral) o 13 caracteres (persona física).';
+        const patternFisica = /^[A-ZÑ&]{4}[0-9]{6}[A-Z0-9]{3}$/;
+        const patternMoral = /^[A-ZÑ&]{3}[0-9]{6}[A-Z0-9]{3}$/;
+        if (rfc.length === 13 && !patternFisica.test(rfc)) return 'Formato de RFC inválido para persona física.';
+        if (rfc.length === 12 && !patternMoral.test(rfc)) return 'Formato de RFC inválido para persona moral.';
+        return true;
+    },
+    curp: (val) => {
+        if (!val) return true;
+        if (val.length !== 18) return 'La CURP debe tener exactamente 18 caracteres.';
+        const pattern = /^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[A-Z0-9][0-9]$/;
+        if (!pattern.test(val.toUpperCase())) return 'Formato de CURP inválido.';
+        return true;
+    },
+    zipcode: (val) => {
+        if (!val) return true;
+        if (!/^[0-9]{5}$/.test(val)) return 'El código postal debe tener exactamente 5 dígitos.';
+        return true;
+    },
+    email: (val) => {
+        if (!val) return true;
+        const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!pattern.test(val)) return 'El correo electrónico no tiene un formato válido.';
+        return true;
+    },
+};
+
+// Computed para maxlength real
+const effectiveMaxlength = computed(() => {
+    if (props.maxlength) return props.maxlength;
+    // Maxlength por defecto según máscara
+    const defaults = { phone: 12, rfc: 13, curp: 18, zipcode: 5 };
+    return defaults[props.mask] || null;
 });
+
+// Manejo de input
+const handleInput = (event) => {
+    let newValue = event.target.value;
+
+    // Aplicar formatter si existe
+    if (props.mask && formatters[props.mask]) {
+        newValue = formatters[props.mask](newValue);
+        event.target.value = newValue;
+    }
+
+    emit('update:modelValue', newValue);
+
+    // Validar en tiempo real si está habilitado
+    if (props.validateOnInput) {
+        validateValue(newValue);
+    }
+};
+
+// Validar valor
+const validateValue = (val) => {
+    let result = true;
+
+    // Usar validador custom si existe
+    if (props.validator) {
+        result = props.validator(val);
+    }
+    // Usar validador de máscara
+    else if (props.mask && validators[props.mask]) {
+        result = validators[props.mask](val);
+    }
+    // Validar email por tipo
+    else if (props.type === 'email') {
+        result = validators.email(val);
+    }
+
+    internalError.value = result === true ? '' : result;
+    emit('validation', { valid: result === true, error: internalError.value });
+};
+
+// Validar al perder foco
+const handleBlur = () => {
+    validateValue(props.modelValue);
+};
+
+// Computed para clases del input
+const inputClasses = computed(() => ({
+    'form-input': true,
+    'form-input--error': !!displayError.value,
+    'form-input--valid': props.modelValue && !displayError.value,
+}));
 </script>
 
 <template>
-    <div class="form-group" :class="{ 'has-error': error }">
+    <div class="form-group" :class="{ 'has-error': displayError }">
         <label v-if="label" class="form-label">
             {{ label }}
             <span v-if="required" class="required">*</span>
         </label>
-        <input
-            v-model="value"
-            :type="type"
-            :placeholder="placeholder"
-            :disabled="disabled"
-            class="form-input"
-        />
-        <span v-if="error" class="form-error">{{ error }}</span>
+        <div class="input-wrapper">
+            <input
+                :value="modelValue"
+                @input="handleInput"
+                @blur="handleBlur"
+                :type="type"
+                :placeholder="placeholder"
+                :disabled="disabled"
+                :maxlength="effectiveMaxlength"
+                :class="inputClasses"
+                autocomplete="off"
+            />
+            <!-- Indicador de caracteres para campos con límite -->
+            <span
+                v-if="effectiveMaxlength && modelValue"
+                class="char-counter"
+                :class="{ 'char-counter--full': String(modelValue).replace(/\s/g, '').length >= effectiveMaxlength }"
+            >
+                {{ String(modelValue).replace(/\s/g, '').length }}/{{ effectiveMaxlength }}
+            </span>
+        </div>
+        <span v-if="displayError" class="form-error">{{ displayError }}</span>
     </div>
 </template>
 
@@ -55,6 +196,10 @@ const value = computed({
     margin-left: 2px;
 }
 
+.input-wrapper {
+    position: relative;
+}
+
 .form-input {
     width: 100%;
     padding: 0.625rem 1rem;
@@ -63,6 +208,7 @@ const value = computed({
     font-size: 0.9375rem;
     color: #111827;
     transition: all 0.2s;
+    background: white;
 }
 
 .form-input:focus {
@@ -80,8 +226,25 @@ const value = computed({
     color: #9CA3AF;
 }
 
-.has-error .form-input {
+/* Estado de error */
+.form-input--error {
     border-color: #DC2626;
+    background-color: #FEF2F2;
+}
+
+.form-input--error:focus {
+    border-color: #DC2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+/* Estado válido */
+.form-input--valid {
+    border-color: #059669;
+}
+
+.form-input--valid:focus {
+    border-color: #059669;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
 }
 
 .form-error {
@@ -89,5 +252,25 @@ const value = computed({
     font-size: 0.8125rem;
     color: #DC2626;
     margin-top: 0.375rem;
+}
+
+/* Contador de caracteres */
+.char-counter {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.75rem;
+    color: #9CA3AF;
+    pointer-events: none;
+}
+
+.char-counter--full {
+    color: #059669;
+    font-weight: 600;
+}
+
+.has-error .char-counter {
+    color: #DC2626;
 }
 </style>

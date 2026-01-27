@@ -3,6 +3,7 @@
 import { ref, computed, watch, reactive } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { FormInput } from '@/Components/Crud';
 
 // Simple debounce function (no dependency on lodash)
 const debounce = (fn, delay) => {
@@ -319,9 +320,32 @@ const previewDraft = async () => {
                     </button>
                     
                     <div v-if="isNewCustomer" class="new-customer-form">
-                        <input v-model="form.new_customer.name" type="text" placeholder="Nombre completo" class="form-input">
-                        <input v-model="form.new_customer.phone" type="tel" placeholder="Teléfono" class="form-input">
-                        <input v-model="form.new_customer.email" type="email" placeholder="Email" class="form-input">
+                        <FormInput
+                            v-model="form.new_customer.name"
+                            label="Nombre completo"
+                            placeholder="Juan Pérez García"
+                            required
+                        />
+                        <div class="form-row-inline">
+                            <FormInput
+                                v-model="form.new_customer.phone"
+                                label="Teléfono"
+                                placeholder="999 123 4567"
+                                mask="phone"
+                            />
+                            <FormInput
+                                v-model="form.new_customer.email"
+                                label="Email"
+                                type="email"
+                                placeholder="cliente@email.com"
+                            />
+                        </div>
+                        <FormInput
+                            v-model="form.new_customer.rfc"
+                            label="RFC"
+                            placeholder="XXXX000000XXX"
+                            mask="rfc"
+                        />
                     </div>
                 </div>
 
@@ -603,6 +627,8 @@ const previewDraft = async () => {
 
 .divider { text-align: center; color: #9CA3AF; margin: 1.5rem 0; }
 .new-customer-form { margin-top: 1rem; padding: 1rem; background: #F9FAFB; border-radius: 10px; }
+.form-row-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 640px) { .form-row-inline { grid-template-columns: 1fr; } }
 
 /* Radio */
 .radio-group { display: flex; gap: 1rem; margin-bottom: 1.5rem; }

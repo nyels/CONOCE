@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCustomerRequest;
+use App\Http\Requests\UpdateCustomerRequest;
 use App\Models\Customer;
 use App\Models\Contact;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Inertia\Inertia;
 use Src\Domain\Customer\Enums\CustomerType;
 
@@ -88,30 +91,9 @@ class CustomerController extends Controller
     /**
      * Guardar nuevo cliente
      */
-    public function store(Request $request)
+    public function store(StoreCustomerRequest $request)
     {
-        $validated = $request->validate([
-            'type' => 'required|string|in:physical,moral',
-            'name' => 'required|string|max:255',
-            'rfc' => 'nullable|string|max:13',
-            'curp' => 'nullable|string|max:18',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'mobile' => 'nullable|string|max:20',
-            'street' => 'nullable|string|max:255',
-            'exterior_number' => 'nullable|string|max:20',
-            'interior_number' => 'nullable|string|max:20',
-            'neighborhood' => 'nullable|string|max:100',
-            'zip_code' => 'nullable|string|max:10',
-            'city' => 'nullable|string|max:100',
-            'municipality' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'legal_representative' => 'nullable|string|max:255',
-            'legal_representative_rfc' => 'nullable|string|max:13',
-            'source' => 'nullable|string|max:100',
-            'contact_id' => 'nullable|exists:contacts,id',
-            'notes' => 'nullable|string|max:1000',
-        ]);
+        $validated = $request->validated();
 
         $customer = Customer::create([
             ...$validated,
@@ -218,31 +200,9 @@ class CustomerController extends Controller
     /**
      * Actualizar cliente
      */
-    public function update(Request $request, Customer $customer)
+    public function update(UpdateCustomerRequest $request, Customer $customer)
     {
-        $validated = $request->validate([
-            'type' => 'required|string|in:physical,moral',
-            'name' => 'required|string|max:255',
-            'rfc' => 'nullable|string|max:13',
-            'curp' => 'nullable|string|max:18',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'mobile' => 'nullable|string|max:20',
-            'street' => 'nullable|string|max:255',
-            'exterior_number' => 'nullable|string|max:20',
-            'interior_number' => 'nullable|string|max:20',
-            'neighborhood' => 'nullable|string|max:100',
-            'zip_code' => 'nullable|string|max:10',
-            'city' => 'nullable|string|max:100',
-            'municipality' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'legal_representative' => 'nullable|string|max:255',
-            'legal_representative_rfc' => 'nullable|string|max:13',
-            'source' => 'nullable|string|max:100',
-            'contact_id' => 'nullable|exists:contacts,id',
-            'notes' => 'nullable|string|max:1000',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $customer->update([
             ...$validated,
@@ -271,9 +231,20 @@ class CustomerController extends Controller
 
     /**
      * Búsqueda AJAX para selectores
+     * Rate limited: 60 requests por minuto por usuario
      */
     public function search(Request $request)
     {
+        $key = 'customer-search:' . ($request->user()?->id ?? $request->ip());
+
+        if (RateLimiter::tooManyAttempts($key, 60)) {
+            return response()->json([
+                'error' => 'Demasiadas solicitudes. Intente de nuevo en un momento.',
+            ], 429);
+        }
+
+        RateLimiter::hit($key, 60);
+
         $term = $request->input('q', '');
 
         $customers = Customer::active()
