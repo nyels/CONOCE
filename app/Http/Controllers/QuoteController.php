@@ -6,8 +6,10 @@ use App\Http\Requests\StoreQuoteRequest;
 use App\Models\Quote;
 use App\Models\QuoteOption;
 use App\Models\Customer;
+use App\Models\Contact;
 use App\Models\Insurer;
 use App\Models\VehicleBrand;
+use App\Models\VehicleType;
 use App\Models\CoveragePackage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -51,7 +53,7 @@ class QuoteController extends Controller
             'status' => $quote->status->value,
             'status_label' => $quote->status->label(),
             'status_color' => $quote->status->color(),
-            'customer_name' => $quote->customer?->name ?? 'Sin cliente',
+            'customer_name' => $quote->customer?->full_name ?? 'Sin cliente',
             'vehicle' => $quote->vehicle_description,
             'options_count' => $quote->options_count,
             'created_at' => $quote->created_at->format('d/m/Y H:i'),
@@ -68,33 +70,54 @@ class QuoteController extends Controller
     }
 
     /**
-     * Formulario de creación de cotización (Wizard)
+     * Formulario de creación de cotización (Formulario Legacy)
      */
     public function create(Request $request)
     {
-        // Cargar datos reales para el wizard
+        // Cargar clientes/prospectos activos
         $customers = Customer::active()
-            ->select('id', 'name', 'phone', 'email', 'rfc')
+            ->select('id', 'type', 'first_name', 'paternal_surname', 'maternal_surname', 'business_name', 'phone', 'email', 'rfc', 'zip_code', 'neighborhood', 'state')
             ->withCount('quotes')
-            ->orderBy('name')
-            ->limit(50)
+            ->orderByRaw("COALESCE(business_name, CONCAT(first_name, ' ', paternal_surname)) ASC")
+            ->limit(100)
             ->get()
             ->map(fn($c) => [
                 'id' => $c->id,
-                'name' => $c->name,
+                'name' => $c->full_name,
                 'phone' => $c->phone ?? '',
                 'email' => $c->email ?? '',
                 'rfc' => $c->rfc ?? '',
+                'zip_code' => $c->zip_code ?? '',
+                'neighborhood' => $c->neighborhood ?? '',
+                'state' => $c->state ?? '',
                 'quotes' => $c->quotes_count,
             ]);
 
+        // Cargar contactos activos (agentes/intermediarios)
+        // Nota: Contact NO tiene business_name, solo Customer lo tiene
+        $contacts = Contact::active()
+            ->select('id', 'type', 'first_name', 'paternal_surname', 'maternal_surname', 'phone')
+            ->orderByRaw("CONCAT(first_name, ' ', COALESCE(paternal_surname, '')) ASC")
+            ->get()
+            ->map(fn($c) => [
+                'id' => $c->id,
+                'name' => $c->full_name,
+                'type' => $c->type->value ?? $c->type,
+            ]);
+
+        // Cargar tipos de vehículo desde catálogo en BD
+        $vehicleTypes = VehicleType::forSelect();
+
+        // Cargar marcas de vehículos
         $brands = VehicleBrand::where('is_active', true)
             ->orderBy('name')
             ->pluck('name')
             ->toArray();
 
+        // Años disponibles (año actual + 1 hasta 15 años atrás)
         $years = array_map(fn($i) => date('Y') + 1 - $i, range(0, 14));
 
+        // Cargar aseguradoras activas
         $insurers = Insurer::where('is_active', true)
             ->with('financialSettings')
             ->orderBy('name')
@@ -106,6 +129,7 @@ class QuoteController extends Controller
                 'policy_fee' => ($ins->financialSettings->first()?->policy_fee_cents ?? 0) / 100,
             ]);
 
+        // Cargar paquetes de cobertura
         $coveragePackages = CoveragePackage::where('is_active', true)
             ->orderBy('name')
             ->get()
@@ -118,6 +142,8 @@ class QuoteController extends Controller
 
         return Inertia::render('Quotes/Create', [
             'customers' => $customers,
+            'contacts' => $contacts,
+            'vehicleTypes' => $vehicleTypes,
             'brands' => $brands,
             'years' => $years,
             'insurers' => $insurers,
@@ -145,14 +171,14 @@ class QuoteController extends Controller
 
         $customers = Customer::active()
             ->when($term, fn($q) => $q->search($term))
-            ->select('id', 'name', 'phone', 'email', 'rfc')
+            ->select('id', 'type', 'first_name', 'paternal_surname', 'maternal_surname', 'business_name', 'phone', 'email', 'rfc')
             ->withCount('quotes')
-            ->orderBy('name')
+            ->orderByRaw("COALESCE(business_name, CONCAT(first_name, ' ', paternal_surname)) ASC")
             ->limit(20)
             ->get()
             ->map(fn($c) => [
                 'id' => $c->id,
-                'name' => $c->name,
+                'name' => $c->full_name,
                 'phone' => $c->phone ?? '',
                 'email' => $c->email ?? '',
                 'rfc' => $c->rfc ?? '',
@@ -163,87 +189,204 @@ class QuoteController extends Controller
     }
 
     /**
-     * Guardar nueva cotización
+     * Guardar nueva cotización (Formato Legacy)
+     * Procesa la estructura completa del formulario con tabla de coberturas
      */
     public function store(StoreQuoteRequest $request)
     {
         $validated = $request->validated();
 
         return DB::transaction(function () use ($validated, $request) {
-            // Crear cliente si es nuevo
-            $customerId = $validated['customer_id'];
-            if (!$customerId && !empty($validated['new_customer']['name'])) {
-                $customer = Customer::create([
-                    'name' => $validated['new_customer']['name'],
-                    'phone' => $validated['new_customer']['phone'] ?? null,
-                    'email' => $validated['new_customer']['email'] ?? null,
-                    'rfc' => $validated['new_customer']['rfc'] ?? null,
-                    'type' => strtoupper($validated['new_customer']['type'] ?? 'PHYSICAL'),
-                    'created_by' => $request->user()->id,
-                    'is_active' => true,
-                ]);
-                $customerId = $customer->id;
+            // Mapear tipo de cotización
+            $quoteType = $validated['tipo_cotizacion'] === 'NUEVA'
+                ? QuoteType::NEW
+                : QuoteType::RENEWAL;
+
+            // Mapear paquete de cobertura
+            $packageType = match ($validated['paquete']) {
+                'AMPLIA' => CoveragePackageEnum::FULL,
+                'LIMITADA' => CoveragePackageEnum::LIMITED,
+                'RESPONSABILIDAD CIVIL' => CoveragePackageEnum::LIABILITY_ONLY,
+                default => CoveragePackageEnum::FULL,
+            };
+
+            // Convertir prima anterior a centavos si existe
+            $previousPremiumCents = null;
+            if (!empty($validated['renovacion']['prima_año'])) {
+                $primaLimpia = str_replace([',', '$'], '', $validated['renovacion']['prima_año']);
+                $previousPremiumCents = (int)(floatval($primaLimpia) * 100);
             }
 
-            // Crear cotización
+            // Crear cotización principal
             $quote = Quote::create([
-                'customer_id' => $customerId,
+                'customer_id' => $validated['customer_id'],
+                'contact_id' => $validated['contact_id'] ?? null,
                 'agent_id' => $request->user()->id,
-                'type' => $validated['quote_type'] === 'new' ? QuoteType::NEW : QuoteType::RENEWAL,
+                'type' => $quoteType,
                 'status' => QuoteStatus::DRAFT,
-                'vehicle_data' => $validated['vehicle'],
-                'package_type' => match ($validated['coverage_package']) {
-                    'basic', 'liability_only' => CoveragePackageEnum::LIABILITY_ONLY,
-                    'standard', 'limited' => CoveragePackageEnum::LIMITED,
-                    'premium', 'full' => CoveragePackageEnum::FULL,
-                    default => CoveragePackageEnum::FULL,
-                },
-                'previous_insurer' => $validated['renewal']['insurer'] ?? null,
-                'previous_policy_number' => $validated['renewal']['policy_number'] ?? null,
-                'previous_premium_cents' => isset($validated['renewal']['previous_premium'])
-                    ? (int)($validated['renewal']['previous_premium'] * 100)
-                    : null,
-                'previous_expiry_date' => $validated['renewal']['expires_at'] ?? null,
-                'quote_valid_until' => now()->addDays($validated['validity_days'] ?? 7),
-                'internal_notes' => $validated['notes'] ?? null,
+                'requested_at' => $validated['hora_solicitada'] ?? null,
+                'vehicle_type_id' => $validated['vehiculo']['tipo_auto'],
+                'vehicle_data' => [
+                    'brand' => $validated['vehiculo']['marca'],
+                    'model' => $validated['vehiculo']['descripcion'] ?? '',
+                    'year' => $validated['vehiculo']['modelo'],
+                    'usage' => $validated['vehiculo']['uso_de_unidad'] ?? '',
+                    'cargo_type' => $validated['vehiculo']['carga'] ?? null,
+                ],
+                'vehicle_type' => $this->getVehicleTypeName($validated['vehiculo']['tipo_auto']),
+                'vehicle_usage' => $validated['vehiculo']['uso_de_unidad'] ?? null,
+                'package_type' => $packageType,
+                'coverage_description' => $validated['coverages']['descripcion_tabla_1'] ?? null,
+                'custom_coverage_1_name' => $validated['custom_coverage_1_name'] ?? null,
+                'custom_coverage_2_name' => $validated['custom_coverage_2_name'] ?? null,
+                'previous_insurer' => $validated['renovacion']['compania_actual'] ?? null,
+                'previous_policy_number' => $validated['renovacion']['poliza_a_renovar'] ?? null,
+                'previous_premium_cents' => $previousPremiumCents,
+                'previous_expiry_date' => $validated['renovacion']['fecha_vigencia'] ?? null,
+                'quote_valid_until' => now()->addDays(7),
+                'internal_notes' => $validated['notas'] ?? null,
             ]);
 
-            // Crear opciones de cotización
-            $optionNumber = 1;
-            // Crear opciones de cotización (Captura Manual)
-            $optionNumber = 1;
-            foreach ($validated['options'] as $optionData) {
+            // Crear opciones de cotización (una por cada aseguradora)
+            $coverages = $validated['coverages'] ?? [];
+            $cantidadAseguradoras = (int) $validated['cantidad_aseguradoras'];
 
-                // Mapear paquete individual
-                $pkgCode = $optionData['coverage_package'] ?? 'full';
-                $pkgEnum = match ($pkgCode) {
-                    'basic', 'liability_only' => CoveragePackageEnum::LIABILITY_ONLY,
-                    'standard', 'limited' => CoveragePackageEnum::LIMITED,
-                    'premium', 'full' => CoveragePackageEnum::FULL,
-                    default => CoveragePackageEnum::FULL,
-                };
+            for ($i = 1; $i <= $cantidadAseguradoras; $i++) {
+                $insurerId = $coverages["empresa_opcion_{$i}"] ?? null;
+
+                if (!$insurerId || $insurerId === '0') {
+                    continue;
+                }
+
+                // Extraer datos de coberturas para esta columna
+                $optionCoverages = $this->extractCoveragesForColumn($coverages, $i);
+
+                // Convertir primas a centavos
+                $netPremiumCents = $this->parseMoneytoCents($coverages["cantidad_prima_neta_opcion_{$i}"] ?? '0');
+                $totalPremiumCents = $this->parseMoneytoCents($coverages["cantidad_total_anual_opcion_{$i}"] ?? '0');
+                $firstPaymentCents = $this->parseMoneytoCents($coverages["primer_pago_opcion_{$i}"] ?? '0');
+                $subsequentCents = $this->parseMoneytoCents($coverages["subsecuente_opcion_{$i}"] ?? '0');
 
                 QuoteOption::create([
                     'quote_id' => $quote->id,
-                    'insurer_id' => $optionData['insurer_id'],
-                    'option_number' => $optionNumber++,
-                    'coverage_package' => $pkgEnum,
-                    'payment_frequency' => $optionData['payment_frequency'] ?? 'ANNUAL',
-                    'net_premium_cents' => (int)($optionData['net_premium'] * 100),
-                    'policy_fee_cents' => (int)($optionData['policy_fee'] * 100),
+                    'insurer_id' => $insurerId,
+                    'option_number' => $i,
+                    'coverage_package' => $packageType,
+                    'payment_frequency' => $coverages['forma_de_pago_1'] ?? 'ANUAL',
+                    'net_premium_cents' => $netPremiumCents,
+                    'policy_fee_cents' => 0, // Se calculará si es necesario
                     'surcharge_cents' => 0,
-                    'iva_cents' => (int)(($optionData['iva'] ?? 0) * 100),
-                    'total_premium_cents' => (int)($optionData['total_premium'] * 100),
-                    'first_payment_cents' => (int)($optionData['total_premium'] * 100), // Asumimos pago inicial = total por ahora
-                    'subsequent_payment_cents' => 0,
-                    'is_selected' => true, // Todas las agregadas manualmente son relevantes
-                    'coverages' => [],
+                    'iva_cents' => 0, // Se incluye en total
+                    'total_premium_cents' => $totalPremiumCents,
+                    'first_payment_cents' => $firstPaymentCents,
+                    'subsequent_payment_cents' => $subsequentCents,
+                    'annual_net_premium_cents' => $netPremiumCents,
+                    'annual_total_premium_cents' => $totalPremiumCents,
+                    'is_selected' => $i === 1, // Primera opción seleccionada por defecto
+                    'coverages' => $optionCoverages,
+
+                    // Campos detallados de coberturas legacy
+                    'material_damage_type' => $coverages["danos_opcion_selec_{$i}"] ?? null,
+                    'material_damage_amount' => $this->parseMoneyToDecimal($coverages["danos_material_importe_factura_{$i}"] ?? null),
+                    'material_damage_deductible' => $this->parseDeductible($coverages["deducible_opcion_{$i}"] ?? null),
+                    'theft_type' => $coverages["robo_opcion_selec_{$i}"] ?? null,
+                    'theft_amount' => $this->parseMoneyToDecimal($coverages["robo_importe_factura_{$i}"] ?? null),
+                    'theft_deductible' => $this->parseDeductible($coverages["deducible_rt_{$i}"] ?? null),
+                    'glass_coverage' => $coverages["cristales_opcion_selec_{$i}"] ?? 'AMPARADA',
+                    'liability_third_party' => $this->parseMoneyToDecimal($coverages["danos_tercero_opcion_{$i}"] ?? null),
+                    'liability_deductible' => intval($coverages["deducible_de_rc_opcion_{$i}"] ?? 0),
+                    'liability_death' => $this->parseMoneyToDecimal($coverages["fallecimiento_opcion_{$i}"] ?? null),
+                    'medical_expenses' => $this->parseMoneyToDecimal($coverages["gastos_medicos_opcion_{$i}"] ?? null),
+                    'driver_accident' => $this->parseMoneyToDecimal($coverages["accidente_conducir_opcion_{$i}"] ?? null),
+                    'legal_protection' => $coverages["proteccion_opcion_selec_{$i}"] ?? 'AMPARADA',
+                    'roadside_assistance' => $coverages["asistencia_vial_opcion_selec_{$i}"] ?? 'AMPARADA',
+                    'cargo_damage' => $coverages["danos_carga_opcion_selec_{$i}"] ?? null,
+                    'special_equipment' => $this->parseMoneyToDecimal($coverages["adaptaciones_opcion_{$i}"] ?? null),
+                    'extended_liability' => $coverages["extension_rc_opcion_{$i}"] ?? null,
+                    'custom_coverage_1_value' => $coverages["cobertura_opcion_1_select_{$i}"] ?? null,
+                    'custom_coverage_2_value' => $coverages["cobertura_opcion_2_select_{$i}"] ?? null,
                 ]);
             }
 
             return redirect()->route('quotes.show', $quote->id)
                 ->with('success', "Cotización {$quote->folio} creada exitosamente");
         });
+    }
+
+    /**
+     * Obtiene el nombre del tipo de vehículo por ID
+     */
+    private function getVehicleTypeName(int $id): ?string
+    {
+        $type = VehicleType::find($id);
+        return $type?->name;
+    }
+
+    /**
+     * Convierte string de moneda a centavos
+     * "1,000.50" -> 100050
+     */
+    private function parseMoneytoCents(?string $value): int
+    {
+        if (!$value) return 0;
+        $cleaned = str_replace([',', '$', ' '], '', $value);
+        return (int)(floatval($cleaned) * 100);
+    }
+
+    /**
+     * Convierte string de moneda a decimal
+     * "1,000.50" -> 1000.50
+     */
+    private function parseMoneyToDecimal(?string $value): ?float
+    {
+        if (!$value) return null;
+        $cleaned = str_replace([',', '$', ' '], '', $value);
+        $result = floatval($cleaned);
+        return $result > 0 ? $result : null;
+    }
+
+    /**
+     * Parsea deducible a entero
+     * "5" -> 5, "na" -> null
+     */
+    private function parseDeductible(?string $value): ?int
+    {
+        if (!$value || $value === 'na' || $value === '0') return null;
+        return intval($value);
+    }
+
+    /**
+     * Extrae las coberturas para una columna específica como array JSON
+     */
+    private function extractCoveragesForColumn(array $coverages, int $column): array
+    {
+        return [
+            'material_damage' => [
+                'type' => $coverages["danos_opcion_selec_{$column}"] ?? null,
+                'amount' => $coverages["danos_material_importe_factura_{$column}"] ?? null,
+                'deductible' => $coverages["deducible_opcion_{$column}"] ?? null,
+            ],
+            'theft' => [
+                'type' => $coverages["robo_opcion_selec_{$column}"] ?? null,
+                'amount' => $coverages["robo_importe_factura_{$column}"] ?? null,
+                'deductible' => $coverages["deducible_rt_{$column}"] ?? null,
+            ],
+            'glass' => $coverages["cristales_opcion_selec_{$column}"] ?? 'AMPARADA',
+            'third_party_liability' => [
+                'amount' => $coverages["danos_tercero_opcion_{$column}"] ?? null,
+                'deductible' => $coverages["deducible_de_rc_opcion_{$column}"] ?? null,
+            ],
+            'death_liability' => $coverages["fallecimiento_opcion_{$column}"] ?? null,
+            'medical_expenses' => $coverages["gastos_medicos_opcion_{$column}"] ?? null,
+            'driver_accident' => $coverages["accidente_conducir_opcion_{$column}"] ?? null,
+            'legal_protection' => $coverages["proteccion_opcion_selec_{$column}"] ?? 'AMPARADA',
+            'roadside_assistance' => $coverages["asistencia_vial_opcion_selec_{$column}"] ?? 'AMPARADA',
+            'cargo_damage' => $coverages["danos_carga_opcion_selec_{$column}"] ?? null,
+            'special_equipment' => $coverages["adaptaciones_opcion_{$column}"] ?? null,
+            'extended_liability' => $coverages["extension_rc_opcion_{$column}"] ?? null,
+            'custom_1' => $coverages["cobertura_opcion_1_select_{$column}"] ?? null,
+            'custom_2' => $coverages["cobertura_opcion_2_select_{$column}"] ?? null,
+        ];
     }
 
     /**
@@ -266,7 +409,7 @@ class QuoteController extends Controller
                 'is_editable' => $quote->isEditable(),
                 'customer' => $quote->customer ? [
                     'id' => $quote->customer->id,
-                    'name' => $quote->customer->name,
+                    'name' => $quote->customer->full_name,
                     'phone' => $quote->customer->phone,
                     'email' => $quote->customer->email,
                     'rfc' => $quote->customer->rfc,
@@ -302,7 +445,7 @@ class QuoteController extends Controller
     public function update(Request $request, Quote $quote)
     {
         if (!$quote->isEditable()) {
-            return back()->with('error', 'Esta cotización ya no puede ser editada');
+            return back()->withErrors(['error' => 'Esta cotización ya no puede ser editada']);
         }
 
         // TODO: Implementar actualización completa
@@ -323,7 +466,7 @@ class QuoteController extends Controller
     public function send(Quote $quote)
     {
         if (!$quote->canTransitionTo(QuoteStatus::SENT)) {
-            return back()->with('error', 'No se puede enviar esta cotización');
+            return back()->withErrors(['error' => 'No se puede enviar esta cotización']);
         }
 
         $quote->transitionTo(QuoteStatus::SENT);
@@ -339,7 +482,7 @@ class QuoteController extends Controller
     public function destroy(Quote $quote)
     {
         if (!$quote->isEditable()) {
-            return back()->with('error', 'Esta cotización no puede ser eliminada');
+            return back()->withErrors(['error' => 'Esta cotización no puede ser eliminada']);
         }
 
         $folio = $quote->folio;
@@ -461,7 +604,7 @@ class QuoteController extends Controller
         $quote->load(['customer', 'agent', 'options.insurer']);
 
         if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
-            return back()->with('error', 'El generador de PDF no está instalado');
+            return back()->withErrors(['server' => 'El generador de PDF no está instalado']);
         }
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.quote', [
