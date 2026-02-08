@@ -14,13 +14,24 @@ use App\Models\CoveragePackage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Src\Domain\Quote\Enums\QuoteStatus;
 use Src\Domain\Quote\Enums\QuoteType;
 use Src\Domain\Quote\Enums\CoveragePackage as CoveragePackageEnum;
+use Src\Domain\Financial\Contracts\FinancialCalculator;
+use Src\Domain\Financial\DTOs\FinancialInput;
+use Src\Domain\Financial\Exceptions\FinancialCalculationException;
 
 class QuoteController extends Controller
 {
+    private FinancialCalculator $calculator;
+
+    public function __construct(FinancialCalculator $calculator)
+    {
+        $this->calculator = $calculator;
+    }
+
     /**
      * Lista de cotizaciones del usuario actual
      */
@@ -34,7 +45,7 @@ class QuoteController extends Controller
             $query->where('agent_id', $request->user()->id);
         }
 
-        // Búsqueda
+        // Busqueda
         if ($search = $request->input('search')) {
             $query->search($search);
         }
@@ -70,7 +81,7 @@ class QuoteController extends Controller
     }
 
     /**
-     * Formulario de creación de cotización (Formulario Legacy)
+     * Formulario de creacion de cotizacion (Formulario Legacy)
      */
     public function create(Request $request)
     {
@@ -94,7 +105,6 @@ class QuoteController extends Controller
             ]);
 
         // Cargar contactos activos (agentes/intermediarios)
-        // Nota: Contact NO tiene business_name, solo Customer lo tiene
         $contacts = Contact::active()
             ->select('id', 'type', 'first_name', 'paternal_surname', 'maternal_surname', 'phone')
             ->orderByRaw("CONCAT(first_name, ' ', COALESCE(paternal_surname, '')) ASC")
@@ -105,16 +115,16 @@ class QuoteController extends Controller
                 'type' => $c->type->value ?? $c->type,
             ]);
 
-        // Cargar tipos de vehículo desde catálogo en BD
+        // Cargar tipos de vehiculo desde catalogo en BD
         $vehicleTypes = VehicleType::forSelect();
 
-        // Cargar marcas de vehículos
+        // Cargar marcas de vehiculos
         $brands = VehicleBrand::where('is_active', true)
             ->orderBy('name')
             ->pluck('name')
             ->toArray();
 
-        // Años disponibles (año actual + 1 hasta 15 años atrás)
+        // Anos disponibles (ano actual + 1 hasta 15 anos atras)
         $years = array_map(fn($i) => date('Y') + 1 - $i, range(0, 14));
 
         // Cargar aseguradoras activas
@@ -189,15 +199,23 @@ class QuoteController extends Controller
     }
 
     /**
-     * Guardar nueva cotización (Formato Legacy)
-     * Procesa la estructura completa del formulario con tabla de coberturas
+     * GUARDAR COTIZACION — BACKEND AUTORITATIVO
+     *
+     * El backend es la UNICA fuente de verdad para calculos financieros.
+     * Los valores monetarios del frontend son IGNORADOS y recalculados.
+     *
+     * Flujo:
+     * 1. Frontend envia: prima_neta, total_anual, primer_pago
+     * 2. Backend RECALCULA todo usando CanonicalFinancialService
+     * 3. Si hay divergencia > tolerancia, se registra pero NO se rechaza
+     * 4. Se persisten los valores calculados por el backend
      */
     public function store(StoreQuoteRequest $request)
     {
         $validated = $request->validated();
 
         return DB::transaction(function () use ($validated, $request) {
-            // Mapear tipo de cotización
+            // Mapear tipo de cotizacion
             $quoteType = $validated['tipo_cotizacion'] === 'NUEVA'
                 ? QuoteType::NEW
                 : QuoteType::RENEWAL;
@@ -217,7 +235,7 @@ class QuoteController extends Controller
                 $previousPremiumCents = (int)(floatval($primaLimpia) * 100);
             }
 
-            // Crear cotización principal
+            // Crear cotizacion principal
             $quote = Quote::create([
                 'customer_id' => $validated['customer_id'],
                 'contact_id' => $validated['contact_id'] ?? null,
@@ -247,9 +265,11 @@ class QuoteController extends Controller
                 'internal_notes' => $validated['notas'] ?? null,
             ]);
 
-            // Crear opciones de cotización (una por cada aseguradora)
+            // Crear opciones de cotizacion (una por cada aseguradora)
             $coverages = $validated['coverages'] ?? [];
             $cantidadAseguradoras = (int) $validated['cantidad_aseguradoras'];
+            $paymentFrequencyLegacy = $coverages['forma_de_pago'] ?? 'ANUAL';
+            $paymentFrequency = $this->mapPaymentFrequency($paymentFrequencyLegacy);
 
             for ($i = 1; $i <= $cantidadAseguradoras; $i++) {
                 $insurerId = $coverages["empresa_opcion_{$i}"] ?? null;
@@ -258,31 +278,84 @@ class QuoteController extends Controller
                     continue;
                 }
 
+                $insurerId = (int) $insurerId;
+
+                // Extraer valores del frontend (seran RECALCULADOS)
+                $frontendNetPremium = $this->parseMoneyToDecimal($coverages["cantidad_prima_neta_opcion_{$i}"] ?? '0');
+                $frontendTotalAnnual = $this->parseMoneyToDecimal($coverages["cantidad_total_anual_opcion_{$i}"] ?? '0');
+                $frontendFirstPayment = $this->parseMoneyToDecimal($coverages["primer_pago_opcion_{$i}"] ?? '0');
+                $frontendSubsequent = $this->parseMoneyToDecimal($coverages["subsecuente_opcion_{$i}"] ?? '0');
+
+                // BACKEND AUTORITATIVO: Recalcular desde prima total
+                if (!$frontendTotalAnnual || $frontendTotalAnnual <= 0) {
+                    continue;
+                }
+
+                try {
+                    $financialInput = FinancialInput::fromTotalPremium(
+                        insurerId: $insurerId,
+                        frequency: $paymentFrequency,
+                        totalAnnualPremium: $frontendTotalAnnual,
+                        customFirstPayment: $frontendFirstPayment ?: null,
+                    );
+
+                    $calculation = $this->calculator->calculate($financialInput);
+                } catch (FinancialCalculationException $e) {
+                    // Registrar error para auditoria, saltar esta opción
+                    activity()
+                        ->performedOn($quote)
+                        ->withProperties([
+                            'column' => $i,
+                            'insurer_id' => $insurerId,
+                            'error' => $e->errorCode(),
+                            'message' => $e->getMessage(),
+                        ])
+                        ->log('calculation_error');
+                    continue;
+                }
+
+                // Validar coherencia (solo para logging, no rechazar)
+                $validationErrors = $this->calculator->validate($calculation);
+                if (!empty($validationErrors)) {
+                    activity()
+                        ->performedOn($quote)
+                        ->withProperties([
+                            'column' => $i,
+                            'insurer_id' => $insurerId,
+                            'frontend_values' => [
+                                'net_premium' => $frontendNetPremium,
+                                'total_annual' => $frontendTotalAnnual,
+                                'first_payment' => $frontendFirstPayment,
+                                'subsequent' => $frontendSubsequent,
+                            ],
+                            'backend_values' => $calculation->toArray(),
+                            'validation_errors' => $validationErrors,
+                        ])
+                        ->log('calculation_divergence');
+                }
+
                 // Extraer datos de coberturas para esta columna
                 $optionCoverages = $this->extractCoveragesForColumn($coverages, $i);
 
-                // Convertir primas a centavos
-                $netPremiumCents = $this->parseMoneytoCents($coverages["cantidad_prima_neta_opcion_{$i}"] ?? '0');
-                $totalPremiumCents = $this->parseMoneytoCents($coverages["cantidad_total_anual_opcion_{$i}"] ?? '0');
-                $firstPaymentCents = $this->parseMoneytoCents($coverages["primer_pago_opcion_{$i}"] ?? '0');
-                $subsequentCents = $this->parseMoneytoCents($coverages["subsecuente_opcion_{$i}"] ?? '0');
+                // PERSISTIR VALORES DEL BACKEND (no del frontend)
+                $cents = $calculation->toCents();
 
                 QuoteOption::create([
                     'quote_id' => $quote->id,
                     'insurer_id' => $insurerId,
                     'option_number' => $i,
                     'coverage_package' => $packageType,
-                    'payment_frequency' => $coverages['forma_de_pago_1'] ?? 'ANUAL',
-                    'net_premium_cents' => $netPremiumCents,
-                    'policy_fee_cents' => 0, // Se calculará si es necesario
-                    'surcharge_cents' => 0,
-                    'iva_cents' => 0, // Se incluye en total
-                    'total_premium_cents' => $totalPremiumCents,
-                    'first_payment_cents' => $firstPaymentCents,
-                    'subsequent_payment_cents' => $subsequentCents,
-                    'annual_net_premium_cents' => $netPremiumCents,
-                    'annual_total_premium_cents' => $totalPremiumCents,
-                    'is_selected' => $i === 1, // Primera opción seleccionada por defecto
+                    'payment_frequency' => $paymentFrequency,
+                    'net_premium_cents' => $cents['net_premium_cents'],
+                    'policy_fee_cents' => $cents['policy_fee_cents'],
+                    'surcharge_cents' => $cents['surcharge_cents'],
+                    'iva_cents' => $cents['iva_cents'],
+                    'total_premium_cents' => $cents['total_premium_cents'],
+                    'first_payment_cents' => $cents['first_payment_cents'],
+                    'subsequent_payment_cents' => $cents['subsequent_payment_cents'],
+                    'annual_net_premium_cents' => $cents['net_premium_cents'],
+                    'annual_total_premium_cents' => $cents['total_premium_cents'],
+                    'is_selected' => $i === 1,
                     'coverages' => $optionCoverages,
 
                     // Campos detallados de coberturas legacy
@@ -308,29 +381,191 @@ class QuoteController extends Controller
                 ]);
             }
 
+            // RESPONSE LEGACY EXACTO: "1*{id_cotizacion}*{nombre_prospecto}-{descripcion_auto}"
+            // Fuente: LEGACY_SYSTEM_FORENSIC_ANALYSIS.md
+            $customer = Customer::find($validated['customer_id']);
+            $customerName = $customer?->full_name ?? 'Sin nombre';
+            $vehicleDesc = $validated['vehiculo']['descripcion'] ?? $validated['vehiculo']['marca'] ?? '';
+            $legacyResponse = "1*{$quote->id}*{$customerName}-{$vehicleDesc}";
+
+            // Si es una petición AJAX/API, retornar response legacy
+            if (request()->expectsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'legacy_response' => $legacyResponse,
+                    'quote_id' => $quote->id,
+                    'quote_uuid' => $quote->uuid,
+                    'folio' => $quote->folio,
+                ], 201);
+            }
+
             return redirect()->route('quotes.show', $quote->id)
-                ->with('success', "Cotización {$quote->folio} creada exitosamente");
+                ->with('success', "Cotizacion {$quote->folio} creada exitosamente");
         });
     }
 
     /**
-     * Obtiene el nombre del tipo de vehículo por ID
+     * STORE LEGACY — Response exacto como sistema legacy
+     *
+     * Response: "1*{id_cotizacion}*{nombre_prospecto}-{descripcion_auto}"
+     *
+     * Fuente de verdad: LEGACY_SYSTEM_FORENSIC_ANALYSIS.md
+     */
+    public function storeLegacy(StoreQuoteRequest $request)
+    {
+        $result = $this->store($request);
+
+        // Si ya es JSON response, extraer datos
+        if ($result instanceof \Illuminate\Http\JsonResponse) {
+            $data = $result->getData(true);
+            return response($data['legacy_response'] ?? '0*error', 201)
+                ->header('Content-Type', 'text/plain');
+        }
+
+        return $result;
+    }
+
+    /**
+     * ENDPOINT DE CALCULO EN TIEMPO REAL — BACKEND AUTORITATIVO
+     *
+     * El frontend llama a este endpoint cuando el usuario modifica valores.
+     * El backend calcula y retorna los valores correctos.
+     * El frontend SOLO renderiza, NO calcula.
+     *
+     * Rate limited: 60 requests por minuto por usuario
+     */
+    public function calculateRealtime(Request $request)
+    {
+        $key = 'quote-calculate:' . ($request->user()?->id ?? $request->ip());
+
+        if (RateLimiter::tooManyAttempts($key, 60)) {
+            return response()->json([
+                'error' => 'Demasiadas solicitudes de calculo.',
+                'retry_after' => RateLimiter::availableIn($key),
+            ], 429);
+        }
+
+        RateLimiter::hit($key, 60);
+
+        $validated = $request->validate([
+            'insurer_id' => 'required|integer|exists:insurers,id',
+            'frequency' => 'required|string|in:ANNUAL,SEMIANNUAL,QUARTERLY,MONTHLY,ANUAL,SEMESTRAL,TRIMESTRAL,MENSUAL',
+            'total_annual' => 'nullable|numeric|min:0',
+            'first_payment' => 'nullable|numeric|min:0',
+            'request_id' => 'nullable|string|max:50', // Para control de race conditions
+        ]);
+
+        // Mapear frecuencia de espanol a ingles si es necesario
+        $frequency = $this->mapPaymentFrequency($validated['frequency']);
+        $insurerId = (int) $validated['insurer_id'];
+        $totalAnnual = (float) ($validated['total_annual'] ?? 0);
+        $firstPayment = isset($validated['first_payment']) ? (float) $validated['first_payment'] : null;
+
+        // Si no hay total anual, retornar estructura vacia
+        if ($totalAnnual <= 0) {
+            return response()->json([
+                'request_id' => $validated['request_id'] ?? null,
+                'insurer_id' => $insurerId,
+                'calculation' => null,
+                'message' => 'No se proporciono prima total anual',
+            ]);
+        }
+
+        try {
+            $input = FinancialInput::fromTotalPremium(
+                insurerId: $insurerId,
+                frequency: $frequency,
+                totalAnnualPremium: $totalAnnual,
+                customFirstPayment: $firstPayment,
+            );
+
+            $calculation = $this->calculator->calculate($input);
+
+            return response()->json([
+                'request_id' => $validated['request_id'] ?? null,
+                'insurer_id' => $insurerId,
+                'calculation' => $calculation->toArray(),
+                'formatted' => $calculation->toFormattedArray(),
+            ]);
+        } catch (FinancialCalculationException $e) {
+            return response()->json([
+                'request_id' => $validated['request_id'] ?? null,
+                'insurer_id' => $insurerId,
+                'error' => $e->errorCode(),
+            ], 422);
+        }
+    }
+
+    /**
+     * ENDPOINT DE CALCULO BATCH — MULTIPLES COLUMNAS
+     *
+     * Calcula todas las columnas en una sola llamada.
+     * Reduce race conditions y mejora performance.
+     */
+    public function calculateBatch(Request $request)
+    {
+        $key = 'quote-calculate-batch:' . ($request->user()?->id ?? $request->ip());
+
+        if (RateLimiter::tooManyAttempts($key, 30)) {
+            return response()->json([
+                'error' => 'Demasiadas solicitudes.',
+                'retry_after' => RateLimiter::availableIn($key),
+            ], 429);
+        }
+
+        RateLimiter::hit($key, 60);
+
+        $validated = $request->validate([
+            'frequency' => 'required|string|in:ANNUAL,SEMIANNUAL,QUARTERLY,MONTHLY,ANUAL,SEMESTRAL,TRIMESTRAL,MENSUAL',
+            'options' => 'required|array|min:1|max:5',
+            'options.*.column' => 'required|integer|min:1|max:5',
+            'options.*.insurer_id' => 'required|integer',
+            'options.*.total_annual' => 'nullable|numeric|min:0',
+            'options.*.first_payment' => 'nullable|numeric|min:0',
+            'request_id' => 'nullable|string|max:50',
+        ]);
+
+        $frequency = $this->mapPaymentFrequency($validated['frequency']);
+
+        $inputs = [];
+        foreach ($validated['options'] as $opt) {
+            $totalAnnual = (float) ($opt['total_annual'] ?? 0);
+            if ($totalAnnual <= 0) {
+                continue;
+            }
+            $inputs[$opt['column']] = FinancialInput::fromTotalPremium(
+                insurerId: (int) $opt['insurer_id'],
+                frequency: $frequency,
+                totalAnnualPremium: $totalAnnual,
+                customFirstPayment: isset($opt['first_payment']) ? (float) $opt['first_payment'] : null,
+            );
+        }
+
+        $batchResults = $this->calculator->calculateBatch($inputs);
+
+        $results = [];
+        foreach ($batchResults as $column => $result) {
+            if ($result instanceof FinancialCalculationException) {
+                $results[$column] = ['error' => $result->errorCode()];
+            } else {
+                $results[$column] = $result->toArray();
+            }
+        }
+
+        return response()->json([
+            'request_id' => $validated['request_id'] ?? null,
+            'frequency' => $frequency,
+            'results' => $results,
+        ]);
+    }
+
+    /**
+     * Obtiene el nombre del tipo de vehiculo por ID
      */
     private function getVehicleTypeName(int $id): ?string
     {
         $type = VehicleType::find($id);
         return $type?->name;
-    }
-
-    /**
-     * Convierte string de moneda a centavos
-     * "1,000.50" -> 100050
-     */
-    private function parseMoneytoCents(?string $value): int
-    {
-        if (!$value) return 0;
-        $cleaned = str_replace([',', '$', ' '], '', $value);
-        return (int)(floatval($cleaned) * 100);
     }
 
     /**
@@ -356,7 +591,7 @@ class QuoteController extends Controller
     }
 
     /**
-     * Extrae las coberturas para una columna específica como array JSON
+     * Extrae las coberturas para una columna especifica como array JSON
      */
     private function extractCoveragesForColumn(array $coverages, int $column): array
     {
@@ -390,7 +625,23 @@ class QuoteController extends Controller
     }
 
     /**
-     * Ver detalle de cotización
+     * Mapea forma de pago del frontend (espanol) al enum (ingles)
+     * Legacy: ANUAL, SEMESTRAL, TRIMESTRAL, MENSUAL
+     * Enum: ANNUAL, SEMIANNUAL, QUARTERLY, MONTHLY
+     */
+    private function mapPaymentFrequency(string $formaDePago): string
+    {
+        return match ($formaDePago) {
+            'ANUAL' => 'ANNUAL',
+            'SEMESTRAL' => 'SEMIANNUAL',
+            'TRIMESTRAL' => 'QUARTERLY',
+            'MENSUAL' => 'MONTHLY',
+            default => $formaDePago,
+        };
+    }
+
+    /**
+     * Ver detalle de cotizacion
      */
     public function show(Quote $quote)
     {
@@ -440,15 +691,14 @@ class QuoteController extends Controller
     }
 
     /**
-     * Actualizar cotización
+     * Actualizar cotizacion
      */
     public function update(Request $request, Quote $quote)
     {
         if (!$quote->isEditable()) {
-            return back()->withErrors(['error' => 'Esta cotización ya no puede ser editada']);
+            return back()->withErrors(['error' => 'Esta cotizacion ya no puede ser editada']);
         }
 
-        // TODO: Implementar actualización completa
         $validated = $request->validate([
             'notes' => 'nullable|string|max:1000',
         ]);
@@ -457,44 +707,41 @@ class QuoteController extends Controller
             'internal_notes' => $validated['notes'],
         ]);
 
-        return back()->with('success', 'Cotización actualizada');
+        return back()->with('success', 'Cotizacion actualizada');
     }
 
     /**
-     * Enviar cotización al cliente
+     * Enviar cotizacion al cliente
      */
     public function send(Quote $quote)
     {
         if (!$quote->canTransitionTo(QuoteStatus::SENT)) {
-            return back()->withErrors(['error' => 'No se puede enviar esta cotización']);
+            return back()->withErrors(['error' => 'No se puede enviar esta cotizacion']);
         }
 
         $quote->transitionTo(QuoteStatus::SENT);
 
-        // TODO: Enviar email/WhatsApp
-
-        return back()->with('success', "Cotización {$quote->folio} enviada");
+        return back()->with('success', "Cotizacion {$quote->folio} enviada");
     }
 
     /**
-     * Eliminar cotización
+     * Eliminar cotizacion
      */
     public function destroy(Quote $quote)
     {
         if (!$quote->isEditable()) {
-            return back()->withErrors(['error' => 'Esta cotización no puede ser eliminada']);
+            return back()->withErrors(['error' => 'Esta cotizacion no puede ser eliminada']);
         }
 
         $folio = $quote->folio;
         $quote->delete();
 
         return redirect()->route('quotes.index')
-            ->with('success', "Cotización {$folio} eliminada");
+            ->with('success', "Cotizacion {$folio} eliminada");
     }
 
     /**
      * Calcular primas para aseguradoras (AJAX)
-     * Usado en el paso 4 del wizard
      * Rate limited: 30 requests por minuto por usuario
      */
     public function calculatePremiums(Request $request)
@@ -503,7 +750,7 @@ class QuoteController extends Controller
 
         if (RateLimiter::tooManyAttempts($key, 30)) {
             return response()->json([
-                'error' => 'Demasiadas solicitudes de cálculo. Intente de nuevo en un momento.',
+                'error' => 'Demasiadas solicitudes de calculo. Intente de nuevo en un momento.',
             ], 429);
         }
 
@@ -519,11 +766,10 @@ class QuoteController extends Controller
         $vehicleValue = (float) $validated['vehicle_value'];
         $package = $validated['package'];
 
-        // Tasas base simuladas (en producción vendrían de catálogo o API externa)
         $baseRates = [
-            'basic' => 0.025,      // 2.5% del valor
-            'standard' => 0.035,   // 3.5% del valor
-            'premium' => 0.045,    // 4.5% del valor
+            'basic' => 0.025,
+            'standard' => 0.035,
+            'premium' => 0.045,
             'liability_only' => 0.025,
             'limited' => 0.035,
             'full' => 0.045,
@@ -540,8 +786,7 @@ class QuoteController extends Controller
         $bestId = null;
 
         foreach ($insurers as $insurer) {
-            // Variación por aseguradora (simulado)
-            $variation = 1 + (($insurer->id % 5) - 2) * 0.03; // -6% a +6%
+            $variation = 1 + (($insurer->id % 5) - 2) * 0.03;
             $netPremium = round($vehicleValue * $baseRate * $variation);
             $policyFee = $insurer->financialSettings?->policy_fee_cents / 100 ?? 850;
             $total = $netPremium + $policyFee;
@@ -563,7 +808,6 @@ class QuoteController extends Controller
             }
         }
 
-        // Marcar la mejor opción
         foreach ($results as &$r) {
             if ($r['id'] === $bestId) {
                 $r['best'] = true;
@@ -574,16 +818,15 @@ class QuoteController extends Controller
     }
 
     /**
-     * Generar PDF de cotización
+     * Generar PDF de cotizacion
      */
     public function generatePdf(Quote $quote)
     {
         $quote->load(['customer', 'agent', 'options.insurer']);
 
-        // Verificar si DomPDF está disponible
         if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
             return response()->json([
-                'error' => 'El generador de PDF no está instalado. Ejecute: composer require barryvdh/laravel-dompdf'
+                'error' => 'El generador de PDF no esta instalado. Ejecute: composer require barryvdh/laravel-dompdf'
             ], 500);
         }
 
@@ -604,7 +847,7 @@ class QuoteController extends Controller
         $quote->load(['customer', 'agent', 'options.insurer']);
 
         if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
-            return back()->withErrors(['server' => 'El generador de PDF no está instalado']);
+            return back()->withErrors(['server' => 'El generador de PDF no esta instalado']);
         }
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.quote', [
@@ -618,7 +861,6 @@ class QuoteController extends Controller
 
     /**
      * Vista previa del PDF (BORRADOR - sin guardar)
-     * Recibe datos del formulario y genera un PDF temporal
      */
     public function previewDraft(Request $request)
     {
@@ -641,11 +883,10 @@ class QuoteController extends Controller
 
         if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
             return response()->json([
-                'error' => 'El generador de PDF no está instalado'
+                'error' => 'El generador de PDF no esta instalado'
             ], 500);
         }
 
-        // Crear objeto "fake" para la plantilla
         $quote = (object) [
             'folio' => 'BORRADOR-' . date('YmdHis'),
             'created_at' => now(),
@@ -678,9 +919,56 @@ class QuoteController extends Controller
             'quote' => $quote,
             'customer' => $customer,
             'options' => $quote->options,
-            'isDraft' => true, // Marca para mostrar watermark BORRADOR
+            'isDraft' => true,
         ]);
 
         return $pdf->stream("borrador-cotizacion.pdf");
     }
+
+    /**
+     * Obtener configuracion financiera de una aseguradora (AJAX)
+     */
+    public function getFinancialSettings(Request $request, int $insurerId)
+    {
+        // Cache por 5 minutos para reducir queries
+        $cacheKey = "insurer_financial_settings:{$insurerId}";
+
+        $data = Cache::remember($cacheKey, 300, function () use ($insurerId) {
+            $insurer = Insurer::with(['financialSettings' => function ($q) {
+                $q->where(function ($query) {
+                    $query->whereNull('valid_until')
+                        ->orWhere('valid_until', '>=', now());
+                })->where('valid_from', '<=', now())
+                  ->latest('valid_from');
+            }])->find($insurerId);
+
+            if (!$insurer) {
+                return null;
+            }
+
+            $settings = $insurer->financialSettings->first();
+
+            return [
+                'insurer_id' => $insurerId,
+                'insurer_name' => $insurer->name,
+                'policy_fee' => $settings ? $settings->policy_fee_cents / 100 : 0,
+                'surcharges' => $settings ? [
+                    'SEMIANNUAL' => ($settings->surcharge_semiannual ?? 0) * 100,
+                    'QUARTERLY' => ($settings->surcharge_quarterly ?? 0) * 100,
+                    'MONTHLY' => ($settings->surcharge_monthly ?? 0) * 100,
+                ] : [
+                    'SEMIANNUAL' => 0,
+                    'QUARTERLY' => 0,
+                    'MONTHLY' => 0,
+                ],
+            ];
+        });
+
+        if (!$data) {
+            return response()->json(['error' => 'Aseguradora no encontrada'], 404);
+        }
+
+        return response()->json($data);
+    }
+
 }
