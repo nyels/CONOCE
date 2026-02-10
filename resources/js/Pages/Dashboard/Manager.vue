@@ -4,6 +4,8 @@ import { ref, computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
+defineOptions({ layout: AppLayout });
+
 const props = defineProps({
     dashboardData: Object,
     userRole: String
@@ -80,7 +82,6 @@ const viewMember = (member) => {
 </script>
 
 <template>
-    <AppLayout>
         <div class="dashboard-manager">
             <!-- Header -->
             <header class="dashboard-header">
@@ -232,7 +233,6 @@ const viewMember = (member) => {
                 </div>
             </div>
         </div>
-    </AppLayout>
 </template>
 
 <style scoped>
@@ -288,6 +288,7 @@ const viewMember = (member) => {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
+    min-height: 44px;
     border-radius: 10px;
     font-weight: 600;
     font-size: 0.875rem;
@@ -372,8 +373,9 @@ const viewMember = (member) => {
 
 .stat-card__value {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 1.25rem;
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
     font-weight: 700;
+    word-break: break-word;
 }
 
 .stat-card__label {
@@ -609,6 +611,7 @@ const viewMember = (member) => {
 .action-btn {
     flex: 1;
     padding: 0.5rem;
+    min-height: 44px;
     font-size: 0.75rem;
     font-weight: 600;
     border: none;

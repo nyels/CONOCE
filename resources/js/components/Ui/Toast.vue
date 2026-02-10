@@ -114,4 +114,13 @@ onMounted(() => {
     opacity: 0;
     transform: translateX(100%);
 }
+
+/* ===== RESPONSIVE — FASE 1 ===== */
+@media (max-width: 640px) {
+    .toast {
+        min-width: auto;
+        width: 100%;
+        max-width: none;
+    }
+}
 </style>

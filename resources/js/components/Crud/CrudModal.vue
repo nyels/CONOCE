@@ -31,7 +31,7 @@ const sizeClass = computed(() => `modal-content--${props.size}`);
 <template>
     <Teleport to="body">
         <Transition name="modal">
-            <div v-if="isVisible" class="modal-overlay" @click.self="close">
+            <div v-if="isVisible" class="modal-overlay">
                 <div class="modal-content" :class="sizeClass">
                     <!-- Header -->
                     <div class="modal-header">
@@ -83,6 +83,9 @@ const sizeClass = computed(() => `modal-content--${props.size}`);
     width: 100%;
     box-shadow: 0 25px 80px rgba(0, 0, 0, 0.2);
     margin: auto 0;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
 }
 
 .modal-content--sm { max-width: 400px; }
@@ -132,8 +135,9 @@ const sizeClass = computed(() => `modal-content--${props.size}`);
 
 .modal-body {
     padding: 1.5rem;
-    max-height: 60vh;
+    flex: 1;
     overflow-y: auto;
+    min-height: 0;
 }
 
 .modal-footer {
@@ -144,6 +148,7 @@ const sizeClass = computed(() => `modal-content--${props.size}`);
     border-top: 1px solid #F3F4F6;
     background: #F9FAFB;
     border-radius: 0 0 16px 16px;
+    flex-shrink: 0;
 }
 
 .btn {
@@ -218,14 +223,22 @@ const sizeClass = computed(() => `modal-content--${props.size}`);
         padding: 1rem;
         align-items: flex-end;
     }
-    
+
     .modal-content {
         border-radius: 20px 20px 0 0;
-        max-height: 90vh;
     }
-    
+
+    .modal-header {
+        padding: 1rem 1.25rem;
+    }
+
     .modal-body {
-        max-height: 50vh;
+        padding: 1.25rem;
+    }
+
+    .modal-footer {
+        padding: 1rem 1.25rem;
+        border-radius: 0;
     }
 }
 </style>

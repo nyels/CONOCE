@@ -1,7 +1,10 @@
 <!-- resources/js/Pages/Customers/Show.vue -->
 <script setup>
-import { Head, Link, router } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+defineOptions({ layout: AppLayout });
+import { CrudModal, FormInput, FormSelect } from '@/Components/Crud';
 import { ConfirmDialog, ToastContainer } from '@/Components/Ui';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
@@ -14,6 +17,68 @@ const props = defineProps({
 const { isOpen: confirmOpen, config: confirmConfig, confirm, onConfirm, onCancel } = useConfirm();
 const toast = useToast();
 
+// Modal de edición
+const showEditModal = ref(false);
+
+// Formulario de edición
+const form = useForm({
+    id: null,
+    type: 'physical',
+    first_name: '',
+    paternal_surname: '',
+    maternal_surname: '',
+    business_name: '',
+    phone: '',
+    email: '',
+    rfc: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    is_active: true,
+});
+
+// Opciones de tipo
+const typeOptions = [
+    { value: 'physical', label: 'Persona Física' },
+    { value: 'moral', label: 'Persona Moral' },
+];
+
+// Abrir modal de edición
+const openEditModal = () => {
+    form.id = props.customer.id;
+    form.type = props.customer.type || 'physical';
+    form.first_name = props.customer.first_name || '';
+    form.paternal_surname = props.customer.paternal_surname || '';
+    form.maternal_surname = props.customer.maternal_surname || '';
+    form.business_name = props.customer.business_name || '';
+    form.phone = props.customer.phone || '';
+    form.email = props.customer.email || '';
+    form.rfc = props.customer.rfc || '';
+    form.neighborhood = props.customer.neighborhood || '';
+    form.city = props.customer.city || '';
+    form.state = props.customer.state || '';
+    form.zip_code = props.customer.zip_code || '';
+    form.is_active = props.customer.is_active;
+    form.clearErrors();
+    showEditModal.value = true;
+};
+
+// Guardar cambios
+const submitEdit = () => {
+    form.put(route('customers.update', form.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showEditModal.value = false;
+            toast.success('Cliente actualizado');
+        },
+        onError: () => {
+            toast.error('Error al actualizar');
+        }
+    });
+};
+
+// Eliminar cliente
 const handleDelete = async () => {
     const confirmed = await confirm({
         title: 'Eliminar Cliente',
@@ -37,13 +102,15 @@ const formatCurrency = (v) => new Intl.NumberFormat('es-MX', {
     currency: 'MXN',
     minimumFractionDigits: 0
 }).format(v);
+
+// Computed para tipo
+const isPhysical = () => form.type === 'physical';
 </script>
 
 <template>
     <ToastContainer>
         <Head :title="customer.name" />
 
-        <AppLayout>
             <div class="page-container">
                 <!-- Breadcrumb -->
                 <div class="breadcrumb">
@@ -68,9 +135,9 @@ const formatCurrency = (v) => new Intl.NumberFormat('es-MX', {
                         </div>
                     </div>
                     <div class="header-actions">
-                        <Link :href="route('customers.edit', customer.id)" class="btn btn--secondary">
+                        <button class="btn btn--secondary" @click="openEditModal">
                             ✏️ Editar
-                        </Link>
+                        </button>
                         <button class="btn btn--danger-outline" @click="handleDelete">
                             🗑️ Eliminar
                         </button>
@@ -157,6 +224,125 @@ const formatCurrency = (v) => new Intl.NumberFormat('es-MX', {
                 </div>
             </div>
 
+            <!-- Modal de Edición -->
+            <CrudModal
+                :show="showEditModal"
+                title="Editar Cliente"
+                :loading="form.processing"
+                @close="showEditModal = false"
+                @submit="submitEdit"
+            >
+                <FormSelect
+                    v-model="form.type"
+                    label="Tipo de Persona"
+                    :options="typeOptions"
+                    :error="form.errors.type"
+                    required
+                />
+
+                <!-- Campos para Persona Física -->
+                <template v-if="isPhysical()">
+                    <FormInput
+                        v-model="form.first_name"
+                        label="Nombre(s)"
+                        placeholder="Ej: Juan Carlos"
+                        :error="form.errors.first_name"
+                        required
+                    />
+
+                    <div class="form-row">
+                        <FormInput
+                            v-model="form.paternal_surname"
+                            label="Apellido Paterno"
+                            placeholder="Ej: Pérez"
+                            :error="form.errors.paternal_surname"
+                            required
+                        />
+                        <FormInput
+                            v-model="form.maternal_surname"
+                            label="Apellido Materno"
+                            placeholder="Ej: García"
+                            :error="form.errors.maternal_surname"
+                            required
+                        />
+                    </div>
+                </template>
+
+                <!-- Campos para Persona Moral -->
+                <template v-else>
+                    <FormInput
+                        v-model="form.business_name"
+                        label="Razón Social"
+                        placeholder="Ej: Empresa S.A. de C.V."
+                        :error="form.errors.business_name"
+                        required
+                    />
+                </template>
+
+                <div class="form-row">
+                    <FormInput
+                        v-model="form.phone"
+                        label="Celular"
+                        placeholder="999 123 4567"
+                        mask="phone"
+                        :error="form.errors.phone"
+                    />
+                    <FormInput
+                        v-model="form.email"
+                        label="Email"
+                        type="email"
+                        placeholder="cliente@email.com"
+                        :error="form.errors.email"
+                    />
+                </div>
+
+                <FormInput
+                    v-model="form.rfc"
+                    label="RFC"
+                    placeholder="XXXX000000XXX"
+                    mask="rfc"
+                    :error="form.errors.rfc"
+                />
+
+                <FormInput
+                    v-model="form.neighborhood"
+                    label="Colonia"
+                    placeholder="Ej: Centro"
+                    :error="form.errors.neighborhood"
+                    required
+                />
+
+                <div class="form-row">
+                    <FormInput
+                        v-model="form.city"
+                        label="Ciudad"
+                        placeholder="Mérida"
+                        :error="form.errors.city"
+                    />
+                    <FormInput
+                        v-model="form.state"
+                        label="Estado"
+                        placeholder="Yucatán"
+                        :error="form.errors.state"
+                    />
+                    <FormInput
+                        v-model="form.zip_code"
+                        label="C.P."
+                        placeholder="97000"
+                        mask="zipcode"
+                        :error="form.errors.zip_code"
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label class="toggle-label">
+                        <input type="checkbox" v-model="form.is_active" class="toggle-input" />
+                        <span class="toggle-switch"></span>
+                        <span class="toggle-text">Cliente activo</span>
+                    </label>
+                </div>
+            </CrudModal>
+
             <!-- Confirm Dialog -->
             <ConfirmDialog
                 :show="confirmOpen"
@@ -168,7 +354,6 @@ const formatCurrency = (v) => new Intl.NumberFormat('es-MX', {
                 @cancel="onCancel"
                 @close="onCancel"
             />
-        </AppLayout>
     </ToastContainer>
 </template>
 
@@ -455,4 +640,71 @@ const formatCurrency = (v) => new Intl.NumberFormat('es-MX', {
 
 .action-icon { font-size: 1.25rem; }
 .action-text { font-weight: 600; }
+
+/* Form Layout (para el modal) */
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Toggle */
+.form-group { margin-bottom: 1rem; }
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+}
+
+.toggle-input { display: none; }
+
+.toggle-switch {
+    width: 44px;
+    height: 24px;
+    background: #E5E7EB;
+    border-radius: 12px;
+    position: relative;
+    transition: background 0.2s;
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s;
+}
+
+.toggle-input:checked + .toggle-switch {
+    background: #059669;
+}
+
+.toggle-input:checked + .toggle-switch::after {
+    transform: translateX(20px);
+}
+
+.toggle-text {
+    font-size: 0.9375rem;
+    color: #374151;
+}
+
+/* ===== RESPONSIVE — FASE 2 ===== */
+@media (max-width: 768px) {
+    .quote-item {
+        grid-template-columns: 1fr auto;
+        gap: 0.5rem;
+    }
+
+    .quote-vehicle {
+        grid-column: 1 / -1;
+    }
+}
 </style>

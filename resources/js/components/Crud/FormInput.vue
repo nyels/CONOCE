@@ -40,10 +40,26 @@ const formatters = {
     curp: (val) => val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 18),
     zipcode: (val) => val.replace(/\D/g, '').slice(0, 5),
     money: (val) => {
-        const num = val.replace(/[^\d.]/g, '');
+        // Formato: 1,000.00 (comas como separador de miles, punto decimal, 2 decimales)
+        // Primero quitamos todo excepto números y punto
+        let num = String(val).replace(/[^\d.]/g, '');
+
+        // Separamos parte entera y decimal
         const parts = num.split('.');
-        if (parts.length > 2) return parts[0] + '.' + parts.slice(1).join('');
-        return num;
+        let integerPart = parts[0] || '';
+        let decimalPart = parts[1] || '';
+
+        // Limitamos decimales a 2
+        decimalPart = decimalPart.slice(0, 2);
+
+        // Formateamos la parte entera con comas cada 3 dígitos
+        integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+        // Retornamos con o sin decimales según lo que haya escrito
+        if (parts.length > 1) {
+            return integerPart + '.' + decimalPart;
+        }
+        return integerPart;
     },
 };
 
@@ -79,6 +95,14 @@ const validators = {
         if (!/^[0-9]{5}$/.test(val)) return 'El código postal debe tener exactamente 5 dígitos.';
         return true;
     },
+    money: (val) => {
+        // Validar formato de moneda
+        if (!val) return true;
+        // Remover comas para validar el número
+        const numStr = String(val).replace(/,/g, '');
+        if (isNaN(parseFloat(numStr))) return 'Ingrese un monto válido.';
+        return true;
+    },
     email: (val) => {
         if (!val) return true;
         const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -87,12 +111,23 @@ const validators = {
     },
 };
 
-// Computed para maxlength real
+// Computed para maxlength real (incluye espacios del formato)
 const effectiveMaxlength = computed(() => {
     if (props.maxlength) return props.maxlength;
-    // Maxlength por defecto según máscara
     const defaults = { phone: 12, rfc: 13, curp: 18, zipcode: 5 };
     return defaults[props.mask] || null;
+});
+
+// Computed para el contador visual (dígitos reales sin espacios de formato)
+const counterMax = computed(() => {
+    if (props.mask === 'phone') return 10;
+    return effectiveMaxlength.value;
+});
+
+const counterCurrent = computed(() => {
+    if (!props.modelValue) return 0;
+    if (props.mask === 'phone') return String(props.modelValue).replace(/\D/g, '').length;
+    return String(props.modelValue).replace(/\s/g, '').length;
 });
 
 // Manejo de input
@@ -167,11 +202,11 @@ const inputClasses = computed(() => ({
             />
             <!-- Indicador de caracteres para campos con límite -->
             <span
-                v-if="effectiveMaxlength && modelValue"
+                v-if="counterMax && modelValue"
                 class="char-counter"
-                :class="{ 'char-counter--full': String(modelValue).replace(/\s/g, '').length >= effectiveMaxlength }"
+                :class="{ 'char-counter--full': counterCurrent >= counterMax }"
             >
-                {{ String(modelValue).replace(/\s/g, '').length }}/{{ effectiveMaxlength }}
+                {{ counterCurrent }}/{{ counterMax }}
             </span>
         </div>
         <span v-if="displayError" class="form-error">{{ displayError }}</span>
@@ -272,5 +307,19 @@ const inputClasses = computed(() => ({
 
 .has-error .char-counter {
     color: #DC2626;
+}
+
+/* ===== RESPONSIVE — CIERRE ENTERPRISE ===== */
+
+/* E-4: Input counter reposition */
+@media (max-width: 425px) {
+    .char-counter {
+        position: static;
+        display: block;
+        margin-top: 0.25rem;
+        text-align: right;
+        font-size: 0.75rem;
+        transform: none;
+    }
 }
 </style>

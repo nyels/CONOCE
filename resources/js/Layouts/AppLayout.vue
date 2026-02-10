@@ -1,15 +1,13 @@
 <!-- resources/js/Layouts/AppLayout.vue -->
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { Link, usePage, router } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 
 // ===== STATE =====
 const sidebarCollapsed = ref(false);
 const sidebarOpen = ref(false);
 const showUserMenu = ref(false);
 const showNotifications = ref(false);
-const searchQuery = ref('');
-const searchFocused = ref(false);
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200);
 const isDesktop = computed(() => windowWidth.value >= 1024);
 
@@ -75,6 +73,7 @@ const operatorNav = [
         section: 'CRM',
         items: [
             { name: 'Mis Clientes', route: 'customers.index', icon: 'users', badge: null },
+            { name: 'Contactos', route: 'contacts.index', icon: 'user-group', badge: null },
             { name: 'Pólizas', route: 'policies.index', icon: 'shield', badge: null, disabled: true },
         ]
     }
@@ -93,6 +92,7 @@ const managerNav = [
             { name: 'Nueva Cotización', route: 'quotes.create', icon: 'plus', badge: null, highlight: true },
             { name: 'Cotizaciones', route: 'quotes.index', icon: 'document', badge: { count: 12, type: 'warning' } },
             { name: 'Clientes', route: 'customers.index', icon: 'users', badge: null },
+            { name: 'Contactos', route: 'contacts.index', icon: 'user-group', badge: null },
         ]
     },
     {
@@ -117,6 +117,14 @@ const adminNav = [
             { name: 'Nueva Cotización', route: 'quotes.create', icon: 'plus', badge: null, highlight: true },
             { name: 'Cotizaciones', route: 'quotes.index', icon: 'document', badge: null },
             { name: 'Clientes', route: 'customers.index', icon: 'users', badge: null },
+            { name: 'Contactos', route: 'contacts.index', icon: 'user-group', badge: null },
+        ]
+    },
+    {
+        section: 'Recursos Humanos',
+        items: [
+            { name: 'Puestos', route: 'admin.positions.index', icon: 'briefcase', badge: null },
+            { name: 'Personal', route: 'admin.staff.index', icon: 'id-card', badge: null },
         ]
     },
     {
@@ -129,6 +137,9 @@ const adminNav = [
             { name: 'Paquetes Cobertura', route: 'admin.coverage-packages.index', icon: 'shield', badge: null },
             { name: 'Deducibles', route: 'admin.deductible-options.index', icon: 'chart', badge: null },
             { name: 'Formas de Pago', route: 'admin.payment-methods.index', icon: 'currency', badge: null },
+            { name: 'Derechos de Póliza', route: 'admin.policy-fees.index', icon: 'shield', badge: null },
+            { name: 'Recargos', route: 'admin.surcharges.index', icon: 'chart', badge: null },
+            { name: 'Estados', route: 'admin.mexican-states.index', icon: 'shield', badge: null },
         ]
     },
     {
@@ -188,6 +199,8 @@ const getIcon = (iconName) => {
         'clock': 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
         'car': 'M8 7h8l2 5H6l2-5zm11 5v7a1 1 0 01-1 1h-1a1 1 0 01-1-1v-1H8v1a1 1 0 01-1 1H6a1 1 0 01-1-1v-7l-1-3a2 2 0 012-2h12a2 2 0 012 2l-1 3zm-9 2a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm8 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z',
         'truck': 'M8 17a2 2 0 11-4 0 2 2 0 014 0zm12 0a2 2 0 11-4 0 2 2 0 014 0zM6 5v6h14V5H6zm0 8v2h2a4 4 0 014 0h4a4 4 0 014 0h2v-2H6z',
+        'briefcase': 'M20 7h-4V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM10 4h4v3h-4V4z',
+        'id-card': 'M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2',
     };
     return icons[iconName] || icons['dashboard'];
 };
@@ -214,12 +227,13 @@ const isActiveRoute = (routeName) => {
     }
 };
 
-const handleSearch = () => {
-    if (searchQuery.value.length >= 3) {
-        // TODO: Implement global search
-        console.log('Searching:', searchQuery.value);
+
+// Lock body scroll when mobile sidebar is open
+watch(sidebarOpen, (open) => {
+    if (!isDesktop.value) {
+        document.body.style.overflow = open ? 'hidden' : '';
     }
-};
+});
 
 // Close dropdowns on click outside
 const closeDropdowns = () => {
@@ -230,10 +244,12 @@ const closeDropdowns = () => {
 
 <template>
     <div class="app-layout" @click="closeDropdowns">
-        <!-- DEBUG MARKER: APPLAYOUT V4 -->
-        <div id="debug-marker" style="display:none">v4</div>
-        
-        <!-- Mobile Sidebar Backdrop REMOVED TO PREVENT LOCKS -->
+        <!-- Mobile Sidebar Backdrop -->
+        <Transition name="fade">
+            <div v-if="sidebarOpen && !isDesktop"
+                 class="sidebar-backdrop"
+                 @click="sidebarOpen = false"></div>
+        </Transition>
 
         <!-- ===== SIDEBAR ===== -->
         <aside class="sidebar" 
@@ -288,10 +304,11 @@ const closeDropdowns = () => {
                         <Link v-if="!item.disabled"
                               :href="route(item.route)"
                               class="nav-item"
-                              :class="{ 
+                              :class="{
                                   'nav-item--active': isActiveRoute(item.route),
-                                  'nav-item--highlight': item.highlight 
-                              }">
+                                  'nav-item--highlight': item.highlight
+                              }"
+                              @click="!isDesktop && (sidebarOpen = false)">
                             <div class="nav-item__icon">
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" :d="getIcon(item.icon)" />
@@ -373,33 +390,15 @@ const closeDropdowns = () => {
                         </svg>
                     </button>
                     
-                    <div class="main-header__greeting hidden md:block">
+                    <div class="main-header__greeting">
                         <span class="greeting-text">{{ greeting }}, </span>
                         <span class="greeting-name">{{ user.name?.split(' ')[0] || 'Usuario' }}</span>
                     </div>
                 </div>
 
-                <div class="main-header__center">
-                    <!-- Search Bar -->
-                    <div class="header-search" :class="{ 'header-search--focused': searchFocused }">
-                        <svg class="header-search__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <input 
-                            type="text" 
-                            v-model="searchQuery"
-                            @focus="searchFocused = true"
-                            @blur="searchFocused = false"
-                            @keyup.enter="handleSearch"
-                            placeholder="Buscar cotización, cliente, póliza..." 
-                            class="header-search__input">
-                        <kbd class="header-search__shortcut">⌘K</kbd>
-                    </div>
-                </div>
-
                 <div class="main-header__right">
                     <!-- Date/Time -->
-                    <div class="header-datetime hidden xl:flex">
+                    <div class="header-datetime">
                         <span class="header-datetime__time">{{ currentTime }}</span>
                         <span class="header-datetime__date">{{ currentDate }}</span>
                     </div>
@@ -449,17 +448,11 @@ const closeDropdowns = () => {
                         </Transition>
                     </div>
 
-                    <!-- Help -->
-                    <button class="header-btn" title="Ayuda">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </button>
                 </div>
             </header>
 
             <!-- Page Content -->
-            <div class="main-content__body">
+            <div class="main-content__body" scroll-region>
                 <slot />
             </div>
         </main>
@@ -485,7 +478,7 @@ const closeDropdowns = () => {
     background: #F8FAFC;
 }
 
-/* ===== BACKDROP (DISABLED FOR DEBUG) =====
+/* ===== BACKDROP ===== */
 .sidebar-backdrop {
     position: fixed;
     inset: 0;
@@ -493,7 +486,6 @@ const closeDropdowns = () => {
     backdrop-filter: blur(4px);
     z-index: 40;
 }
-*/
 
 /* ===== SIDEBAR ===== */
 .sidebar {
@@ -605,6 +597,25 @@ const closeDropdowns = () => {
     flex: 1;
     overflow-y: auto;
     padding: 0.75rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(199, 161, 114, 0.4) transparent;
+}
+
+.sidebar__nav::-webkit-scrollbar {
+    width: 5px;
+}
+
+.sidebar__nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar__nav::-webkit-scrollbar-thumb {
+    background: rgba(199, 161, 114, 0.35);
+    border-radius: 10px;
+}
+
+.sidebar__nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(199, 161, 114, 0.6);
 }
 
 .nav-group {
@@ -819,6 +830,12 @@ const closeDropdowns = () => {
     cursor: pointer;
 }
 
+.user-menu__item svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
 .user-menu__item:hover {
     background: rgba(255, 255, 255, 0.08);
     color: white;
@@ -846,14 +863,25 @@ const closeDropdowns = () => {
 /* ===== HEADER ===== */
 .main-header {
     height: 64px;
+    min-height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 1.5rem;
+    padding: 0 1rem;
     background: white;
     border-bottom: 1px solid #E5E7EB;
     z-index: 20;
-    gap: 1rem;
+    gap: 0.5rem;
+    position: sticky;
+    top: 0;
+    flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+    .main-header {
+        padding: 0 1.5rem;
+        gap: 1rem;
+    }
 }
 
 .main-header__left {
@@ -881,7 +909,13 @@ const closeDropdowns = () => {
 }
 
 .main-header__greeting {
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
+}
+
+@media (min-width: 768px) {
+    .main-header__greeting {
+        font-size: 0.9375rem;
+    }
 }
 
 .greeting-text {
@@ -893,96 +927,51 @@ const closeDropdowns = () => {
     color: #111827;
 }
 
-.main-header__center {
-    flex: 1;
-    max-width: 480px;
-    display: none;
-}
-
-@media (min-width: 768px) {
-    .main-header__center {
-        display: block;
-    }
-}
-
 .main-header__right {
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
-/* Search */
-.header-search {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.header-search__icon {
-    position: absolute;
-    left: 12px;
-    width: 18px;
-    height: 18px;
-    color: #9CA3AF;
-    pointer-events: none;
-}
-
-.header-search__input {
-    width: 100%;
-    padding: 0.5rem 3rem 0.5rem 2.5rem;
-    background: #F3F4F6;
-    border: 2px solid transparent;
-    border-radius: 10px;
-    font-size: 0.875rem;
-    color: #374151;
-    transition: all 0.2s;
-}
-
-.header-search__input:focus {
-    outline: none;
-    background: white;
-    border-color: #7B2D3B;
-    box-shadow: 0 0 0 3px rgba(123, 45, 59, 0.1);
-}
-
-.header-search__input::placeholder {
-    color: #9CA3AF;
-}
-
-.header-search__shortcut {
-    position: absolute;
-    right: 12px;
-    padding: 0.125rem 0.5rem;
-    background: white;
-    border: 1px solid #E5E7EB;
-    border-radius: 4px;
-    font-size: 0.625rem;
-    color: #9CA3AF;
-}
-
-.header-search--focused .header-search__shortcut {
-    display: none;
-}
-
 /* DateTime */
 .header-datetime {
+    display: flex;
     flex-direction: column;
     align-items: flex-end;
-    padding: 0 1rem;
+    padding: 0 0.5rem;
     border-left: 1px solid #E5E7EB;
 }
 
+@media (min-width: 768px) {
+    .header-datetime {
+        padding: 0 1rem;
+    }
+}
+
 .header-datetime__time {
-    font-size: 0.9375rem;
+    font-size: 0.8125rem;
     font-weight: 700;
     color: #111827;
     font-family: 'JetBrains Mono', monospace;
 }
 
+@media (min-width: 768px) {
+    .header-datetime__time {
+        font-size: 0.9375rem;
+    }
+}
+
 .header-datetime__date {
-    font-size: 0.6875rem;
+    font-size: 0.5625rem;
     color: #6B7280;
     text-transform: capitalize;
+    white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+    .header-datetime__date {
+        font-size: 0.6875rem;
+    }
 }
 
 /* Header Buttons */
@@ -1167,5 +1156,30 @@ const closeDropdowns = () => {
 .dropdown-leave-to {
     opacity: 0;
     transform: translateY(-8px);
+}
+
+/* ===== RESPONSIVE — FASE 1 ===== */
+@media (max-width: 425px) {
+    .notifications-dropdown {
+        width: calc(100vw - 2rem);
+        max-width: 360px;
+        right: -0.5rem;
+    }
+}
+
+/* ===== RESPONSIVE — CIERRE ENTERPRISE ===== */
+
+/* E-1: Sidebar proporcional */
+@media (max-width: 640px) {
+    .sidebar {
+        width: min(90vw, 280px);
+    }
+}
+
+/* E-2: Header legibility hardening */
+@media (max-width: 640px) {
+    .header-datetime {
+        font-size: 0.75rem;
+    }
 }
 </style>

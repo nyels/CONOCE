@@ -31,7 +31,7 @@ defineProps({
         </div>
 
         <div class="relative">
-            <div class="text-3xl font-bold tracking-tight text-slate-900 font-feature-settings-tnum">
+            <div class="premium-stat-value font-feature-settings-tnum">
                 {{ value }}
             </div>
             
@@ -58,5 +58,13 @@ defineProps({
 .font-feature-settings-tnum {
     font-feature-settings: 'tnum';
     font-variant-numeric: tabular-nums;
+}
+
+.premium-stat-value {
+    font-size: clamp(1.25rem, 3.5vw, 1.875rem);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: #0f172a;
+    word-break: break-word;
 }
 </style>

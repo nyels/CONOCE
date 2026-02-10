@@ -156,4 +156,23 @@ const cancel = () => {
 .modal-enter-from .confirm-dialog {
     transform: scale(0.95);
 }
+
+/* ===== RESPONSIVE — CIERRE ENTERPRISE ===== */
+
+/* E-3: Confirm dialog ergonomics */
+@media (max-width: 640px) {
+    .confirm-dialog {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 375px) {
+    .confirm-dialog {
+        padding: 1rem;
+    }
+
+    .confirm-dialog__actions {
+        flex-direction: column;
+    }
+}
 </style>

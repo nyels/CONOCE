@@ -153,12 +153,13 @@
 }
 
 .metric-value {
-    font-size: 2.5rem;
+    font-size: clamp(1.25rem, 4vw, 2.5rem);
     font-weight: 800;
     color: var(--color-brown-600);
-    line-height: 1;
+    line-height: 1.2;
     margin: var(--spacing-2) 0;
     font-family: var(--font-family-mono);
+    word-break: break-word;
 }
 
 .metric-label {
@@ -306,10 +307,77 @@
     font-family: var(--font-family-mono);
 }
 
+/* ===== FORM GRIDS RESPONSIVE — FASE 1 ===== */
+
+.form-row--2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-row--3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-row--4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 1024px) {
+    .form-row--4 {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .form-row--2col,
+    .form-row--3,
+    .form-row--4 {
+        grid-template-columns: 1fr;
+    }
+}
+
 .bg-brown-50 {
     background-color: var(--color-brown-50);
 }
 
 .bg-gray-50 {
     background-color: var(--color-gray-50);
+}
+
+/* ===== RESPONSIVE — CIERRE ENTERPRISE ===== */
+
+/* E-5: Touch target global hardening */
+@media (hover: none) {
+    .btn,
+    .action-btn,
+    .quick-bar__btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .btn + .btn {
+        margin-left: 0.5rem;
+    }
+}
+
+/* E-6: Page container breathing space */
+.page-container {
+    padding: 2rem;
+}
+
+@media (max-width: 1024px) {
+    .page-container {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .page-container {
+        padding: 1rem;
+    }
 }

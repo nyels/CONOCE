@@ -1,8 +1,10 @@
 <!-- resources/js/Pages/Dashboard/Admin.vue -->
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+
+defineOptions({ layout: AppLayout });
 
 const props = defineProps({
     dashboardData: Object,
@@ -14,11 +16,16 @@ const activePeriod = ref('month');
 
 // Safe data access with defaults
 const financialKpis = computed(() => props.dashboardData?.financialKpis || []);
-const trends = computed(() => props.dashboardData?.trends?.monthly || []);
+const trends = computed(() => props.dashboardData?.trends?.data || []);
 const trendsSummary = computed(() => props.dashboardData?.trends?.summary || { growth_quotes: 0, growth_premium: 0 });
 const conversionByInsurer = computed(() => props.dashboardData?.conversionByInsurer || []);
 const systemAlerts = computed(() => props.dashboardData?.systemAlerts || []);
 const period = computed(() => props.dashboardData?.period || { current: 'Enero 2026', previous: 'Diciembre 2025' });
+
+const trendTitle = computed(() => {
+    const titles = { month: 'Tendencia: 6 Meses', quarter: 'Tendencia: 2 Trimestres', year: 'Tendencia: 1 Año' };
+    return titles[activePeriod.value] || titles.month;
+});
 
 // Format utilities
 const formatCurrency = (value) => {
@@ -76,11 +83,21 @@ const getBarHeight = (value) => {
     return ((value || 0) / maxQuotes.value) * 100;
 };
 
+// Switch trend period
+const switchPeriod = (p) => {
+    activePeriod.value = p;
+    router.reload({
+        only: ['dashboardData'],
+        data: { trend_period: p },
+    });
+};
+
 // Actions
 const refreshData = () => {
     refreshing.value = true;
     router.reload({
         only: ['dashboardData'],
+        data: { trend_period: activePeriod.value },
         onFinish: () => {
             refreshing.value = false;
         }
@@ -90,10 +107,41 @@ const refreshData = () => {
 const exportReport = () => {
     alert('Exportar reporte - próximamente');
 };
+
+// ===== REAL-TIME UPDATES VIA REVERB =====
+let debounceTimer = null;
+let echoChannel = null;
+
+const silentRefresh = () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+        router.reload({
+            only: ['dashboardData'],
+            data: { trend_period: activePeriod.value },
+            preserveScroll: true,
+        });
+    }, 1500);
+};
+
+onMounted(() => {
+    if (window.Echo) {
+        echoChannel = window.Echo.private('dashboard.admin')
+            .listen('.data.changed', () => {
+                silentRefresh();
+            });
+    }
+});
+
+onUnmounted(() => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    if (echoChannel) {
+        window.Echo.leave('dashboard.admin');
+        echoChannel = null;
+    }
+});
 </script>
 
 <template>
-    <AppLayout>
         <div class="dashboard-admin">
             <!-- Header -->
             <header class="dashboard-header">
@@ -162,15 +210,15 @@ const exportReport = () => {
                     <div class="section__header">
                         <h2 class="section__title">
                             <span class="section__icon">📈</span>
-                            Tendencia 6 Meses
+                            {{ trendTitle }}
                         </h2>
                         <div class="period-tabs">
-                            <button 
+                            <button
                                 v-for="p in ['month', 'quarter', 'year']"
                                 :key="p"
                                 class="period-tab"
                                 :class="{ 'period-tab--active': activePeriod === p }"
-                                @click="activePeriod = p">
+                                @click="switchPeriod(p)">
                                 {{ { month: 'Mes', quarter: 'Trim', year: 'Año' }[p] }}
                             </button>
                         </div>
@@ -179,18 +227,19 @@ const exportReport = () => {
                     <!-- Chart -->
                     <div class="chart-container">
                         <div class="chart-bars">
-                            <div 
-                                v-for="(month, index) in trends" 
+                            <div
+                                v-for="(item, index) in trends"
                                 :key="index"
                                 class="chart-bar-group">
                                 <div class="chart-bar-wrapper">
-                                    <div 
+                                    <div
                                         class="chart-bar"
-                                        :style="{ height: `${getBarHeight(month.quotes)}%` }"
-                                        :title="`${month.quotes} cotizaciones`">
+                                        :style="{ height: `${getBarHeight(item.quotes)}%` }"
+                                        :title="`${item.quotes} cotizaciones`">
                                     </div>
                                 </div>
-                                <div class="chart-bar-label">{{ month.month }}</div>
+                                <div class="chart-bar-label">{{ item.label }}</div>
+                                <div v-if="item.sublabel" class="chart-bar-sublabel">{{ item.sublabel }}</div>
                             </div>
                         </div>
                     </div>
@@ -286,7 +335,6 @@ const exportReport = () => {
                 </div>
             </section>
         </div>
-    </AppLayout>
 </template>
 
 <style scoped>
@@ -361,6 +409,7 @@ const exportReport = () => {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
+    min-height: 44px;
     border-radius: 10px;
     font-weight: 600;
     font-size: 0.875rem;
@@ -543,16 +592,11 @@ const exportReport = () => {
 
 .kpi-card__value {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 1.25rem;
+    font-size: clamp(1rem, 2.5vw, 1.5rem);
     font-weight: 800;
     color: #111827;
     line-height: 1.2;
-}
-
-@media (min-width: 768px) {
-    .kpi-card__value {
-        font-size: 1.5rem;
-    }
+    word-break: break-word;
 }
 
 .kpi-card__change {
@@ -634,6 +678,8 @@ const exportReport = () => {
 /* ===== CHART ===== */
 .chart-container {
     margin: 1rem 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .chart-bars {
@@ -644,6 +690,7 @@ const exportReport = () => {
     padding: 0.5rem;
     background: #F9FAFB;
     border-radius: 12px;
+    min-width: 320px;
 }
 
 @media (min-width: 768px) {
@@ -684,11 +731,26 @@ const exportReport = () => {
     margin-top: 0.5rem;
     text-align: center;
     white-space: nowrap;
+    font-weight: 600;
 }
 
 @media (min-width: 768px) {
     .chart-bar-label {
         font-size: 0.75rem;
+    }
+}
+
+.chart-bar-sublabel {
+    font-size: 0.5625rem;
+    color: #9CA3AF;
+    text-align: center;
+    white-space: nowrap;
+    text-transform: capitalize;
+}
+
+@media (min-width: 768px) {
+    .chart-bar-sublabel {
+        font-size: 0.625rem;
     }
 }
 

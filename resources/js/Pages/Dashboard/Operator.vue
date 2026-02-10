@@ -4,6 +4,8 @@ import { ref, computed, onMounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
+defineOptions({ layout: AppLayout });
+
 const props = defineProps({
     dashboardData: Object,
     userRole: String
@@ -119,7 +121,6 @@ const concludeQuote = (item) => {
 </script>
 
 <template>
-    <AppLayout>
         <div class="dashboard-operator">
             <!-- Quick Actions Bar -->
             <div class="quick-bar">
@@ -282,14 +283,19 @@ const concludeQuote = (item) => {
                 </div>
             </div>
         </div>
-    </AppLayout>
 </template>
 
 <style scoped>
 .dashboard-operator {
-    padding: 1.5rem;
+    padding: 1rem;
     max-width: 1400px;
     margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+    .dashboard-operator {
+        padding: 1.5rem;
+    }
 }
 
 /* Quick Bar */
@@ -304,6 +310,7 @@ const concludeQuote = (item) => {
     align-items: center;
     gap: 0.5rem;
     padding: 0.625rem 1rem;
+    min-height: 44px;
     border-radius: 10px;
     font-weight: 600;
     font-size: 0.875rem;
@@ -599,6 +606,7 @@ const concludeQuote = (item) => {
     align-items: center;
     justify-content: center;
     padding: 0.5rem;
+    min-height: 44px;
     border-radius: 8px;
     border: 1px solid #E5E7EB;
     background: white;
@@ -672,7 +680,7 @@ const concludeQuote = (item) => {
 }
 
 .productivity-item__value--large {
-    font-size: 2rem;
+    font-size: clamp(1.5rem, 4vw, 2rem);
 }
 
 .productivity-item__bar {

@@ -174,11 +174,12 @@ const cardClasses = computed(() => {
 }
 
 .kpi-value {
-  font-size: 2rem;
+  font-size: clamp(1.25rem, 3vw, 2rem);
   font-weight: 800;
   color: var(--color-gray-900);
   font-family: var(--font-family-mono);
   line-height: 1;
+  word-break: break-word;
 }
 
 .kpi-change {

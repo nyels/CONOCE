@@ -3,6 +3,7 @@
 import { ref } from 'vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+defineOptions({ layout: AppLayout });
 import { ConfirmDialog, ToastContainer } from '@/Components/Ui';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
@@ -59,8 +60,7 @@ const openPdfPreview = () => {
     <ToastContainer>
         <Head :title="`Cotización ${quote.folio}`" />
         
-        <AppLayout>
-            <div class="page-container">
+        <div class="page-container">
                 <!-- Header -->
                 <div class="page-header">
                     <div class="header-content">
@@ -247,7 +247,6 @@ const openPdfPreview = () => {
                 @cancel="onCancel"
                 @close="onCancel"
             />
-        </AppLayout>
     </ToastContainer>
 </template>
 
@@ -357,8 +356,14 @@ const openPdfPreview = () => {
 
 .info-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 1rem;
+}
+
+@media (min-width: 768px) {
+    .info-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 .info-item {
