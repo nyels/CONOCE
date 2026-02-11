@@ -29,41 +29,69 @@ class DeductibleOptionController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:50',
+            'name' => [
+                'required',
+                'string',
+                'min:1',
+                'max:50',
+                'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.\%]+$/',
+            ],
             'percentage' => 'required|numeric|min:0|max:100',
             'is_active' => 'boolean',
+        ], [
+            'name.regex' => 'El nombre solo puede contener letras, números, espacios, guiones, puntos y %.',
         ]);
 
-        DeductibleOption::create([
-            'name' => $validated['name'],
-            'percentage' => $validated['percentage'],
-            'is_active' => $validated['is_active'] ?? true,
-            'sort_order' => DeductibleOption::max('sort_order') + 1,
-        ]);
+        try {
+            DeductibleOption::create([
+                'name' => $validated['name'],
+                'percentage' => $validated['percentage'],
+                'is_active' => $validated['is_active'] ?? true,
+                'sort_order' => DeductibleOption::max('sort_order') + 1,
+            ]);
 
-        return back()->with('success', 'Opción de deducible creada exitosamente');
+            return back()->with('success', 'Opción de deducible creada exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al crear la opción de deducible. Intente nuevamente.']);
+        }
     }
 
     public function update(Request $request, DeductibleOption $deductibleOption)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:50',
+            'name' => [
+                'required',
+                'string',
+                'min:1',
+                'max:50',
+                'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.\%]+$/',
+            ],
             'percentage' => 'required|numeric|min:0|max:100',
             'is_active' => 'boolean',
+        ], [
+            'name.regex' => 'El nombre solo puede contener letras, números, espacios, guiones, puntos y %.',
         ]);
 
-        $deductibleOption->update([
-            'name' => $validated['name'],
-            'percentage' => $validated['percentage'],
-            'is_active' => $validated['is_active'] ?? true,
-        ]);
+        try {
+            $deductibleOption->update([
+                'name' => $validated['name'],
+                'percentage' => $validated['percentage'],
+                'is_active' => $validated['is_active'] ?? true,
+            ]);
 
-        return back()->with('success', 'Opción de deducible actualizada exitosamente');
+            return back()->with('success', 'Opción de deducible actualizada exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al actualizar la opción de deducible.']);
+        }
     }
 
     public function destroy(DeductibleOption $deductibleOption)
     {
-        $deductibleOption->delete();
-        return back()->with('success', 'Opción de deducible eliminada exitosamente');
+        try {
+            $deductibleOption->delete();
+            return back()->with('success', 'Opción de deducible eliminada exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al eliminar la opción de deducible.']);
+        }
     }
 }

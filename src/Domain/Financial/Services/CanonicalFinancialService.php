@@ -46,10 +46,10 @@ final class CanonicalFinancialService implements FinancialCalculator
      * Mapa frecuencia → número total de pagos.
      */
     private const PAYMENTS_COUNT = [
-        'ANNUAL' => 1,
-        'SEMIANNUAL' => 2,
-        'QUARTERLY' => 4,
-        'MONTHLY' => 12,
+        'ANUAL' => 1,
+        'SEMESTRAL' => 2,
+        'TRIMESTRAL' => 4,
+        'MENSUAL' => 12,
     ];
 
     /**
@@ -61,10 +61,10 @@ final class CanonicalFinancialService implements FinancialCalculator
      * MENSUAL: 11 subsecuentes
      */
     private const SUBSEQUENT_DIVISOR = [
-        'ANNUAL' => 0,
-        'SEMIANNUAL' => 1,
-        'QUARTERLY' => 3,
-        'MONTHLY' => 11,
+        'ANUAL' => 0,
+        'SEMESTRAL' => 1,
+        'TRIMESTRAL' => 3,
+        'MENSUAL' => 11,
     ];
 
     // ================================================================
@@ -286,10 +286,10 @@ final class CanonicalFinancialService implements FinancialCalculator
         string $frequency,
     ): float {
         return match ($frequency) {
-            'ANNUAL' => 0.0,
-            'SEMIANNUAL' => round($totalAnnual - $firstPayment, 2),
-            'QUARTERLY' => round(($totalAnnual - $firstPayment) / 3, 2),
-            'MONTHLY' => round(($totalAnnual - $firstPayment) / 11, 2),
+            'ANUAL' => 0.0,
+            'SEMESTRAL' => round($totalAnnual - $firstPayment, 2),
+            'TRIMESTRAL' => round(($totalAnnual - $firstPayment) / 3, 2),
+            'MENSUAL' => round(($totalAnnual - $firstPayment) / 11, 2),
             default => 0.0,
         };
     }
@@ -305,7 +305,7 @@ final class CanonicalFinancialService implements FinancialCalculator
      *
      * @return array{
      *     policy_fee: float,
-     *     surcharges: array{ANNUAL: float, SEMIANNUAL: float, QUARTERLY: float, MONTHLY: float}
+     *     surcharges: array{ANUAL: float, SEMESTRAL: float, TRIMESTRAL: float, MENSUAL: float}
      * }
      */
     private function resolveSettings(int $insurerId): array
@@ -328,10 +328,10 @@ final class CanonicalFinancialService implements FinancialCalculator
         return [
             'policy_fee' => $settings->policy_fee_cents / 100,
             'surcharges' => [
-                'ANNUAL' => 0.0,
-                'SEMIANNUAL' => round((float) ($settings->surcharge_semiannual ?? 0) * 100, 4),
-                'QUARTERLY' => round((float) ($settings->surcharge_quarterly ?? 0) * 100, 4),
-                'MONTHLY' => round((float) ($settings->surcharge_monthly ?? 0) * 100, 4),
+                'ANUAL' => 0.0,
+                'SEMESTRAL' => round((float) ($settings->surcharge_semiannual ?? 0) * 100, 4),
+                'TRIMESTRAL' => round((float) ($settings->surcharge_quarterly ?? 0) * 100, 4),
+                'MENSUAL' => round((float) ($settings->surcharge_monthly ?? 0) * 100, 4),
             ],
         ];
     }

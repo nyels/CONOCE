@@ -21,13 +21,17 @@ class DashboardController extends Controller
         // For now, default to Admin dashboard for all authenticated users
         // TODO: Implement role-based routing when spatie/permission is configured
 
+        $trendPeriod = $request->input('trend_period', 'month');
+        if (!in_array($trendPeriod, ['month', 'quarter', 'year'])) {
+            $trendPeriod = 'month';
+        }
+
         try {
-            $dashboardData = $this->adminService->getData();
+            $dashboardData = $this->adminService->getData($trendPeriod);
         } catch (\Exception $e) {
-            // Fallback with empty data if service fails
             $dashboardData = [
                 'financialKpis' => [],
-                'trends' => ['monthly' => [], 'summary' => ['growth_quotes' => 0, 'growth_premium' => 0]],
+                'trends' => ['data' => [], 'periodType' => $trendPeriod, 'summary' => ['growth_quotes' => 0, 'growth_premium' => 0]],
                 'conversionByInsurer' => [],
                 'systemAlerts' => [],
                 'period' => ['current' => now()->format('F Y'), 'previous' => now()->subMonth()->format('F Y')],

@@ -22,6 +22,7 @@ use Src\Domain\Quote\Enums\CoveragePackage as CoveragePackageEnum;
 use Src\Domain\Financial\Contracts\FinancialCalculator;
 use Src\Domain\Financial\DTOs\FinancialInput;
 use Src\Domain\Financial\Exceptions\FinancialCalculationException;
+use App\Services\Dashboard\DashboardBroadcaster;
 
 class QuoteController extends Controller
 {
@@ -214,7 +215,7 @@ class QuoteController extends Controller
     {
         $validated = $request->validated();
 
-        return DB::transaction(function () use ($validated, $request) {
+        $result = DB::transaction(function () use ($validated, $request) {
             // Mapear tipo de cotizacion
             $quoteType = $validated['tipo_cotizacion'] === 'NUEVA'
                 ? QuoteType::NEW
@@ -268,8 +269,7 @@ class QuoteController extends Controller
             // Crear opciones de cotizacion (una por cada aseguradora)
             $coverages = $validated['coverages'] ?? [];
             $cantidadAseguradoras = (int) $validated['cantidad_aseguradoras'];
-            $paymentFrequencyLegacy = $coverages['forma_de_pago'] ?? 'ANUAL';
-            $paymentFrequency = $this->mapPaymentFrequency($paymentFrequencyLegacy);
+            $paymentFrequency = $coverages['forma_de_pago'] ?? 'ANUAL';
 
             for ($i = 1; $i <= $cantidadAseguradoras; $i++) {
                 $insurerId = $coverages["empresa_opcion_{$i}"] ?? null;
@@ -402,6 +402,10 @@ class QuoteController extends Controller
             return redirect()->route('quotes.show', $quote->id)
                 ->with('success', "Cotizacion {$quote->folio} creada exitosamente");
         });
+
+        DashboardBroadcaster::notify('quote_created');
+
+        return $result;
     }
 
     /**
@@ -449,14 +453,13 @@ class QuoteController extends Controller
 
         $validated = $request->validate([
             'insurer_id' => 'required|integer|exists:insurers,id',
-            'frequency' => 'required|string|in:ANNUAL,SEMIANNUAL,QUARTERLY,MONTHLY,ANUAL,SEMESTRAL,TRIMESTRAL,MENSUAL',
+            'frequency' => 'required|string|in:ANUAL,SEMESTRAL,TRIMESTRAL,MENSUAL',
             'total_annual' => 'nullable|numeric|min:0',
             'first_payment' => 'nullable|numeric|min:0',
-            'request_id' => 'nullable|string|max:50', // Para control de race conditions
+            'request_id' => 'nullable|string|max:50',
         ]);
 
-        // Mapear frecuencia de espanol a ingles si es necesario
-        $frequency = $this->mapPaymentFrequency($validated['frequency']);
+        $frequency = $validated['frequency'];
         $insurerId = (int) $validated['insurer_id'];
         $totalAnnual = (float) ($validated['total_annual'] ?? 0);
         $firstPayment = isset($validated['first_payment']) ? (float) $validated['first_payment'] : null;
@@ -516,7 +519,7 @@ class QuoteController extends Controller
         RateLimiter::hit($key, 60);
 
         $validated = $request->validate([
-            'frequency' => 'required|string|in:ANNUAL,SEMIANNUAL,QUARTERLY,MONTHLY,ANUAL,SEMESTRAL,TRIMESTRAL,MENSUAL',
+            'frequency' => 'required|string|in:ANUAL,SEMESTRAL,TRIMESTRAL,MENSUAL',
             'options' => 'required|array|min:1|max:5',
             'options.*.column' => 'required|integer|min:1|max:5',
             'options.*.insurer_id' => 'required|integer',
@@ -525,7 +528,7 @@ class QuoteController extends Controller
             'request_id' => 'nullable|string|max:50',
         ]);
 
-        $frequency = $this->mapPaymentFrequency($validated['frequency']);
+        $frequency = $validated['frequency'];
 
         $inputs = [];
         foreach ($validated['options'] as $opt) {
@@ -595,50 +598,34 @@ class QuoteController extends Controller
      */
     private function extractCoveragesForColumn(array $coverages, int $column): array
     {
+        // Claves planas que coinciden con lo que espera el blade (quote.blade.php)
+        // Estas mismas claves las usa previewDraft() desde el frontend
         return [
-            'material_damage' => [
-                'type' => $coverages["danos_opcion_selec_{$column}"] ?? null,
-                'amount' => $coverages["danos_material_importe_factura_{$column}"] ?? null,
-                'deductible' => $coverages["deducible_opcion_{$column}"] ?? null,
-            ],
-            'theft' => [
-                'type' => $coverages["robo_opcion_selec_{$column}"] ?? null,
-                'amount' => $coverages["robo_importe_factura_{$column}"] ?? null,
-                'deductible' => $coverages["deducible_rt_{$column}"] ?? null,
-            ],
-            'glass' => $coverages["cristales_opcion_selec_{$column}"] ?? 'AMPARADA',
-            'third_party_liability' => [
-                'amount' => $coverages["danos_tercero_opcion_{$column}"] ?? null,
-                'deductible' => $coverages["deducible_de_rc_opcion_{$column}"] ?? null,
-            ],
-            'death_liability' => $coverages["fallecimiento_opcion_{$column}"] ?? null,
-            'medical_expenses' => $coverages["gastos_medicos_opcion_{$column}"] ?? null,
-            'driver_accident' => $coverages["accidente_conducir_opcion_{$column}"] ?? null,
-            'legal_protection' => $coverages["proteccion_opcion_selec_{$column}"] ?? 'AMPARADA',
-            'roadside_assistance' => $coverages["asistencia_vial_opcion_selec_{$column}"] ?? 'AMPARADA',
-            'cargo_damage' => $coverages["danos_carga_opcion_selec_{$column}"] ?? null,
-            'special_equipment' => $coverages["adaptaciones_opcion_{$column}"] ?? null,
-            'extended_liability' => $coverages["extension_rc_opcion_{$column}"] ?? null,
-            'custom_1' => $coverages["cobertura_opcion_1_select_{$column}"] ?? null,
-            'custom_2' => $coverages["cobertura_opcion_2_select_{$column}"] ?? null,
+            'danos' => $coverages["danos_opcion_selec_{$column}"] ?? null,
+            'danos_importe' => $coverages["danos_material_importe_factura_{$column}"] ?? null,
+            'deducible_dm' => $coverages["deducible_opcion_{$column}"] ?? null,
+            'cristales' => $coverages["cristales_opcion_selec_{$column}"] ?? 'AMPARADA',
+            'robo' => $coverages["robo_opcion_selec_{$column}"] ?? null,
+            'robo_importe' => $coverages["robo_importe_factura_{$column}"] ?? null,
+            'deducible_rt' => $coverages["deducible_rt_{$column}"] ?? null,
+            'rc_terceros' => $coverages["danos_tercero_opcion_{$column}"] ?? null,
+            'deducible_rc' => $coverages["deducible_de_rc_opcion_{$column}"] ?? null,
+            'rc_fallecimiento' => $coverages["fallecimiento_opcion_{$column}"] ?? null,
+            'gastos_medicos' => $coverages["gastos_medicos_opcion_{$column}"] ?? null,
+            'accidentes_conductor' => $coverages["accidente_conducir_opcion_{$column}"] ?? null,
+            'proteccion_legal' => $coverages["proteccion_opcion_selec_{$column}"] ?? 'AMPARADA',
+            'asistencia_vial' => $coverages["asistencia_vial_opcion_selec_{$column}"] ?? 'AMPARADA',
+            'danos_carga' => $coverages["danos_carga_opcion_selec_{$column}"] ?? null,
+            'adaptaciones' => $coverages["adaptaciones_opcion_{$column}"] ?? null,
+            'extension_rc' => $coverages["extension_rc_opcion_{$column}"] ?? null,
+            'descripcion' => $coverages['descripcion_tabla_1'] ?? null,
+            'custom1_name' => null, // se guarda a nivel de quote, no de option
+            'custom1_value' => $coverages["cobertura_opcion_1_select_{$column}"] ?? null,
+            'custom2_name' => null,
+            'custom2_value' => $coverages["cobertura_opcion_2_select_{$column}"] ?? null,
         ];
     }
 
-    /**
-     * Mapea forma de pago del frontend (espanol) al enum (ingles)
-     * Legacy: ANUAL, SEMESTRAL, TRIMESTRAL, MENSUAL
-     * Enum: ANNUAL, SEMIANNUAL, QUARTERLY, MONTHLY
-     */
-    private function mapPaymentFrequency(string $formaDePago): string
-    {
-        return match ($formaDePago) {
-            'ANUAL' => 'ANNUAL',
-            'SEMESTRAL' => 'SEMIANNUAL',
-            'TRIMESTRAL' => 'QUARTERLY',
-            'MENSUAL' => 'MONTHLY',
-            default => $formaDePago,
-        };
-    }
 
     /**
      * Ver detalle de cotizacion
@@ -735,6 +722,8 @@ class QuoteController extends Controller
 
         $folio = $quote->folio;
         $quote->delete();
+
+        DashboardBroadcaster::notify('quote_deleted');
 
         return redirect()->route('quotes.index')
             ->with('success', "Cotizacion {$folio} eliminada");
@@ -834,6 +823,7 @@ class QuoteController extends Controller
             'quote' => $quote,
             'customer' => $quote->customer,
             'options' => $quote->options,
+            'elaboratedBy' => $quote->agent?->name ?? auth()->user()?->name ?? 'Usuario',
         ]);
 
         return $pdf->download("cotizacion-{$quote->folio}.pdf");
@@ -854,6 +844,7 @@ class QuoteController extends Controller
             'quote' => $quote,
             'customer' => $quote->customer,
             'options' => $quote->options,
+            'elaboratedBy' => $quote->agent?->name ?? auth()->user()?->name ?? 'Usuario',
         ]);
 
         return $pdf->stream("cotizacion-{$quote->folio}.pdf");
@@ -861,15 +852,40 @@ class QuoteController extends Controller
 
     /**
      * Vista previa del PDF (BORRADOR - sin guardar)
+     * Acepta datos via json_payload (form POST desde nueva pestaña)
      */
     public function previewDraft(Request $request)
     {
+        // Si viene como json_payload (form POST legacy), decodificar
+        if ($request->has('json_payload')) {
+            $data = json_decode($request->input('json_payload'), true);
+            if (!$data) {
+                return response()->json(['error' => 'Datos inválidos'], 422);
+            }
+            $request->merge($data);
+        }
+
         $validated = $request->validate([
+            'quote_type' => 'nullable|string|in:NUEVA,RENOVACION',
             'customer_name' => 'nullable|string|max:255',
+            'customer_zip' => 'nullable|string|max:10',
+            'customer_neighborhood' => 'nullable|string|max:255',
+            'customer_state' => 'nullable|string|max:255',
             'vehicle' => 'required|array',
             'vehicle.brand' => 'required|string',
             'vehicle.model' => 'nullable|string',
             'vehicle.year' => 'required|integer',
+            'vehicle.description' => 'nullable|string',
+            'vehicle.type' => 'nullable',
+            'vehicle.usage' => 'nullable|string',
+            'vehicle.cargo' => 'nullable|string',
+            'coverage_package' => 'nullable|string',
+            'renewal' => 'nullable|array',
+            'renewal.current_insurer' => 'nullable|string',
+            'renewal.expiry_date' => 'nullable|string',
+            'renewal.policy_number' => 'nullable|string',
+            'renewal.previous_premium' => 'nullable|string',
+            'payment_frequency' => 'nullable|string',
             'options' => 'required|array|min:1',
             'options.*.insurer_name' => 'required|string',
             'options.*.insurer_id' => 'required|integer',
@@ -879,40 +895,60 @@ class QuoteController extends Controller
             'options.*.policy_fee' => 'required|numeric',
             'options.*.iva' => 'required|numeric',
             'options.*.total' => 'required|numeric',
+            'options.*.first_payment' => 'nullable|numeric',
+            'options.*.subsequent_payment' => 'nullable|numeric',
+            'options.*.coverages' => 'nullable|array',
         ]);
 
         if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
-            return response()->json([
-                'error' => 'El generador de PDF no esta instalado'
-            ], 500);
+            return response()->json(['error' => 'El generador de PDF no está instalado.'], 500);
         }
+
+        $frequency = $validated['payment_frequency'] ?? 'ANUAL';
+        $paymentsCount = match ($frequency) {
+            'SEMESTRAL' => 2,
+            'TRIMESTRAL' => 4,
+            'MENSUAL' => 12,
+            default => 1,
+        };
+
+        // Buscar logos de aseguradoras en BD
+        $insurerIds = collect($validated['options'])->pluck('insurer_id');
+        $insurers = \App\Models\Insurer::whereIn('id', $insurerIds)->get()->keyBy('id');
 
         $quote = (object) [
             'folio' => 'BORRADOR-' . date('YmdHis'),
             'created_at' => now(),
+            'quote_type' => $validated['quote_type'] ?? 'NUEVA',
+            'coverage_package' => $validated['coverage_package'] ?? 'AMPLIA',
             'vehicle_data' => $validated['vehicle'],
-            'options' => collect($validated['options'])->map(function ($opt) {
+            'renewal_data' => $validated['renewal'] ?? null,
+            'options' => collect($validated['options'])->map(function ($opt) use ($frequency, $paymentsCount, $insurers) {
+                $insurer = $insurers->get($opt['insurer_id']);
                 return (object) [
                     'insurer' => (object) [
                         'name' => $opt['insurer_name'],
-                        'logo_path' => null,
+                        'logo_path' => $insurer?->logo_path,
                     ],
-                    'coverage_package' => $opt['coverage_package'] ?? 'full',
-                    'payment_frequency' => $opt['payment_frequency'] ?? 'ANNUAL',
+                    'coverage_package' => $opt['coverage_package'] ?? 'AMPLIA',
+                    'payment_frequency' => $opt['payment_frequency'] ?? $frequency,
                     'net_premium' => $opt['net_premium'],
                     'policy_fee' => $opt['policy_fee'],
                     'tax' => $opt['iva'],
                     'total_premium' => $opt['total'],
-                    'first_payment' => $opt['total'],
-                    'coverages' => [],
+                    'first_payment' => $opt['first_payment'] ?? $opt['total'],
+                    'subsequent_payment' => $opt['subsequent_payment'] ?? 0,
+                    'payments_count' => $paymentsCount,
+                    'coverages' => $opt['coverages'] ?? [],
                 ];
             }),
         ];
 
         $customer = (object) [
             'name' => $validated['customer_name'] ?? 'Cliente Prospecto',
-            'zip_code' => '',
-            'city' => '',
+            'zip_code' => $validated['customer_zip'] ?? '',
+            'neighborhood' => $validated['customer_neighborhood'] ?? '',
+            'state' => $validated['customer_state'] ?? '',
         ];
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.quote', [
@@ -920,6 +956,7 @@ class QuoteController extends Controller
             'customer' => $customer,
             'options' => $quote->options,
             'isDraft' => true,
+            'elaboratedBy' => auth()->user()?->name ?? 'Usuario',
         ]);
 
         return $pdf->stream("borrador-cotizacion.pdf");
@@ -953,13 +990,13 @@ class QuoteController extends Controller
                 'insurer_name' => $insurer->name,
                 'policy_fee' => $settings ? $settings->policy_fee_cents / 100 : 0,
                 'surcharges' => $settings ? [
-                    'SEMIANNUAL' => ($settings->surcharge_semiannual ?? 0) * 100,
-                    'QUARTERLY' => ($settings->surcharge_quarterly ?? 0) * 100,
-                    'MONTHLY' => ($settings->surcharge_monthly ?? 0) * 100,
+                    'SEMESTRAL' => ($settings->surcharge_semiannual ?? 0) * 100,
+                    'TRIMESTRAL' => ($settings->surcharge_quarterly ?? 0) * 100,
+                    'MENSUAL' => ($settings->surcharge_monthly ?? 0) * 100,
                 ] : [
-                    'SEMIANNUAL' => 0,
-                    'QUARTERLY' => 0,
-                    'MONTHLY' => 0,
+                    'SEMESTRAL' => 0,
+                    'TRIMESTRAL' => 0,
+                    'MENSUAL' => 0,
                 ],
             ];
         });

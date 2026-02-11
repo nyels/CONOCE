@@ -18,7 +18,10 @@ class Customer extends Model
     protected $fillable = [
         'uuid',
         'type',
-        'name',
+        'first_name',
+        'paternal_surname',
+        'maternal_surname',
+        'business_name',
         'rfc',
         'curp',
         'email',
@@ -73,7 +76,42 @@ class Customer extends Model
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->useLogName('customer')
-            ->setDescriptionForEvent(fn(string $eventName) => "Cliente {$eventName} ({$this->name})");
+            ->setDescriptionForEvent(fn(string $eventName) => "Cliente {$eventName} ({$this->full_name})");
+    }
+
+    // ==========================================
+    // Accessors
+    // ==========================================
+
+    /**
+     * Nombre completo para persona física o razón social para persona moral
+     */
+    public function getFullNameAttribute(): string
+    {
+        if ($this->isMoral()) {
+            return $this->business_name ?? '';
+        }
+
+        return trim(implode(' ', array_filter([
+            $this->first_name,
+            $this->paternal_surname,
+            $this->maternal_surname,
+        ])));
+    }
+
+    /**
+     * Nombre corto (primer nombre y apellido paterno)
+     */
+    public function getShortNameAttribute(): string
+    {
+        if ($this->isMoral()) {
+            return $this->business_name ?? '';
+        }
+
+        return trim(implode(' ', array_filter([
+            $this->first_name,
+            $this->paternal_surname,
+        ])));
     }
 
     // ==========================================
@@ -98,7 +136,10 @@ class Customer extends Model
     public function scopeSearch($query, string $term)
     {
         return $query->where(function ($q) use ($term) {
-            $q->where('name', 'like', "%{$term}%")
+            $q->where('first_name', 'like', "%{$term}%")
+                ->orWhere('paternal_surname', 'like', "%{$term}%")
+                ->orWhere('maternal_surname', 'like', "%{$term}%")
+                ->orWhere('business_name', 'like', "%{$term}%")
                 ->orWhere('rfc', 'like', "%{$term}%")
                 ->orWhere('email', 'like', "%{$term}%")
                 ->orWhere('phone', 'like', "%{$term}%");
@@ -181,9 +222,10 @@ class Customer extends Model
      */
     public function getDisplayNameAttribute(): string
     {
+        $name = $this->full_name;
         return $this->rfc
-            ? "{$this->name} ({$this->rfc})"
-            : $this->name;
+            ? "{$name} ({$this->rfc})"
+            : $name;
     }
 
     /**
@@ -191,14 +233,18 @@ class Customer extends Model
      */
     public function getInitialsAttribute(): string
     {
-        $words = explode(' ', $this->name);
-        $initials = '';
+        if ($this->isMoral()) {
+            $words = explode(' ', $this->business_name ?? '');
+        } else {
+            $words = array_filter([$this->first_name, $this->paternal_surname]);
+        }
 
+        $initials = '';
         foreach (array_slice($words, 0, 2) as $word) {
             $initials .= mb_strtoupper(mb_substr($word, 0, 1));
         }
 
-        return $initials;
+        return $initials ?: '??';
     }
 
     /**

@@ -35,17 +35,30 @@ class ContactTypeController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:contact_types,name',
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:100',
+                'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.]+$/',
+                'unique:contact_types,name',
+            ],
             'is_active' => 'boolean',
+        ], [
+            'name.regex' => 'El nombre solo puede contener letras, números, espacios, guiones y puntos.',
         ]);
 
-        ContactType::create([
-            'name' => $validated['name'],
-            'is_active' => $validated['is_active'] ?? true,
-            'sort_order' => ContactType::max('sort_order') + 1,
-        ]);
+        try {
+            ContactType::create([
+                'name' => $validated['name'],
+                'is_active' => $validated['is_active'] ?? true,
+                'sort_order' => ContactType::max('sort_order') + 1,
+            ]);
 
-        return back()->with('success', 'Tipo de contacto creado exitosamente');
+            return back()->with('success', 'Tipo de contacto creado exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al crear el tipo de contacto. Intente nuevamente.']);
+        }
     }
 
     /**
@@ -54,15 +67,28 @@ class ContactTypeController extends Controller
     public function update(Request $request, ContactType $contactType)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:contact_types,name,' . $contactType->id,
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:100',
+                'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.]+$/',
+                'unique:contact_types,name,' . $contactType->id,
+            ],
             'is_active' => 'boolean',
+        ], [
+            'name.regex' => 'El nombre solo puede contener letras, números, espacios, guiones y puntos.',
         ]);
 
-        $contactType->name = $validated['name'];
-        $contactType->is_active = $validated['is_active'] ?? true;
-        $contactType->save();
+        try {
+            $contactType->name = $validated['name'];
+            $contactType->is_active = $validated['is_active'] ?? true;
+            $contactType->save();
 
-        return back()->with('success', 'Tipo de contacto actualizado exitosamente');
+            return back()->with('success', 'Tipo de contacto actualizado exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al actualizar el tipo de contacto.']);
+        }
     }
 
     /**
@@ -70,7 +96,11 @@ class ContactTypeController extends Controller
      */
     public function destroy(ContactType $contactType)
     {
-        $contactType->delete();
-        return back()->with('success', 'Tipo de contacto eliminado exitosamente');
+        try {
+            $contactType->delete();
+            return back()->with('success', 'Tipo de contacto eliminado exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al eliminar el tipo de contacto.']);
+        }
     }
 }

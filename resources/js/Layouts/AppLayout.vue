@@ -264,9 +264,12 @@ const closeDropdowns = () => {
                }">
             
             <!-- Logo -->
-            <div class="sidebar__header">
+            <div class="sidebar__header" :class="{ 'sidebar__header--collapsed': sidebarCollapsed }">
                 <div class="sidebar__logo">
-                    <div class="sidebar__logo-icon">
+                    <div class="sidebar__logo-icon"
+                         :class="{ 'sidebar__logo-icon--clickable': sidebarCollapsed && isDesktop }"
+                         @click="sidebarCollapsed && isDesktop && (sidebarCollapsed = false)"
+                         :title="sidebarCollapsed ? 'Expandir menú' : ''">
                         <span class="sidebar__logo-letter">C</span>
                     </div>
                     <div v-if="!sidebarCollapsed" class="sidebar__logo-text">
@@ -274,14 +277,13 @@ const closeDropdowns = () => {
                         <span class="sidebar__logo-tagline">Cotizador Pro</span>
                     </div>
                 </div>
-                
-                <button v-if="isDesktop"
-                        @click="sidebarCollapsed = !sidebarCollapsed" 
+
+                <button v-if="isDesktop && !sidebarCollapsed"
+                        @click="sidebarCollapsed = true"
                         class="sidebar__toggle"
                         style="display: flex !important"
-                        :title="sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'">
-                    <svg class="w-4 h-4 transition-transform duration-300" 
-                         :class="{ 'rotate-180': sidebarCollapsed }"
+                        title="Colapsar menú">
+                    <svg class="w-4 h-4 transition-transform duration-300"
                          fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
                     </svg>
@@ -534,6 +536,11 @@ const closeDropdowns = () => {
     gap: 0.75rem;
 }
 
+.sidebar__header--collapsed {
+    justify-content: center;
+    padding: 1rem 0.5rem;
+}
+
 .sidebar__logo-icon {
     width: 44px;
     height: 44px;
@@ -544,6 +551,16 @@ const closeDropdowns = () => {
     justify-content: center;
     flex-shrink: 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sidebar__logo-icon--clickable {
+    cursor: pointer;
+}
+
+.sidebar__logo-icon--clickable:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar__logo-letter {

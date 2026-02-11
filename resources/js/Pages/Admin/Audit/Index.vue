@@ -2,6 +2,8 @@
 import { ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
+
+defineOptions({ layout: AppLayout });
 import AuditDetailsModal from './AuditDetailsModal.vue';
 
 const props = defineProps({
@@ -99,7 +101,6 @@ const getInitials = (name) => {
 </script>
 
 <template>
-    <AppLayout title="Auditoría">
         <div class="audit-page">
             <!-- Hero Header -->
             <header class="audit-header">
@@ -235,7 +236,6 @@ const getInitials = (name) => {
                 @close="closeModal"
             />
         </div>
-    </AppLayout>
 </template>
 
 <style scoped>

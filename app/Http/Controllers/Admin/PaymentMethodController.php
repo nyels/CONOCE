@@ -31,49 +31,91 @@ class PaymentMethodController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:50',
-            'code' => 'required|string|max:10|unique:payment_methods,code',
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:50',
+                'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.]+$/',
+            ],
+            'code' => [
+                'required',
+                'string',
+                'max:10',
+                'regex:/^[A-Z0-9_\-]+$/i',
+                'unique:payment_methods,code',
+            ],
             'installments' => 'required|integer|min:1|max:12',
             'surcharge_percentage' => 'required|numeric|min:0|max:100',
             'is_active' => 'boolean',
+        ], [
+            'name.regex' => 'El nombre solo puede contener letras, números, espacios, guiones y puntos.',
+            'code.regex' => 'El código solo puede contener letras, números, guiones y guiones bajos.',
         ]);
 
-        PaymentMethod::create([
-            'name' => $validated['name'],
-            'code' => strtoupper($validated['code']),
-            'installments' => $validated['installments'],
-            'surcharge_percentage' => $validated['surcharge_percentage'],
-            'is_active' => $validated['is_active'] ?? true,
-            'sort_order' => PaymentMethod::max('sort_order') + 1,
-        ]);
+        try {
+            PaymentMethod::create([
+                'name' => $validated['name'],
+                'code' => strtoupper($validated['code']),
+                'installments' => $validated['installments'],
+                'surcharge_percentage' => $validated['surcharge_percentage'],
+                'is_active' => $validated['is_active'] ?? true,
+                'sort_order' => PaymentMethod::max('sort_order') + 1,
+            ]);
 
-        return back()->with('success', 'Forma de pago creada exitosamente');
+            return back()->with('success', 'Forma de pago creada exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al crear la forma de pago. Intente nuevamente.']);
+        }
     }
 
     public function update(Request $request, PaymentMethod $paymentMethod)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:50',
-            'code' => 'required|string|max:10|unique:payment_methods,code,' . $paymentMethod->id,
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:50',
+                'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.]+$/',
+            ],
+            'code' => [
+                'required',
+                'string',
+                'max:10',
+                'regex:/^[A-Z0-9_\-]+$/i',
+                'unique:payment_methods,code,' . $paymentMethod->id,
+            ],
             'installments' => 'required|integer|min:1|max:12',
             'surcharge_percentage' => 'required|numeric|min:0|max:100',
             'is_active' => 'boolean',
+        ], [
+            'name.regex' => 'El nombre solo puede contener letras, números, espacios, guiones y puntos.',
+            'code.regex' => 'El código solo puede contener letras, números, guiones y guiones bajos.',
         ]);
 
-        $paymentMethod->update([
-            'name' => $validated['name'],
-            'code' => strtoupper($validated['code']),
-            'installments' => $validated['installments'],
-            'surcharge_percentage' => $validated['surcharge_percentage'],
-            'is_active' => $validated['is_active'] ?? true,
-        ]);
+        try {
+            $paymentMethod->update([
+                'name' => $validated['name'],
+                'code' => strtoupper($validated['code']),
+                'installments' => $validated['installments'],
+                'surcharge_percentage' => $validated['surcharge_percentage'],
+                'is_active' => $validated['is_active'] ?? true,
+            ]);
 
-        return back()->with('success', 'Forma de pago actualizada exitosamente');
+            return back()->with('success', 'Forma de pago actualizada exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al actualizar la forma de pago.']);
+        }
     }
 
     public function destroy(PaymentMethod $paymentMethod)
     {
-        $paymentMethod->delete();
-        return back()->with('success', 'Forma de pago eliminada exitosamente');
+        try {
+            $paymentMethod->delete();
+            return back()->with('success', 'Forma de pago eliminada exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al eliminar la forma de pago.']);
+        }
     }
 }

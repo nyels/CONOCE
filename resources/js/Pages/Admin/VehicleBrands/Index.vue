@@ -1,25 +1,53 @@
 <!-- resources/js/Pages/Admin/VehicleBrands/Index.vue -->
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+defineOptions({ layout: AppLayout });
 import { CrudTable, CrudModal, FormInput, FormImageUpload } from '@/Components/Crud';
-import { ConfirmDialog, ToastContainer } from '@/Components/Ui';
 import { useConfirm } from '@/composables/useConfirm';
-import { useToast } from '@/composables/useToast';
+import { useInertiaForm } from '@/composables/useInertiaForm';
 
 const props = defineProps({
     brands: { type: Array, default: () => [] }
 });
 
-// Toast & Confirm
-const { isOpen: confirmOpen, config: confirmConfig, confirmDelete, onConfirm, onCancel } = useConfirm();
-const toast = useToast();
+// Composables
+const { confirmDelete } = useConfirm();
+const { processing, submitForm, deleteRecord } = useInertiaForm();
 
 // Modal state
 const showModal = ref(false);
 const isEditing = ref(false);
 const editingItem = ref(null);
+
+// Frontend validation errors
+const validationErrors = ref({});
+
+// Validation functions
+const validateName = (value) => {
+    if (!value || value.trim().length < 2) return 'El nombre debe tener al menos 2 caracteres';
+    if (value.length > 100) return 'El nombre no puede exceder 100 caracteres';
+    if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.]+$/.test(value)) {
+        return 'Solo se permiten letras, números, espacios, guiones y puntos';
+    }
+    return null;
+};
+
+const onBlur = (field) => {
+    if (field === 'name') {
+        validationErrors.value.name = validateName(form.name);
+    }
+};
+
+const getError = (field) => {
+    return validationErrors.value[field] || form.errors[field];
+};
+
+const hasValidationErrors = () => {
+    validationErrors.value.name = validateName(form.name);
+    return Object.values(validationErrors.value).some(error => error !== null);
+};
 
 // Form
 const form = useForm({
@@ -41,6 +69,7 @@ const columns = [
 const openCreate = () => {
     form.reset();
     form.clearErrors();
+    validationErrors.value = {};
     isEditing.value = false;
     editingItem.value = null;
     showModal.value = true;
@@ -59,45 +88,44 @@ const openEdit = (item) => {
 
 // Submit form
 const submit = () => {
-    const url = isEditing.value 
+    if (hasValidationErrors()) {
+        return;
+    }
+
+    const url = isEditing.value
         ? route('admin.vehicle-brands.update', form.id)
         : route('admin.vehicle-brands.store');
-    
-    const method = isEditing.value ? 'post' : 'post'; // PUT via _method
-    
-    form.transform((data) => {
-        const formData = new FormData();
-        formData.append('name', data.name);
-        formData.append('is_active', data.is_active ? '1' : '0');
-        if (data.logo) formData.append('logo', data.logo);
-        if (isEditing.value) formData.append('_method', 'PUT');
-        return formData;
-    }).post(url, {
-        preserveScroll: true,
+
+    // Crear FormData para subir imagen
+    const formData = new FormData();
+    formData.append('name', form.name);
+    formData.append('is_active', form.is_active ? '1' : '0');
+    if (form.logo) formData.append('logo', form.logo);
+
+    submitForm({
+        url,
+        data: formData,
+        method: isEditing.value ? 'put' : 'post',
         onSuccess: () => {
             showModal.value = false;
-            toast.success(isEditing.value ? 'Marca actualizada' : 'Marca creada');
+            form.reset();
         },
-        onError: () => {
-            toast.error('Error al guardar');
-        }
+        onValidationError: (errors) => {
+            Object.keys(errors).forEach(key => {
+                validationErrors.value[key] = errors[key];
+            });
+        },
+        successMessage: isEditing.value ? 'Marca actualizada exitosamente' : 'Marca creada exitosamente'
     });
 };
 
 // Delete
-let deleteItem = null;
 const handleDelete = async (item) => {
-    deleteItem = item;
     const confirmed = await confirmDelete(item.name);
     if (confirmed) {
-        router.delete(route('admin.vehicle-brands.destroy', item.id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                toast.success('Marca eliminada');
-            },
-            onError: () => {
-                toast.error('No se pudo eliminar');
-            }
+        deleteRecord({
+            url: route('admin.vehicle-brands.destroy', item.id),
+            successMessage: 'Marca eliminada exitosamente'
         });
     }
 };
@@ -109,10 +137,8 @@ const previewUrl = computed(() => {
 </script>
 
 <template>
-    <ToastContainer>
-        <Head title="Marcas de Vehículos" />
-        
-        <AppLayout>
+    <Head title="Marcas de Vehículos" />
+
             <div class="page-container">
                 <!-- Header -->
                 <div class="page-header">
@@ -142,7 +168,7 @@ const previewUrl = computed(() => {
             <CrudModal
                 :show="showModal"
                 :title="isEditing ? 'Editar Marca' : 'Nueva Marca'"
-                :loading="form.processing"
+                :loading="processing"
                 @close="showModal = false"
                 @submit="submit"
             >
@@ -150,7 +176,8 @@ const previewUrl = computed(() => {
                     v-model="form.name"
                     label="Nombre de la Marca"
                     placeholder="Ej: Toyota"
-                    :error="form.errors.name"
+                    :error="getError('name')"
+                    @blur="onBlur('name')"
                     required
                 />
                 
@@ -169,21 +196,6 @@ const previewUrl = computed(() => {
                     </label>
                 </div>
             </CrudModal>
-            
-            <!-- Confirm Dialog -->
-            <ConfirmDialog
-                :show="confirmOpen"
-                :title="confirmConfig.title"
-                :message="confirmConfig.message"
-                :confirm-text="confirmConfig.confirmText"
-                :cancel-text="confirmConfig.cancelText"
-                :type="confirmConfig.type"
-                @confirm="onConfirm"
-                @cancel="onCancel"
-                @close="onCancel"
-            />
-        </AppLayout>
-    </ToastContainer>
 </template>
 
 <style scoped>

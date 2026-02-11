@@ -6,6 +6,8 @@ use App\Services\Dashboard\AdminDashboardService;
 use App\Services\Dashboard\OperatorDashboardService;
 use App\Services\Dashboard\ManagerDashboardService;
 use Illuminate\Support\ServiceProvider;
+use Src\Domain\Financial\Contracts\FinancialCalculator;
+use Src\Domain\Financial\Services\CanonicalFinancialService;
 
 use Illuminate\Support\Facades\Event;
 use Illuminate\Auth\Events\Login;
@@ -29,6 +31,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ManagerDashboardService::class, function ($app) {
             return new ManagerDashboardService($app->make('auth')->user());
         });
+
+        // Servicio financiero canónico ÚNICO
+        $this->app->singleton(FinancialCalculator::class, CanonicalFinancialService::class);
     }
 
     public function boot(): void

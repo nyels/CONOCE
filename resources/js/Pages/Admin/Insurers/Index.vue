@@ -1,25 +1,83 @@
 <!-- resources/js/Pages/Admin/Insurers/Index.vue -->
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+defineOptions({ layout: AppLayout });
 import { CrudTable, CrudModal, FormInput, FormImageUpload } from '@/Components/Crud';
-import { ConfirmDialog, ToastContainer } from '@/Components/Ui';
 import { useConfirm } from '@/composables/useConfirm';
-import { useToast } from '@/composables/useToast';
+import { useInertiaForm } from '@/composables/useInertiaForm';
 
 const props = defineProps({
     insurers: { type: Array, default: () => [] }
 });
 
-// Toast & Confirm
-const { isOpen: confirmOpen, config: confirmConfig, confirmDelete, onConfirm, onCancel } = useConfirm();
-const toast = useToast();
+// Composables (SweetAlert2)
+const { confirmDelete } = useConfirm();
+const { processing, submitForm, deleteRecord } = useInertiaForm();
 
 // Modal state
 const showModal = ref(false);
 const isEditing = ref(false);
 const editingItem = ref(null);
+
+// Frontend validation errors
+const validationErrors = ref({});
+
+// Validation functions
+const validateName = (value) => {
+    if (!value || value.trim().length < 2) return 'El nombre debe tener al menos 2 caracteres';
+    if (value.length > 100) return 'El nombre no puede exceder 100 caracteres';
+    if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.&\+]+$/.test(value)) {
+        return 'Solo se permiten letras, números, espacios, guiones, puntos, & y +';
+    }
+    return null;
+};
+
+const validateShortName = (value) => {
+    if (!value) return null;
+    if (value.length > 20) return 'El nombre corto no puede exceder 20 caracteres';
+    if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.&\+]+$/.test(value)) {
+        return 'Solo se permiten letras, números, espacios, guiones, puntos, & y +';
+    }
+    return null;
+};
+
+const validateCode = (value) => {
+    if (!value) return null;
+    if (value.length > 10) return 'El código no puede exceder 10 caracteres';
+    if (!/^[A-Z0-9\-]+$/i.test(value)) {
+        return 'Solo se permiten letras mayúsculas, números y guiones';
+    }
+    return null;
+};
+
+const validateColor = (value) => {
+    if (!value) return null;
+    if (!/^#?[A-Fa-f0-9]{6}$/.test(value)) {
+        return 'Debe ser un color hexadecimal válido (ej: #7B2D3B)';
+    }
+    return null;
+};
+
+const onBlur = (field) => {
+    if (field === 'name') validationErrors.value.name = validateName(form.name);
+    if (field === 'short_name') validationErrors.value.short_name = validateShortName(form.short_name);
+    if (field === 'code') validationErrors.value.code = validateCode(form.code);
+    if (field === 'primary_color') validationErrors.value.primary_color = validateColor(form.primary_color);
+};
+
+const getError = (field) => {
+    return validationErrors.value[field] || form.errors[field];
+};
+
+const hasValidationErrors = () => {
+    validationErrors.value.name = validateName(form.name);
+    validationErrors.value.short_name = validateShortName(form.short_name);
+    validationErrors.value.code = validateCode(form.code);
+    validationErrors.value.primary_color = validateColor(form.primary_color);
+    return Object.values(validationErrors.value).some(error => error !== null);
+};
 
 // Form
 const form = useForm({
@@ -46,6 +104,7 @@ const columns = [
 const openCreate = () => {
     form.reset();
     form.clearErrors();
+    validationErrors.value = {};
     form.primary_color = '#7B2D3B';
     isEditing.value = false;
     editingItem.value = null;
@@ -68,29 +127,37 @@ const openEdit = (item) => {
 
 // Submit form
 const submit = () => {
-    const url = isEditing.value 
+    if (hasValidationErrors()) {
+        return;
+    }
+
+    const url = isEditing.value
         ? route('admin.insurers.update', form.id)
         : route('admin.insurers.store');
-    
-    form.transform((data) => {
-        const formData = new FormData();
-        formData.append('name', data.name);
-        formData.append('short_name', data.short_name || '');
-        formData.append('code', data.code || '');
-        formData.append('primary_color', data.primary_color.replace('#', ''));
-        formData.append('is_active', data.is_active ? '1' : '0');
-        if (data.logo) formData.append('logo', data.logo);
-        if (isEditing.value) formData.append('_method', 'PUT');
-        return formData;
-    }).post(url, {
-        preserveScroll: true,
+
+    // Crear FormData para subir imagen
+    const formData = new FormData();
+    formData.append('name', form.name);
+    formData.append('short_name', form.short_name || '');
+    formData.append('code', form.code || '');
+    formData.append('primary_color', form.primary_color.replace('#', ''));
+    formData.append('is_active', form.is_active ? '1' : '0');
+    if (form.logo) formData.append('logo', form.logo);
+
+    submitForm({
+        url,
+        data: formData,
+        method: isEditing.value ? 'put' : 'post',
         onSuccess: () => {
             showModal.value = false;
-            toast.success(isEditing.value ? 'Aseguradora actualizada' : 'Aseguradora creada');
+            form.reset();
         },
-        onError: () => {
-            toast.error('Error al guardar');
-        }
+        onValidationError: (errors) => {
+            Object.keys(errors).forEach(key => {
+                validationErrors.value[key] = errors[key];
+            });
+        },
+        successMessage: isEditing.value ? 'Aseguradora actualizada exitosamente' : 'Aseguradora creada exitosamente'
     });
 };
 
@@ -98,14 +165,9 @@ const submit = () => {
 const handleDelete = async (item) => {
     const confirmed = await confirmDelete(item.name);
     if (confirmed) {
-        router.delete(route('admin.insurers.destroy', item.id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                toast.success('Aseguradora eliminada');
-            },
-            onError: () => {
-                toast.error('No se pudo eliminar');
-            }
+        deleteRecord({
+            url: route('admin.insurers.destroy', item.id),
+            successMessage: 'Aseguradora eliminada exitosamente'
         });
     }
 };
@@ -117,10 +179,8 @@ const previewUrl = computed(() => {
 </script>
 
 <template>
-    <ToastContainer>
-        <Head title="Aseguradoras" />
+    <Head title="Aseguradoras" />
         
-        <AppLayout>
             <div class="page-container">
                 <!-- Header -->
                 <div class="page-header">
@@ -149,7 +209,7 @@ const previewUrl = computed(() => {
             <CrudModal
                 :show="showModal"
                 :title="isEditing ? 'Editar Aseguradora' : 'Nueva Aseguradora'"
-                :loading="form.processing"
+                :loading="processing"
                 size="md"
                 @close="showModal = false"
                 @submit="submit"
@@ -159,23 +219,26 @@ const previewUrl = computed(() => {
                         v-model="form.name"
                         label="Nombre Completo"
                         placeholder="Ej: HDI Seguros S.A."
-                        :error="form.errors.name"
+                        :error="getError('name')"
+                        @blur="onBlur('name')"
                         required
                     />
                 </div>
-                
+
                 <div class="form-row form-row--2col">
                     <FormInput
                         v-model="form.short_name"
                         label="Nombre Corto"
                         placeholder="Ej: HDI"
-                        :error="form.errors.short_name"
+                        :error="getError('short_name')"
+                        @blur="onBlur('short_name')"
                     />
                     <FormInput
                         v-model="form.code"
                         label="Código"
                         placeholder="Ej: HDI"
-                        :error="form.errors.code"
+                        :error="getError('code')"
+                        @blur="onBlur('code')"
                     />
                 </div>
                 
@@ -200,21 +263,7 @@ const previewUrl = computed(() => {
                     :error="form.errors.logo"
                 />
             </CrudModal>
-            
-            <!-- Confirm Dialog -->
-            <ConfirmDialog
-                :show="confirmOpen"
-                :title="confirmConfig.title"
-                :message="confirmConfig.message"
-                :confirm-text="confirmConfig.confirmText"
-                :cancel-text="confirmConfig.cancelText"
-                :type="confirmConfig.type"
-                @confirm="onConfirm"
-                @cancel="onCancel"
-                @close="onCancel"
-            />
-        </AppLayout>
-    </ToastContainer>
+
 </template>
 
 <style scoped>

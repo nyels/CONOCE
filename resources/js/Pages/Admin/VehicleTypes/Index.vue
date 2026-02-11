@@ -1,23 +1,47 @@
 <!-- resources/js/Pages/Admin/VehicleTypes/Index.vue -->
 <script setup>
-import { ref, computed } from 'vue';
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+defineOptions({ layout: AppLayout });
 import { CrudTable, CrudModal, FormInput } from '@/Components/Crud';
-import { ConfirmDialog, ToastContainer } from '@/Components/Ui';
 import { useConfirm } from '@/composables/useConfirm';
-import { useToast } from '@/composables/useToast';
+import { useInertiaForm } from '@/composables/useInertiaForm';
 
 const props = defineProps({
     vehicleTypes: { type: Array, default: () => [] }
 });
 
-const { isOpen: confirmOpen, config: confirmConfig, confirmDelete, onConfirm, onCancel } = useConfirm();
-const toast = useToast();
+const { confirmDelete } = useConfirm();
+const { processing, submitForm, deleteRecord } = useInertiaForm();
 
 const showModal = ref(false);
 const isEditing = ref(false);
 const editingItem = ref(null);
+
+// Frontend validation errors
+const validationErrors = ref({});
+
+// Validation functions
+const validateName = (value) => {
+    if (!value || value.trim().length < 2) return 'El nombre debe tener al menos 2 caracteres';
+    if (value.length > 50) return 'El nombre no puede exceder 50 caracteres';
+    if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.]+$/.test(value)) {
+        return 'Solo se permiten letras, números, espacios, guiones y puntos';
+    }
+    return null;
+};
+
+const onBlur = (field) => {
+    if (field === 'name') validationErrors.value.name = validateName(form.name);
+};
+
+const getError = (field) => validationErrors.value[field] || form.errors[field];
+
+const hasValidationErrors = () => {
+    validationErrors.value.name = validateName(form.name);
+    return Object.values(validationErrors.value).some(error => error !== null);
+};
 
 const form = useForm({
     id: null,
@@ -34,6 +58,7 @@ const columns = [
 const openCreate = () => {
     form.reset();
     form.clearErrors();
+    validationErrors.value = {};
     isEditing.value = false;
     editingItem.value = null;
     showModal.value = true;
@@ -49,43 +74,45 @@ const openEdit = (item) => {
 };
 
 const submit = () => {
-    const url = isEditing.value 
+    if (hasValidationErrors()) {
+        return;
+    }
+
+    const url = isEditing.value
         ? route('admin.vehicle-types.update', form.id)
         : route('admin.vehicle-types.store');
-    
-    const data = { name: form.name, is_active: form.is_active };
-    if (isEditing.value) data._method = 'PUT';
-    
-    router.post(url, data, {
-        preserveScroll: true,
+
+    submitForm({
+        url,
+        data: { name: form.name, is_active: form.is_active },
+        method: isEditing.value ? 'put' : 'post',
         onSuccess: () => {
             showModal.value = false;
-            toast.success(isEditing.value ? 'Tipo actualizado' : 'Tipo creado');
+            form.reset();
         },
-        onError: (errors) => {
-            form.errors = errors;
-            toast.error('Error al guardar');
-        }
+        onValidationError: (errors) => {
+            Object.keys(errors).forEach(key => {
+                validationErrors.value[key] = errors[key];
+            });
+        },
+        successMessage: isEditing.value ? 'Tipo actualizado exitosamente' : 'Tipo creado exitosamente'
     });
 };
 
 const handleDelete = async (item) => {
     const confirmed = await confirmDelete(item.name);
     if (confirmed) {
-        router.delete(route('admin.vehicle-types.destroy', item.id), {
-            preserveScroll: true,
-            onSuccess: () => toast.success('Tipo eliminado'),
-            onError: () => toast.error('No se pudo eliminar')
+        deleteRecord({
+            url: route('admin.vehicle-types.destroy', item.id),
+            successMessage: 'Tipo eliminado exitosamente'
         });
     }
 };
 </script>
 
 <template>
-    <ToastContainer>
-        <Head title="Tipos de Vehículo" />
+    <Head title="Tipos de Vehículo" />
         
-        <AppLayout>
             <div class="page-container">
                 <div class="page-header">
                     <div class="header-content">
@@ -111,7 +138,7 @@ const handleDelete = async (item) => {
             <CrudModal
                 :show="showModal"
                 :title="isEditing ? 'Editar Tipo' : 'Nuevo Tipo'"
-                :loading="form.processing"
+                :loading="processing"
                 size="sm"
                 @close="showModal = false"
                 @submit="submit"
@@ -120,7 +147,8 @@ const handleDelete = async (item) => {
                     v-model="form.name"
                     label="Nombre del Tipo"
                     placeholder="Ej: Auto"
-                    :error="form.errors.name"
+                    :error="getError('name')"
+                    @blur="onBlur('name')"
                     required
                 />
                 
@@ -132,20 +160,6 @@ const handleDelete = async (item) => {
                     </label>
                 </div>
             </CrudModal>
-            
-            <ConfirmDialog
-                :show="confirmOpen"
-                :title="confirmConfig.title"
-                :message="confirmConfig.message"
-                :confirm-text="confirmConfig.confirmText"
-                :cancel-text="confirmConfig.cancelText"
-                :type="confirmConfig.type"
-                @confirm="onConfirm"
-                @cancel="onCancel"
-                @close="onCancel"
-            />
-        </AppLayout>
-    </ToastContainer>
 </template>
 
 <style scoped>

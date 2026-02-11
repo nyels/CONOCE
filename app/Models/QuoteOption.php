@@ -31,6 +31,28 @@ class QuoteOption extends Model
         'subsequent_payment_cents',
         'is_selected',
         'notes',
+        // Campos legacy de coberturas
+        'material_damage_type',
+        'material_damage_amount',
+        'material_damage_deductible',
+        'theft_type',
+        'theft_amount',
+        'theft_deductible',
+        'glass_coverage',
+        'liability_third_party',
+        'liability_deductible',
+        'liability_death',
+        'medical_expenses',
+        'driver_accident',
+        'legal_protection',
+        'roadside_assistance',
+        'cargo_damage',
+        'special_equipment',
+        'extended_liability',
+        'custom_coverage_1_value',
+        'custom_coverage_2_value',
+        'annual_net_premium_cents',
+        'annual_total_premium_cents',
     ];
 
     protected function casts(): array
@@ -48,6 +70,19 @@ class QuoteOption extends Model
             'subsequent_payment_cents' => 'integer',
             'is_selected' => 'boolean',
             'option_number' => 'integer',
+            // Campos legacy
+            'material_damage_amount' => 'decimal:2',
+            'material_damage_deductible' => 'integer',
+            'theft_amount' => 'decimal:2',
+            'theft_deductible' => 'integer',
+            'liability_third_party' => 'decimal:2',
+            'liability_deductible' => 'integer',
+            'liability_death' => 'decimal:2',
+            'medical_expenses' => 'decimal:2',
+            'driver_accident' => 'decimal:2',
+            'special_equipment' => 'decimal:2',
+            'annual_net_premium_cents' => 'integer',
+            'annual_total_premium_cents' => 'integer',
         ];
     }
 

@@ -26,15 +26,26 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
+    /**
+     * Días de validez de la contraseña
+     */
+    public const PASSWORD_EXPIRY_DAYS = 90;
+
     protected $fillable = [
         'name',
+        'username',
         'email',
         'password',
         'role',
         'phone',
         'avatar',
         'is_active',
+        'staff_id',
         'last_login_at',
+        'password_expires_at',
+        'password_changed_at',
+        'failed_login_attempts',
+        'locked_until',
         'two_factor_enabled',
     ];
 
@@ -62,6 +73,9 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
+            'password_expires_at' => 'datetime',
+            'password_changed_at' => 'datetime',
+            'locked_until' => 'datetime',
             'two_factor_enabled' => 'boolean',
             'role' => UserRole::class,
         ];
@@ -138,6 +152,22 @@ class User extends Authenticatable
     public function customers()
     {
         return $this->hasMany(Customer::class, 'created_by');
+    }
+
+    /**
+     * Personal asociado a este usuario
+     */
+    public function staff()
+    {
+        return $this->belongsTo(Staff::class);
+    }
+
+    /**
+     * Historial de contraseñas
+     */
+    public function passwordHistories()
+    {
+        return $this->hasMany(PasswordHistory::class);
     }
 
     // ==========================================
@@ -241,5 +271,84 @@ class User extends Authenticatable
     public function getRoleColorAttribute(): string
     {
         return $this->role?->color() ?? 'gray';
+    }
+
+    // ==========================================
+    // Seguridad de Contraseña
+    // ==========================================
+
+    /**
+     * Verifica si la contraseña ha expirado
+     */
+    public function isPasswordExpired(): bool
+    {
+        if (!$this->password_expires_at) {
+            return false;
+        }
+
+        return $this->password_expires_at->isPast();
+    }
+
+    /**
+     * Verifica si la cuenta está bloqueada
+     */
+    public function isLocked(): bool
+    {
+        if (!$this->locked_until) {
+            return false;
+        }
+
+        return $this->locked_until->isFuture();
+    }
+
+    /**
+     * Actualiza la contraseña con todas las medidas de seguridad
+     */
+    public function updatePassword(string $newPassword): void
+    {
+        // Registrar la contraseña actual en el historial antes de cambiar
+        if ($this->password) {
+            PasswordHistory::recordPassword($this->id, $this->password);
+        }
+
+        // Actualizar la contraseña y resetear campos de seguridad
+        $this->update([
+            'password' => $newPassword,
+            'password_changed_at' => now(),
+            'password_expires_at' => now()->addDays(self::PASSWORD_EXPIRY_DAYS),
+            'failed_login_attempts' => 0,
+            'locked_until' => null,
+        ]);
+    }
+
+    /**
+     * Días restantes hasta que expire la contraseña
+     */
+    public function getPasswordDaysRemainingAttribute(): ?int
+    {
+        if (!$this->password_expires_at) {
+            return null;
+        }
+
+        return max(0, now()->diffInDays($this->password_expires_at, false));
+    }
+
+    /**
+     * Registra un intento de login fallido
+     */
+    public function recordFailedLogin(): void
+    {
+        $this->increment('failed_login_attempts');
+    }
+
+    /**
+     * Resetea los intentos de login fallidos
+     */
+    public function resetFailedLogins(): void
+    {
+        $this->update([
+            'failed_login_attempts' => 0,
+            'locked_until' => null,
+        ]);
     }
 }

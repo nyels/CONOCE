@@ -1,23 +1,56 @@
 <!-- resources/js/Pages/Admin/DeductibleOptions/Index.vue -->
 <script setup>
-import { ref, computed } from 'vue';
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+defineOptions({ layout: AppLayout });
 import { CrudTable, CrudModal, FormInput } from '@/Components/Crud';
-import { ConfirmDialog, ToastContainer } from '@/Components/Ui';
 import { useConfirm } from '@/composables/useConfirm';
-import { useToast } from '@/composables/useToast';
+import { useInertiaForm } from '@/composables/useInertiaForm';
 
 const props = defineProps({
     options: { type: Array, default: () => [] }
 });
 
-const { isOpen: confirmOpen, config: confirmConfig, confirmDelete, onConfirm, onCancel } = useConfirm();
-const toast = useToast();
+const { confirmDelete } = useConfirm();
+const { processing, submitForm, deleteRecord } = useInertiaForm();
 
 const showModal = ref(false);
 const isEditing = ref(false);
 const editingItem = ref(null);
+
+// Frontend validation errors
+const validationErrors = ref({});
+
+// Validation functions
+const validateName = (value) => {
+    if (!value || value.trim().length < 1) return 'El nombre es obligatorio';
+    if (value.length > 20) return 'El nombre no puede exceder 20 caracteres';
+    if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.%]+$/.test(value)) {
+        return 'Solo se permiten letras, números, espacios, guiones, puntos y %';
+    }
+    return null;
+};
+
+const validatePercentage = (value) => {
+    const num = parseFloat(value);
+    if (isNaN(num) || num < 0) return 'Debe ser un número positivo';
+    if (num > 100) return 'No puede exceder 100%';
+    return null;
+};
+
+const onBlur = (field) => {
+    if (field === 'name') validationErrors.value.name = validateName(form.name);
+    if (field === 'percentage') validationErrors.value.percentage = validatePercentage(form.percentage);
+};
+
+const getError = (field) => validationErrors.value[field] || form.errors[field];
+
+const hasValidationErrors = () => {
+    validationErrors.value.name = validateName(form.name);
+    validationErrors.value.percentage = validatePercentage(form.percentage);
+    return Object.values(validationErrors.value).some(error => error !== null);
+};
 
 const form = useForm({
     id: null,
@@ -36,6 +69,7 @@ const columns = [
 const openCreate = () => {
     form.reset();
     form.clearErrors();
+    validationErrors.value = {};
     form.percentage = 5;
     isEditing.value = false;
     editingItem.value = null;
@@ -53,39 +87,44 @@ const openEdit = (item) => {
 };
 
 const submit = () => {
-    const url = isEditing.value 
+    if (hasValidationErrors()) {
+        return;
+    }
+
+    const url = isEditing.value
         ? route('admin.deductible-options.update', form.id)
         : route('admin.deductible-options.store');
-    
-    const data = { name: form.name, percentage: form.percentage, is_active: form.is_active };
-    if (isEditing.value) data._method = 'PUT';
-    
-    router.post(url, data, {
-        preserveScroll: true,
+
+    submitForm({
+        url,
+        data: { name: form.name, percentage: form.percentage, is_active: form.is_active },
+        method: isEditing.value ? 'put' : 'post',
         onSuccess: () => {
             showModal.value = false;
-            toast.success(isEditing.value ? 'Opción actualizada' : 'Opción creada');
+            form.reset();
         },
-        onError: (errors) => { form.errors = errors; toast.error('Error al guardar'); }
+        onValidationError: (errors) => {
+            Object.keys(errors).forEach(key => {
+                validationErrors.value[key] = errors[key];
+            });
+        },
+        successMessage: isEditing.value ? 'Opción actualizada exitosamente' : 'Opción creada exitosamente'
     });
 };
 
 const handleDelete = async (item) => {
     const confirmed = await confirmDelete(item.name);
     if (confirmed) {
-        router.delete(route('admin.deductible-options.destroy', item.id), {
-            preserveScroll: true,
-            onSuccess: () => toast.success('Opción eliminada'),
-            onError: () => toast.error('No se pudo eliminar')
+        deleteRecord({
+            url: route('admin.deductible-options.destroy', item.id),
+            successMessage: 'Opción eliminada exitosamente'
         });
     }
 };
 </script>
 
 <template>
-    <ToastContainer>
         <Head title="Opciones de Deducible" />
-        <AppLayout>
             <div class="page-container">
                 <div class="page-header">
                     <div class="header-content">
@@ -101,9 +140,9 @@ const handleDelete = async (item) => {
                 <CrudTable :data="options" :columns="columns" search-placeholder="Buscar opción..." empty-message="No hay opciones registradas" @edit="openEdit" @delete="handleDelete" />
             </div>
             
-            <CrudModal :show="showModal" :title="isEditing ? 'Editar Opción' : 'Nueva Opción'" :loading="form.processing" size="sm" @close="showModal = false" @submit="submit">
-                <FormInput v-model="form.name" label="Nombre" placeholder="Ej: 5%" :error="form.errors.name" required />
-                <FormInput v-model="form.percentage" label="Porcentaje (%)" type="number" placeholder="5" :error="form.errors.percentage" required />
+            <CrudModal :show="showModal" :title="isEditing ? 'Editar Opción' : 'Nueva Opción'" :loading="processing" size="sm" @close="showModal = false" @submit="submit">
+                <FormInput v-model="form.name" label="Nombre" placeholder="Ej: 5%" :error="getError('name')" @blur="onBlur('name')" required />
+                <FormInput v-model="form.percentage" label="Porcentaje (%)" type="number" placeholder="5" :error="getError('percentage')" @blur="onBlur('percentage')" required />
                 <div class="form-group">
                     <label class="toggle-label">
                         <input type="checkbox" v-model="form.is_active" class="toggle-input" />
@@ -112,10 +151,6 @@ const handleDelete = async (item) => {
                     </label>
                 </div>
             </CrudModal>
-            
-            <ConfirmDialog :show="confirmOpen" :title="confirmConfig.title" :message="confirmConfig.message" :confirm-text="confirmConfig.confirmText" :cancel-text="confirmConfig.cancelText" :type="confirmConfig.type" @confirm="onConfirm" @cancel="onCancel" @close="onCancel" />
-        </AppLayout>
-    </ToastContainer>
 </template>
 
 <style scoped>

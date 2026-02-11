@@ -99,9 +99,9 @@ class InsurerFinancialSetting extends Model
     public function getSurchargeForFrequency(string $frequency): float
     {
         return match ($frequency) {
-            'SEMIANNUAL' => $this->surcharge_semiannual,
-            'QUARTERLY' => $this->surcharge_quarterly,
-            'MONTHLY' => $this->surcharge_monthly,
+            'SEMESTRAL' => $this->surcharge_semiannual,
+            'TRIMESTRAL' => $this->surcharge_quarterly,
+            'MENSUAL' => $this->surcharge_monthly,
             default => 0.0,
         };
     }

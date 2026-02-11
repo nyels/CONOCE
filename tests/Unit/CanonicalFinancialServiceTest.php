@@ -86,7 +86,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'ANNUAL',
+            frequency: 'ANUAL',
             totalAnnualPremium: 10000.00,
         );
 
@@ -113,7 +113,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'SEMIANNUAL',
+            frequency: 'SEMESTRAL',
             totalAnnualPremium: 10000.00,
         );
 
@@ -137,7 +137,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'QUARTERLY',
+            frequency: 'TRIMESTRAL',
             totalAnnualPremium: 10000.00,
             customFirstPayment: 3500.00,
         );
@@ -163,7 +163,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'MONTHLY',
+            frequency: 'MENSUAL',
             totalAnnualPremium: 10000.00,
             customFirstPayment: 1000.00,
         );
@@ -190,7 +190,7 @@ class CanonicalFinancialServiceTest extends TestCase
      */
     public function test_roundtrip_total_neta_total(): void
     {
-        $frequencies = ['ANNUAL', 'SEMIANNUAL', 'QUARTERLY', 'MONTHLY'];
+        $frequencies = ['ANUAL', 'SEMESTRAL', 'TRIMESTRAL', 'MENSUAL'];
 
         foreach ($frequencies as $freq) {
             $originalTotal = 15000.00;
@@ -232,7 +232,7 @@ class CanonicalFinancialServiceTest extends TestCase
 
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'SEMIANNUAL',
+            frequency: 'SEMESTRAL',
             totalAnnualPremium: $expectedTotal,
         );
 
@@ -254,7 +254,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'SEMIANNUAL',
+            frequency: 'SEMESTRAL',
             totalAnnualPremium: 12000.00,
         );
 
@@ -275,7 +275,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'SEMIANNUAL',
+            frequency: 'SEMESTRAL',
             totalAnnualPremium: 12000.00,
             customFirstPayment: 7000.00,
         );
@@ -305,7 +305,7 @@ class CanonicalFinancialServiceTest extends TestCase
         foreach ($testCases as $pp) {
             $input = FinancialInput::fromTotalPremium(
                 insurerId: $this->insurerId,
-                frequency: 'SEMIANNUAL',
+                frequency: 'SEMESTRAL',
                 totalAnnualPremium: 10000.00,
                 customFirstPayment: $pp,
             );
@@ -332,7 +332,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'QUARTERLY',
+            frequency: 'TRIMESTRAL',
             totalAnnualPremium: 20000.00,
             customFirstPayment: 8000.00,
         );
@@ -350,7 +350,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'MONTHLY',
+            frequency: 'MENSUAL',
             totalAnnualPremium: 24000.00,
             customFirstPayment: 2000.00,
         );
@@ -373,7 +373,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: 99999, // No existe
-            frequency: 'ANNUAL',
+            frequency: 'ANUAL',
             totalAnnualPremium: 10000.00,
         );
 
@@ -393,7 +393,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'ANNUAL',
+            frequency: 'ANUAL',
             totalAnnualPremium: 100.00, // Muy bajo para cubrir derecho de $500
         );
 
@@ -428,7 +428,7 @@ class CanonicalFinancialServiceTest extends TestCase
 
         FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'ANNUAL',
+            frequency: 'ANUAL',
             totalAnnualPremium: 0.0,
         );
     }
@@ -442,7 +442,7 @@ class CanonicalFinancialServiceTest extends TestCase
 
         FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'QUARTERLY',
+            frequency: 'TRIMESTRAL',
             totalAnnualPremium: 10000.00,
             customFirstPayment: 10000.00,
         );
@@ -459,7 +459,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'QUARTERLY',
+            frequency: 'TRIMESTRAL',
             totalAnnualPremium: 15000.00,
         );
 
@@ -481,9 +481,9 @@ class CanonicalFinancialServiceTest extends TestCase
     public function test_calculate_batch(): void
     {
         $inputs = [
-            FinancialInput::fromTotalPremium($this->insurerId, 'ANNUAL', 10000.00),
-            FinancialInput::fromTotalPremium($this->insurerId, 'SEMIANNUAL', 10000.00),
-            FinancialInput::fromTotalPremium($this->insurerId, 'QUARTERLY', 10000.00),
+            FinancialInput::fromTotalPremium($this->insurerId, 'ANUAL', 10000.00),
+            FinancialInput::fromTotalPremium($this->insurerId, 'SEMESTRAL', 10000.00),
+            FinancialInput::fromTotalPremium($this->insurerId, 'TRIMESTRAL', 10000.00),
         ];
 
         $results = $this->service->calculateBatch($inputs);
@@ -497,9 +497,9 @@ class CanonicalFinancialServiceTest extends TestCase
     public function test_calculate_batch_con_error_no_detiene_otros(): void
     {
         $inputs = [
-            FinancialInput::fromTotalPremium($this->insurerId, 'ANNUAL', 10000.00),
-            FinancialInput::fromTotalPremium(99999, 'ANNUAL', 10000.00), // no_derecho
-            FinancialInput::fromTotalPremium($this->insurerId, 'MONTHLY', 15000.00),
+            FinancialInput::fromTotalPremium($this->insurerId, 'ANUAL', 10000.00),
+            FinancialInput::fromTotalPremium(99999, 'ANUAL', 10000.00), // no_derecho
+            FinancialInput::fromTotalPremium($this->insurerId, 'MENSUAL', 15000.00),
         ];
 
         $results = $this->service->calculateBatch($inputs);
@@ -518,7 +518,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'QUARTERLY',
+            frequency: 'TRIMESTRAL',
             totalAnnualPremium: 15000.00,
             customFirstPayment: 5000.00,
         );
@@ -537,7 +537,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'ANNUAL',
+            frequency: 'ANUAL',
             totalAnnualPremium: 10000.00,
         );
 
@@ -554,7 +554,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'SEMIANNUAL',
+            frequency: 'SEMESTRAL',
             totalAnnualPremium: 10000.00,
         );
 
@@ -573,7 +573,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'ANNUAL',
+            frequency: 'ANUAL',
             totalAnnualPremium: 10000.00,
         );
 
@@ -588,7 +588,7 @@ class CanonicalFinancialServiceTest extends TestCase
     {
         $input = FinancialInput::fromTotalPremium(
             insurerId: $this->insurerId,
-            frequency: 'MONTHLY',
+            frequency: 'MENSUAL',
             totalAnnualPremium: 10000.00,
             customFirstPayment: 1000.00,
         );

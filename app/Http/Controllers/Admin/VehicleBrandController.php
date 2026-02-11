@@ -39,9 +39,18 @@ class VehicleBrandController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:vehicle_brands,name',
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:100',
+                'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.]+$/', // Letras, números, espacios, guiones, puntos
+                'unique:vehicle_brands,name',
+            ],
             'logo' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
             'is_active' => 'boolean',
+        ], [
+            'name.regex' => 'El nombre solo puede contener letras, números, espacios, guiones y puntos.',
         ]);
 
         $logoPath = null;
@@ -49,13 +58,17 @@ class VehicleBrandController extends Controller
             $logoPath = $request->file('logo')->store('brands', 'public');
         }
 
-        VehicleBrand::create([
-            'name' => $validated['name'],
-            'logo_path' => $logoPath,
-            'is_active' => $validated['is_active'] ?? true,
-        ]);
+        try {
+            VehicleBrand::create([
+                'name' => $validated['name'],
+                'logo_path' => $logoPath,
+                'is_active' => $validated['is_active'] ?? true,
+            ]);
 
-        return back()->with('success', 'Marca creada exitosamente');
+            return back()->with('success', 'Marca creada exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al crear la marca. Intente nuevamente.']);
+        }
     }
 
     /**
@@ -64,9 +77,18 @@ class VehicleBrandController extends Controller
     public function update(Request $request, VehicleBrand $vehicleBrand)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:vehicle_brands,name,' . $vehicleBrand->id,
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:100',
+                'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.]+$/',
+                'unique:vehicle_brands,name,' . $vehicleBrand->id,
+            ],
             'logo' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
             'is_active' => 'boolean',
+        ], [
+            'name.regex' => 'El nombre solo puede contener letras, números, espacios, guiones y puntos.',
         ]);
 
         if ($request->hasFile('logo')) {
@@ -77,11 +99,15 @@ class VehicleBrandController extends Controller
             $vehicleBrand->logo_path = $request->file('logo')->store('brands', 'public');
         }
 
-        $vehicleBrand->name = $validated['name'];
-        $vehicleBrand->is_active = $validated['is_active'] ?? true;
-        $vehicleBrand->save();
+        try {
+            $vehicleBrand->name = $validated['name'];
+            $vehicleBrand->is_active = $validated['is_active'] ?? true;
+            $vehicleBrand->save();
 
-        return back()->with('success', 'Marca actualizada exitosamente');
+            return back()->with('success', 'Marca actualizada exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al actualizar la marca.']);
+        }
     }
 
     /**
@@ -89,13 +115,17 @@ class VehicleBrandController extends Controller
      */
     public function destroy(VehicleBrand $vehicleBrand)
     {
-        // Delete logo if exists
-        if ($vehicleBrand->logo_path) {
-            Storage::disk('public')->delete($vehicleBrand->logo_path);
+        try {
+            // Delete logo if exists
+            if ($vehicleBrand->logo_path) {
+                Storage::disk('public')->delete($vehicleBrand->logo_path);
+            }
+
+            $vehicleBrand->delete();
+
+            return back()->with('success', 'Marca eliminada exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al eliminar la marca.']);
         }
-
-        $vehicleBrand->delete();
-
-        return back()->with('success', 'Marca eliminada exitosamente');
     }
 }

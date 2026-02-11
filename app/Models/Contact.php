@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use Src\Domain\Contact\Enums\ContactType;
+use App\Models\ContactType as ContactTypeModel;
 
 class Contact extends Model
 {
@@ -19,7 +20,10 @@ class Contact extends Model
     protected $fillable = [
         'uuid',
         'type',
-        'name',
+        'contact_type_id',
+        'first_name',
+        'paternal_surname',
+        'maternal_surname',
         'email',
         'phone',
         'mobile',
@@ -62,10 +66,52 @@ class Contact extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'type', 'email', 'commission_rate', 'is_active'])
+            ->logOnly(['first_name', 'paternal_surname', 'type', 'email', 'commission_rate', 'is_active'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
-            ->setDescriptionForEvent(fn(string $eventName) => "Contacto {$eventName}");
+            ->setDescriptionForEvent(fn(string $eventName) => "Contacto {$eventName} ({$this->full_name})");
+    }
+
+    // ==========================================
+    // Accessors
+    // ==========================================
+
+    /**
+     * Nombre completo
+     */
+    public function getFullNameAttribute(): string
+    {
+        return trim(implode(' ', array_filter([
+            $this->first_name,
+            $this->paternal_surname,
+            $this->maternal_surname,
+        ])));
+    }
+
+    /**
+     * Nombre corto (primer nombre y apellido paterno)
+     */
+    public function getShortNameAttribute(): string
+    {
+        return trim(implode(' ', array_filter([
+            $this->first_name,
+            $this->paternal_surname,
+        ])));
+    }
+
+    /**
+     * Iniciales para avatar
+     */
+    public function getInitialsAttribute(): string
+    {
+        $words = array_filter([$this->first_name, $this->paternal_surname]);
+        $initials = '';
+
+        foreach (array_slice($words, 0, 2) as $word) {
+            $initials .= mb_strtoupper(mb_substr($word, 0, 1));
+        }
+
+        return $initials ?: '??';
     }
 
     // ==========================================
@@ -126,6 +172,14 @@ class Contact extends Model
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Tipo de contacto (tabla contact_types)
+     */
+    public function contactType()
+    {
+        return $this->belongsTo(ContactTypeModel::class, 'contact_type_id');
     }
 
     /**
@@ -197,6 +251,6 @@ class Contact extends Model
      */
     public function getFullDisplayNameAttribute(): string
     {
-        return "{$this->name} ({$this->type->label()})";
+        return "{$this->full_name} ({$this->type->label()})";
     }
 }

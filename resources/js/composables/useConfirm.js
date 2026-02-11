@@ -1,11 +1,16 @@
 // resources/js/composables/useConfirm.js
 import { ref } from 'vue';
+import Swal from 'sweetalert2';
+
+// Z-index mayor que CrudModal (9998) para que SweetAlert2 aparezca encima
+const SWAL_Z_INDEX = 99999;
 
 /**
- * Composable for confirmation dialogs
- * Returns reactive state and methods for ConfirmDialog component
+ * Composable for confirmation dialogs using SweetAlert2
+ * Mantiene compatibilidad con API existente + añade métodos SweetAlert2
  */
 export function useConfirm() {
+    // Mantener estado reactivo para compatibilidad con ConfirmDialog component
     const isOpen = ref(false);
     const config = ref({
         title: '¿Estás seguro?',
@@ -17,15 +22,51 @@ export function useConfirm() {
 
     let resolvePromise = null;
 
-    const confirm = (options = {}) => {
-        config.value = { ...config.value, ...options };
-        isOpen.value = true;
-
-        return new Promise((resolve) => {
-            resolvePromise = resolve;
+    // Método usando SweetAlert2 directamente (preferido)
+    const confirmDelete = async (itemName = 'este registro') => {
+        const result = await Swal.fire({
+            title: '¿Eliminar registro?',
+            html: `Se eliminará <strong>${itemName}</strong>.<br>Esta acción no se puede deshacer.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#DC2626',
+            cancelButtonColor: '#6B7280',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
+            didOpen: () => {
+                // Forzar z-index alto para aparecer sobre modales
+                const container = document.querySelector('.swal2-container');
+                if (container) container.style.zIndex = SWAL_Z_INDEX;
+            }
         });
+
+        return result.isConfirmed;
     };
 
+    // Confirmación genérica con SweetAlert2
+    const confirm = async (options = {}) => {
+        const result = await Swal.fire({
+            title: options.title || '¿Estás seguro?',
+            text: options.message || 'Esta acción no se puede deshacer.',
+            icon: options.type === 'danger' ? 'warning' : 'question',
+            showCancelButton: true,
+            confirmButtonColor: options.type === 'danger' ? '#DC2626' : '#7B2D3B',
+            cancelButtonColor: '#6B7280',
+            confirmButtonText: options.confirmText || 'Confirmar',
+            cancelButtonText: options.cancelText || 'Cancelar',
+            reverseButtons: true,
+            didOpen: () => {
+                // Forzar z-index alto para aparecer sobre modales
+                const container = document.querySelector('.swal2-container');
+                if (container) container.style.zIndex = SWAL_Z_INDEX;
+            }
+        });
+
+        return result.isConfirmed;
+    };
+
+    // Métodos legacy para compatibilidad con ConfirmDialog component
     const onConfirm = () => {
         isOpen.value = false;
         if (resolvePromise) resolvePromise(true);
@@ -34,17 +75,6 @@ export function useConfirm() {
     const onCancel = () => {
         isOpen.value = false;
         if (resolvePromise) resolvePromise(false);
-    };
-
-    // Convenience methods
-    const confirmDelete = (itemName = 'este registro') => {
-        return confirm({
-            title: '¿Eliminar registro?',
-            message: `Se eliminará ${itemName}. Esta acción no se puede deshacer.`,
-            confirmText: 'Sí, eliminar',
-            cancelText: 'Cancelar',
-            type: 'danger'
-        });
     };
 
     return {

@@ -296,14 +296,14 @@
             @php
                 $freq = $quote->options->first()->payment_frequency;
                 $installments = match ($freq) {
-                    'SEMIANNUAL' => 1,
-                    'QUARTERLY' => 3,
-                    'MONTHLY' => 11,
+                    'SEMESTRAL' => 1,
+                    'TRIMESTRAL' => 3,
+                    'MENSUAL' => 11,
                     default => 0,
                 };
             @endphp
 
-            @if ($freq != 'ANNUAL')
+            @if ($freq != 'ANUAL')
                 <tr class="payment-row">
                     <td class="concept-col">Primer Pago</td>
                     @foreach ($quote->options as $option)

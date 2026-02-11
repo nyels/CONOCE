@@ -48,6 +48,14 @@ class Quote extends Model
         'rejected_at',
         'internal_notes',
         'customer_notes',
+        // Campos legacy
+        'requested_at',
+        'vehicle_type_id',
+        'vehicle_type',
+        'vehicle_usage',
+        'coverage_description',
+        'custom_coverage_1_name',
+        'custom_coverage_2_name',
     ];
 
     protected function casts(): array
@@ -68,7 +76,19 @@ class Quote extends Model
             'policy_end_date' => 'date',
             'previous_premium_cents' => 'integer',
             'options_count' => 'integer',
+            // Campos legacy
+            'requested_at' => 'datetime:H:i',
+            'vehicle_type_id' => 'integer',
         ];
+    }
+
+    // ==========================================
+    // Relación con VehicleType
+    // ==========================================
+
+    public function vehicleType()
+    {
+        return $this->belongsTo(VehicleType::class);
     }
 
     /**
@@ -255,7 +275,15 @@ class Quote extends Model
             default => null,
         };
 
-        return $this->save();
+        $saved = $this->save();
+
+        if ($saved) {
+            \App\Services\Dashboard\DashboardBroadcaster::notify(
+                'quote_status_' . strtolower($newStatus->value)
+            );
+        }
+
+        return $saved;
     }
 
     // ==========================================

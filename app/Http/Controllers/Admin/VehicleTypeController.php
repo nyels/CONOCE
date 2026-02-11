@@ -28,37 +28,67 @@ class VehicleTypeController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:vehicle_types,name',
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:100',
+                'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.]+$/',
+                'unique:vehicle_types,name',
+            ],
             'is_active' => 'boolean',
+        ], [
+            'name.regex' => 'El nombre solo puede contener letras, números, espacios, guiones y puntos.',
         ]);
 
-        VehicleType::create([
-            'name' => $validated['name'],
-            'is_active' => $validated['is_active'] ?? true,
-            'sort_order' => VehicleType::max('sort_order') + 1,
-        ]);
+        try {
+            VehicleType::create([
+                'name' => $validated['name'],
+                'is_active' => $validated['is_active'] ?? true,
+                'sort_order' => VehicleType::max('sort_order') + 1,
+            ]);
 
-        return back()->with('success', 'Tipo de vehículo creado exitosamente');
+            return back()->with('success', 'Tipo de vehículo creado exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al crear el tipo de vehículo. Intente nuevamente.']);
+        }
     }
 
     public function update(Request $request, VehicleType $vehicleType)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:vehicle_types,name,' . $vehicleType->id,
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:100',
+                'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-\.]+$/',
+                'unique:vehicle_types,name,' . $vehicleType->id,
+            ],
             'is_active' => 'boolean',
+        ], [
+            'name.regex' => 'El nombre solo puede contener letras, números, espacios, guiones y puntos.',
         ]);
 
-        $vehicleType->update([
-            'name' => $validated['name'],
-            'is_active' => $validated['is_active'] ?? true,
-        ]);
+        try {
+            $vehicleType->update([
+                'name' => $validated['name'],
+                'is_active' => $validated['is_active'] ?? true,
+            ]);
 
-        return back()->with('success', 'Tipo de vehículo actualizado exitosamente');
+            return back()->with('success', 'Tipo de vehículo actualizado exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al actualizar el tipo de vehículo.']);
+        }
     }
 
     public function destroy(VehicleType $vehicleType)
     {
-        $vehicleType->delete();
-        return back()->with('success', 'Tipo de vehículo eliminado exitosamente');
+        try {
+            $vehicleType->delete();
+            return back()->with('success', 'Tipo de vehículo eliminado exitosamente');
+        } catch (\Exception $e) {
+            return back()->withErrors(['server' => 'Error al eliminar el tipo de vehículo.']);
+        }
     }
 }

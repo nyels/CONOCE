@@ -3,6 +3,7 @@
 import { ref, computed } from 'vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+defineOptions({ layout: AppLayout });
 import { ConfirmDialog, ToastContainer } from '@/Components/Ui';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
@@ -77,8 +78,7 @@ const statusColors = {
     <ToastContainer>
         <Head title="Cotizaciones" />
         
-        <AppLayout>
-            <div class="page-container">
+        <div class="page-container">
                 <!-- Header -->
                 <div class="page-header">
                     <div class="header-content">
@@ -212,7 +212,6 @@ const statusColors = {
                 @cancel="onCancel"
                 @close="onCancel"
             />
-        </AppLayout>
     </ToastContainer>
 </template>
 

@@ -5,31 +5,16 @@ declare(strict_types=1);
 namespace Src\Domain\Quote\Enums;
 
 /**
- * Frecuencias de pago disponibles
- * 
- * Define las modalidades de fraccionamiento del pago de la prima
+ * Frecuencias de pago disponibles.
+ *
+ * Valores en español para coincidir con frontend y validaciones.
  */
 enum PaymentFrequency: string
 {
-    /**
-     * Pago único - Sin recargo
-     */
-    case ANNUAL = 'ANNUAL';
-
-    /**
-     * Dos pagos al año
-     */
-    case SEMIANNUAL = 'SEMIANNUAL';
-
-    /**
-     * Cuatro pagos al año
-     */
-    case QUARTERLY = 'QUARTERLY';
-
-    /**
-     * Doce pagos al año
-     */
-    case MONTHLY = 'MONTHLY';
+    case ANNUAL = 'ANUAL';
+    case SEMIANNUAL = 'SEMESTRAL';
+    case QUARTERLY = 'TRIMESTRAL';
+    case MONTHLY = 'MENSUAL';
 
     public function label(): string
     {
@@ -51,9 +36,6 @@ enum PaymentFrequency: string
         };
     }
 
-    /**
-     * Número de pagos que genera esta frecuencia
-     */
     public function numberOfPayments(): int
     {
         return match ($this) {
@@ -64,17 +46,11 @@ enum PaymentFrequency: string
         };
     }
 
-    /**
-     * Indica si aplica recargo por fraccionamiento
-     */
     public function hasSurcharge(): bool
     {
         return $this !== self::ANNUAL;
     }
 
-    /**
-     * Obtiene el identificador para buscar el recargo en la configuración
-     */
     public function surchargeKey(): ?string
     {
         return match ($this) {
@@ -85,17 +61,11 @@ enum PaymentFrequency: string
         };
     }
 
-    /**
-     * Calcula el monto de cada pago dado el total
-     */
     public function calculatePaymentAmount(float $total): float
     {
         return round($total / $this->numberOfPayments(), 2);
     }
 
-    /**
-     * Ordena las frecuencias de menor a mayor número de pagos
-     */
     public static function orderedByPayments(): array
     {
         return [

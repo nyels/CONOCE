@@ -26,13 +26,6 @@ use Src\Domain\Financial\Exceptions\FinancialCalculationException;
  */
 class CalculationController extends Controller
 {
-    private const FREQUENCY_MAP = [
-        'ANUAL' => 'ANNUAL',
-        'SEMESTRAL' => 'SEMIANNUAL',
-        'TRIMESTRAL' => 'QUARTERLY',
-        'MENSUAL' => 'MONTHLY',
-    ];
-
     private const PAYMENTS_COUNT = [
         'ANUAL' => 1,
         'SEMESTRAL' => 2,
@@ -58,12 +51,10 @@ class CalculationController extends Controller
             'insurer_id' => ['required', 'integer', 'exists:insurers,id'],
         ]);
 
-        $frequency = self::FREQUENCY_MAP[$validated['forma_pago']] ?? 'ANNUAL';
-
         try {
             $input = FinancialInput::fromTotalPremium(
                 insurerId: (int) $validated['insurer_id'],
-                frequency: $frequency,
+                frequency: $validated['forma_pago'],
                 totalAnnualPremium: (float) $validated['prima_anual_neta'],
             );
 
@@ -124,7 +115,7 @@ class CalculationController extends Controller
         $validated = $request->validate([
             'request_id' => ['nullable', 'string'],
             'insurer_id' => ['required', 'integer', 'exists:insurers,id'],
-            'frequency' => ['required', 'string', 'in:ANNUAL,SEMIANNUAL,QUARTERLY,MONTHLY'],
+            'frequency' => ['required', 'string', 'in:ANUAL,SEMESTRAL,TRIMESTRAL,MENSUAL'],
             'total_annual' => ['nullable', 'numeric', 'min:0'],
             'first_payment' => ['nullable', 'numeric', 'min:0'],
         ]);
@@ -185,7 +176,7 @@ class CalculationController extends Controller
     {
         $validated = $request->validate([
             'request_id' => ['nullable', 'string'],
-            'frequency' => ['required', 'string', 'in:ANNUAL,SEMIANNUAL,QUARTERLY,MONTHLY'],
+            'frequency' => ['required', 'string', 'in:ANUAL,SEMESTRAL,TRIMESTRAL,MENSUAL'],
             'options' => ['required', 'array'],
             'options.*.column' => ['required', 'integer', 'min:1', 'max:5'],
             'options.*.insurer_id' => ['required', 'integer', 'exists:insurers,id'],

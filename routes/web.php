@@ -16,6 +16,9 @@ use App\Http\Controllers\Admin\PaymentMethodController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\PositionController;
 use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\PolicyFeeController;
+use App\Http\Controllers\Admin\SurchargeController;
+use App\Http\Controllers\Admin\MexicanStateController;
 
 /*
 |--------------------------------------------------------------------------
@@ -80,6 +83,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('coverage-packages', CoveragePackageController::class)->except(['create', 'show', 'edit']);
         Route::resource('deductible-options', DeductibleOptionController::class)->except(['create', 'show', 'edit']);
         Route::resource('payment-methods', PaymentMethodController::class)->except(['create', 'show', 'edit']);
+        Route::resource('policy-fees', PolicyFeeController::class)->except(['create', 'show', 'edit']);
+        Route::get('policy-fees/{insurer}/history', [PolicyFeeController::class, 'history'])->name('policy-fees.history');
+        Route::resource('surcharges', SurchargeController::class)->except(['create', 'show', 'edit']);
+        Route::get('surcharges/{insurer}/history', [SurchargeController::class, 'history'])->name('surcharges.history');
+        Route::resource('mexican-states', MexicanStateController::class)->except(['create', 'show', 'edit']);
 
         // Puestos
         Route::resource('positions', PositionController::class)->except(['create', 'show', 'edit']);

@@ -22,14 +22,14 @@ class AdminDashboardService
         $this->startOfPreviousMonth = Carbon::now()->subMonth()->startOfMonth();
     }
 
-    public function getData(): array
+    public function getData(string $trendPeriod = 'month'): array
     {
         return [
             // NIVEL 1: KPIs FINANCIEROS CLAVE
             'financialKpis' => $this->getFinancialKpis(),
 
             // NIVEL 2: TENDENCIAS Y COMPARATIVAS
-            'trends' => $this->getTrendsData(),
+            'trends' => $this->getTrendsData($trendPeriod),
 
             // NIVEL 3: CONVERSIÓN POR ASEGURADORA
             'conversionByInsurer' => $this->getConversionByInsurer(),
@@ -39,8 +39,8 @@ class AdminDashboardService
 
             // METADATOS
             'period' => [
-                'current' => $this->startOfMonth->format('F Y'),
-                'previous' => $this->startOfPreviousMonth->format('F Y'),
+                'current' => $this->startOfMonth->translatedFormat('F Y'),
+                'previous' => $this->startOfPreviousMonth->translatedFormat('F Y'),
             ],
             'timestamp' => now()->toIso8601String(),
         ];
@@ -170,21 +170,12 @@ class AdminDashboardService
         }
     }
 
-    private function getTrendsData(): array
+    private function getTrendsData(string $periodType = 'month'): array
     {
-        // Últimos 6 meses
-        $months = collect();
-        for ($i = 5; $i >= 0; $i--) {
-            $month = Carbon::now()->subMonths($i);
-            $months->push([
-                'month' => $month->format('M Y'),
-                'start' => $month->copy()->startOfMonth(),
-                'end' => $month->copy()->endOfMonth(),
-            ]);
-        }
+        $periods = $this->buildPeriods($periodType);
 
         try {
-            $trends = $months->map(function ($period) {
+            $trends = $periods->map(function ($period) {
                 $data = Quote::query()
                     ->whereBetween('created_at', [$period['start'], $period['end']])
                     ->select([
@@ -197,9 +188,10 @@ class AdminDashboardService
                 $concludedCount = (int) ($data->concluded_count ?? 0);
 
                 return [
-                    'month' => $period['month'],
+                    'label' => $period['label'],
+                    'sublabel' => $period['sublabel'] ?? null,
                     'quotes' => $quoteCount,
-                    'premium' => 0, // Placeholder
+                    'premium' => 0,
                     'conversions' => $concludedCount,
                     'conversion_rate' => $quoteCount > 0
                         ? round(($concludedCount / $quoteCount) * 100, 1)
@@ -207,25 +199,72 @@ class AdminDashboardService
                 ];
             });
 
+            $count = $trends->count();
+
             return [
-                'monthly' => $trends->toArray(),
+                'data' => $trends->values()->toArray(),
+                'periodType' => $periodType,
                 'summary' => [
                     'growth_quotes' => $this->calculateGrowthRate(
-                        $trends->get(4)['quotes'] ?? 0,
+                        $count >= 2 ? ($trends->get($count - 2)['quotes'] ?? 0) : 0,
                         $trends->last()['quotes'] ?? 0
                     ),
-                    'growth_premium' => 0, // Placeholder
+                    'growth_premium' => 0,
                 ],
             ];
         } catch (\Exception $e) {
             return [
-                'monthly' => [],
+                'data' => [],
+                'periodType' => $periodType,
                 'summary' => [
                     'growth_quotes' => 0,
                     'growth_premium' => 0,
                 ],
             ];
         }
+    }
+
+    private function buildPeriods(string $type): \Illuminate\Support\Collection
+    {
+        $periods = collect();
+
+        if ($type === 'quarter') {
+            // 2 trimestres: anterior y actual
+            for ($i = 1; $i >= 0; $i--) {
+                $start = Carbon::now()->subQuarters($i)->startOfQuarter();
+                $end = (clone $start)->endOfQuarter();
+                $q = (int) ceil($start->month / 3);
+                $periods->push([
+                    'label' => "T{$q} {$start->year}",
+                    'sublabel' => $start->translatedFormat('M') . ' - ' . $end->translatedFormat('M Y'),
+                    'start' => $start,
+                    'end' => $end,
+                ]);
+            }
+        } elseif ($type === 'year') {
+            // 1 año: año en curso
+            $start = Carbon::now()->startOfYear();
+            $end = Carbon::now();
+            $periods->push([
+                'label' => (string) $start->year,
+                'sublabel' => $start->translatedFormat('M') . ' - ' . $end->translatedFormat('M Y'),
+                'start' => $start,
+                'end' => $end,
+            ]);
+        } else {
+            // Últimos 6 meses
+            for ($i = 5; $i >= 0; $i--) {
+                $month = Carbon::now()->subMonths($i);
+                $periods->push([
+                    'label' => $month->translatedFormat('M Y'),
+                    'sublabel' => null,
+                    'start' => $month->copy()->startOfMonth(),
+                    'end' => $month->copy()->endOfMonth(),
+                ]);
+            }
+        }
+
+        return $periods;
     }
 
     private function getConversionByInsurer(): array
