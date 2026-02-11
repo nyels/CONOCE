@@ -190,6 +190,7 @@ return [
     */
 
     'attributes' => [
+        'username' => 'usuario',
         'name' => 'nombre',
         'email' => 'correo electrónico',
         'phone' => 'teléfono',

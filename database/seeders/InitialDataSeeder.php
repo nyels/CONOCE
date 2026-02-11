@@ -16,9 +16,10 @@ class InitialDataSeeder extends Seeder
         // Usuario Super Admin por defecto
         // ==========================================
         $superAdmin = User::firstOrCreate(
-            ['email' => 'admin@cotizador.com'],
+            ['username' => 'admin'],
             [
                 'name' => 'Super Administrador',
+                'email' => 'admin@cotizador.com',
                 'password' => Hash::make('password'),
                 'role' => UserRole::SUPER_ADMIN,
                 'is_active' => true,
@@ -29,9 +30,10 @@ class InitialDataSeeder extends Seeder
 
         // Usuario operador de prueba
         $operator = User::firstOrCreate(
-            ['email' => 'operador@cotizador.com'],
+            ['username' => 'operador'],
             [
                 'name' => 'Operador Demo',
+                'email' => 'operador@cotizador.com',
                 'password' => Hash::make('password'),
                 'role' => UserRole::OPERATOR,
                 'is_active' => true,

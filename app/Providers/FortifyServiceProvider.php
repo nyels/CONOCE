@@ -65,9 +65,9 @@ class FortifyServiceProvider extends ServiceProvider
             return view('auth.confirm-password');
         });
 
-        // Autenticación personalizada
+        // Autenticación personalizada (login por username)
         Fortify::authenticateUsing(function (Request $request) {
-            $user = User::where('email', $request->email)->first();
+            $user = User::where('username', $request->username)->first();
 
             if (
                 $user &&

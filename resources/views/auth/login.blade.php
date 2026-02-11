@@ -467,14 +467,14 @@
                 @csrf
 
                 <div class="form-group">
-                    <label class="form-label" for="email">Correo electrónico</label>
+                    <label class="form-label" for="username">Usuario</label>
                     <div class="input-wrapper">
                         <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
-                        <input type="email" id="email" name="email" class="form-input"
-                            placeholder="correo@ejemplo.com" value="{{ old('email') }}" required autofocus>
+                        <input type="text" id="username" name="username" class="form-input"
+                            placeholder="Tu nombre de usuario" value="{{ old('username') }}" required autofocus>
                     </div>
                 </div>
 
