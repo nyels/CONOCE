@@ -9,7 +9,7 @@ import { ref, computed, watch, reactive, onMounted } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 defineOptions({ layout: AppLayout });
-import CoverageTable from '@/Components/Quote/CoverageTable.vue';
+import CoverageTable from '@/components/Quote/CoverageTable.vue';
 import { useCurrencyFormat } from '@/composables/useCurrencyFormat';
 import Swal from 'sweetalert2';
 

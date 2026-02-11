@@ -4,7 +4,7 @@ import { ref } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 defineOptions({ layout: AppLayout });
-import { CrudTable, CrudModal, FormInput } from '@/Components/Crud';
+import { CrudTable, CrudModal, FormInput } from '@/components/Crud';
 import { useConfirm } from '@/composables/useConfirm';
 import { useInertiaForm } from '@/composables/useInertiaForm';
 

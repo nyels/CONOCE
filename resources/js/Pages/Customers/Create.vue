@@ -4,8 +4,8 @@ import { ref, computed, watch } from 'vue';
 import { Head, router, useForm, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 defineOptions({ layout: AppLayout });
-import { ToastContainer } from '@/Components/Ui';
-import { FormSelect } from '@/Components/Crud';
+import { ToastContainer } from '@/components/Ui';
+import { FormSelect } from '@/components/Crud';
 import { useToast } from '@/composables/useToast';
 
 const props = defineProps({

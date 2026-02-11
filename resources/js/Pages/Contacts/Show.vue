@@ -5,7 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 defineOptions({ layout: AppLayout });
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
-import { ConfirmDialog, ToastContainer } from '@/Components/Ui';
+import { ConfirmDialog, ToastContainer } from '@/components/Ui';
 
 const props = defineProps({
     contact: { type: Object, required: true },

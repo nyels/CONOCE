@@ -4,8 +4,8 @@ import { ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 defineOptions({ layout: AppLayout });
-import { CrudModal, FormInput, FormSelect } from '@/Components/Crud';
-import { ConfirmDialog, ToastContainer } from '@/Components/Ui';
+import { CrudModal, FormInput, FormSelect } from '@/components/Crud';
+import { ConfirmDialog, ToastContainer } from '@/components/Ui';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 

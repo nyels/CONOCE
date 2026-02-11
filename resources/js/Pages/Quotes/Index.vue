@@ -4,7 +4,7 @@ import { ref, computed } from 'vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 defineOptions({ layout: AppLayout });
-import { ConfirmDialog, ToastContainer } from '@/Components/Ui';
+import { ConfirmDialog, ToastContainer } from '@/components/Ui';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 
