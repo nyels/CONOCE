@@ -32,7 +32,7 @@ class AdminDashboardService
             'trends' => $this->getTrendsData($trendPeriod),
 
             // NIVEL 3: CONVERSIÓN POR ASEGURADORA
-            'conversionByInsurer' => $this->getConversionByInsurer(),
+            'conversionByInsurer' => $this->getConversionByInsurer($trendPeriod),
 
             // NIVEL 4: ALERTAS CRÍTICAS DEL SISTEMA
             'systemAlerts' => $this->getSystemAlerts(),
@@ -267,24 +267,47 @@ class AdminDashboardService
         return $periods;
     }
 
-    private function getConversionByInsurer(): array
+    private function getConversionByInsurer(string $trendPeriod = 'month'): array
     {
         try {
-            $insurers = Insurer::query()
-                ->where('is_active', true)
-                ->orderBy('name')
+            $periods = $this->buildPeriods($trendPeriod);
+            $start = $periods->first()['start'];
+            $end = $periods->last()['end'];
+
+            $results = DB::table('quote_options')
+                ->join('quotes', 'quotes.id', '=', 'quote_options.quote_id')
+                ->join('insurers', 'insurers.id', '=', 'quote_options.insurer_id')
+                ->where('insurers.is_active', true)
+                ->whereBetween('quotes.created_at', [$start, $end])
+                ->select([
+                    'insurers.id',
+                    'insurers.name',
+                    'insurers.logo_path',
+                    DB::raw('COUNT(DISTINCT quote_options.quote_id) as quotes_count'),
+                    DB::raw('COUNT(DISTINCT CASE WHEN quotes.status = \'' . QuoteStatus::ISSUED->value . '\' THEN quote_options.quote_id END) as concluded_count'),
+                ])
+                ->groupBy('insurers.id', 'insurers.name', 'insurers.logo_path')
+                ->orderByDesc('quotes_count')
                 ->limit(10)
                 ->get();
 
-            return $insurers->map(function ($insurer) {
+            $avgRate = $results->count() > 0
+                ? $results->avg(fn ($r) => $r->quotes_count > 0 ? ($r->concluded_count / $r->quotes_count) * 100 : 0)
+                : 0;
+
+            return $results->map(function ($row) use ($avgRate) {
+                $rate = $row->quotes_count > 0
+                    ? round(($row->concluded_count / $row->quotes_count) * 100, 1)
+                    : 0;
+
                 return [
-                    'id' => $insurer->id,
-                    'name' => $insurer->name,
-                    'logo' => $insurer->logo_url ?? null,
-                    'quotes_count' => 0, // Placeholder - requires proper relationship
-                    'concluded_count' => 0,
-                    'conversion_rate' => 0,
-                    'is_performing' => false,
+                    'id' => $row->id,
+                    'name' => $row->name,
+                    'logo' => $row->logo_path,
+                    'quotes_count' => (int) $row->quotes_count,
+                    'concluded_count' => (int) $row->concluded_count,
+                    'conversion_rate' => $rate,
+                    'is_performing' => $rate >= $avgRate,
                 ];
             })->toArray();
         } catch (\Exception $e) {

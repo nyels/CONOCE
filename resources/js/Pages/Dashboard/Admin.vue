@@ -840,8 +840,9 @@ onUnmounted(() => {
 .insurer-card__stats {
     display: flex;
     gap: 0.75rem;
-    font-size: 0.6875rem;
-    color: #9CA3AF;
+    font-size: 0.8125rem;
+    color: #374151;
+    font-weight: 600;
     margin-top: 0.125rem;
 }
 
