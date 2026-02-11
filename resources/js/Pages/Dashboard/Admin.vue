@@ -265,7 +265,8 @@ onUnmounted(() => {
                             Top Aseguradoras
                         </h2>
                     </div>
-                    
+                    <p class="insurers-hint">Ranking por volumen de cotizaciones. El porcentaje indica la tasa de conversión (cotizaciones emitidas como póliza).</p>
+
                     <!-- Mobile: Cards / Desktop: Table -->
                     <div class="insurers-list">
                         <div 
@@ -877,6 +878,13 @@ onUnmounted(() => {
 .badge--warning {
     background: #FEF3C7;
     color: #B45309;
+}
+
+.insurers-hint {
+    font-size: 0.75rem;
+    color: #6B7280;
+    margin: 0 0 0.75rem 0;
+    line-height: 1.4;
 }
 
 /* ===== ALERTS ===== */
