@@ -7,9 +7,23 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     libpng-dev \
     libonig-dev \
+    libxml2-dev \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev \
     nodejs \
     npm \
-    && docker-php-ext-install pdo pdo_mysql zip
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install \
+        pdo \
+        pdo_mysql \
+        zip \
+        mbstring \
+        exif \
+        pcntl \
+        bcmath \
+        gd \
+        xml
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -19,7 +33,6 @@ COPY . .
 
 RUN composer install --no-dev --optimize-autoloader
 
-# BUILD FRONTEND
 RUN npm install
 RUN npm run build
 
