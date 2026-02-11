@@ -262,12 +262,19 @@ const toggleActive = (item) => {
     });
 };
 
-// Limpiar errores del servidor cuando el usuario modifica un campo
-watch(() => [form.first_name, form.paternal_surname, form.maternal_surname, form.type, form.email, form.phone, form.mobile], () => {
-    if (Object.keys(form.errors).length) {
-        form.clearErrors();
-    }
-});
+// Limpiar error individual cuando el usuario corrige el campo
+const clearFieldError = (field) => {
+    if (errors.value[field]) delete errors.value[field];
+    if (form.errors[field]) form.clearErrors(field);
+};
+
+watch(() => form.first_name, () => clearFieldError('first_name'));
+watch(() => form.paternal_surname, () => clearFieldError('paternal_surname'));
+watch(() => form.maternal_surname, () => clearFieldError('maternal_surname'));
+watch(() => form.type, () => clearFieldError('type'));
+watch(() => form.email, () => clearFieldError('email'));
+watch(() => form.phone, () => clearFieldError('phone'));
+watch(() => form.mobile, () => clearFieldError('mobile'));
 
 // Type badge color (colores por posición del tipo)
 const getTypeColor = (typeId) => {

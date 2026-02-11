@@ -395,6 +395,28 @@ const toggleActive = (item) => {
 
 // Get error for field
 const getError = (field) => errors.value[field] || form.errors[field];
+
+// Limpiar error individual cuando el usuario corrige el campo
+const clearFieldError = (field) => {
+    if (errors.value[field]) delete errors.value[field];
+    if (form.errors[field]) form.clearErrors(field);
+};
+
+watch(() => form.first_name, () => clearFieldError('first_name'));
+watch(() => form.paternal_surname, () => clearFieldError('paternal_surname'));
+watch(() => form.maternal_surname, () => clearFieldError('maternal_surname'));
+watch(() => form.birth_date, () => clearFieldError('birth_date'));
+watch(() => form.position_id, () => clearFieldError('position_id'));
+watch(() => form.phone, () => clearFieldError('phone'));
+watch(() => form.mobile, () => clearFieldError('mobile'));
+watch(() => form.curp, () => clearFieldError('curp'));
+watch(() => form.rfc, () => clearFieldError('rfc'));
+watch(() => form.emails, () => {
+    // Limpiar errores de emails al modificar cualquier email
+    Object.keys(errors.value).forEach(key => {
+        if (key.startsWith('emails')) delete errors.value[key];
+    });
+}, { deep: true });
 </script>
 
 <template>
