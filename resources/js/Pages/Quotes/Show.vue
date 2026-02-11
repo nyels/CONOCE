@@ -222,20 +222,22 @@ const openPdfPreview = () => {
                     <!-- Right Column: Options -->
                     <div class="options-column">
                         <div class="card">
-                            <h3 class="card-title">💰 Opciones de Cotización</h3>
-                            
+                            <div class="card-title-row">
+                                <h3 class="card-title">💰 Opciones de Cotización</h3>
+                                <span v-if="quote.options?.length" class="option-frequency">{{ quote.options[0].payment_frequency }}</span>
+                            </div>
+
                             <div v-if="quote.options?.length" class="options-list">
-                                <div 
-                                    v-for="option in quote.options" 
+                                <div
+                                    v-for="option in quote.options"
                                     :key="option.id"
                                     class="option-card"
-                                    :class="{ 'option-card--selected': option.is_selected }"
                                 >
                                     <div class="option-header">
                                         <div class="option-insurer">
-                                            <img 
+                                            <img
                                                 v-if="option.insurer_logo"
-                                                :src="option.insurer_logo" 
+                                                :src="option.insurer_logo"
                                                 :alt="option.insurer_name"
                                                 class="insurer-logo"
                                             >
@@ -243,19 +245,23 @@ const openPdfPreview = () => {
                                         </div>
                                         <span class="option-number-badge">Opción {{ option.option_number }}</span>
                                     </div>
-                                    
+
                                     <div class="option-details">
                                         <div class="detail-row">
-                                            <span>Prima Neta</span>
+                                            <span>Prima Neta Anual</span>
                                             <span class="detail-value">{{ formatCurrency(option.net_premium) }}</span>
                                         </div>
                                         <div class="detail-row">
-                                            <span>Derecho de Póliza</span>
-                                            <span class="detail-value">{{ formatCurrency(option.policy_fee) }}</span>
-                                        </div>
-                                        <div class="detail-row detail-row--total">
-                                            <span>Prima Total</span>
+                                            <span>Prima Total Anual</span>
                                             <span class="detail-value">{{ formatCurrency(option.total_premium) }}</span>
+                                        </div>
+                                        <div class="detail-row">
+                                            <span>Primer Pago</span>
+                                            <span class="detail-value">{{ formatCurrency(option.first_payment) }}</span>
+                                        </div>
+                                        <div class="detail-row">
+                                            <span>Subsecuentes</span>
+                                            <span class="detail-value">{{ formatCurrency(option.subsequent_payment) }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -396,6 +402,21 @@ const openPdfPreview = () => {
     border-bottom: 1px solid #F3F4F6;
 }
 
+.card-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.card-title-row .card-title {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
 .info-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -470,11 +491,6 @@ const openPdfPreview = () => {
     transition: all 0.2s;
 }
 
-.option-card--selected {
-    border-color: #7B2D3B;
-    background: rgba(123, 45, 59, 0.03);
-}
-
 .option-header {
     display: flex;
     justify-content: space-between;
@@ -511,6 +527,18 @@ const openPdfPreview = () => {
     font-weight: 600;
 }
 
+.option-frequency {
+    display: inline-block;
+    background: #EEF2FF;
+    color: #4338CA;
+    padding: 0.2rem 0.625rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
 .option-details {
     display: flex;
     flex-direction: column;
@@ -529,17 +557,7 @@ const openPdfPreview = () => {
     color: #374151;
 }
 
-.detail-row--total {
-    padding-top: 0.5rem;
-    border-top: 1px dashed #E5E7EB;
-    font-weight: 600;
-    color: #111827;
-}
 
-.detail-row--total .detail-value {
-    color: #7B2D3B;
-    font-size: 1rem;
-}
 
 /* Actions Footer */
 .actions-footer {
