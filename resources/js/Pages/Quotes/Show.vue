@@ -87,7 +87,7 @@ const openPdfPreview = () => {
                             class="btn btn--secondary"
                             @click="openPdfPreview"
                         >
-                            📄 Vista Previa
+                            📄 Generar PDF
                         </button>
                         <button 
                             v-if="quote.status === 'draft'"
@@ -196,8 +196,12 @@ const openPdfPreview = () => {
                             <h3 class="card-title">📝 Información Adicional</h3>
                             <div class="info-grid">
                                 <div class="info-item" v-if="quote.agent">
-                                    <span class="info-label">Agente</span>
+                                    <span class="info-label">Creado por</span>
                                     <span class="info-value">{{ quote.agent.name }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Fecha y Hora de Cotización</span>
+                                    <span class="info-value">{{ quote.created_at }}</span>
                                 </div>
                                 <div class="info-item" v-if="quote.package_label">
                                     <span class="info-label">Paquete</span>
@@ -237,7 +241,7 @@ const openPdfPreview = () => {
                                             >
                                             <span class="insurer-name">{{ option.insurer_name }}</span>
                                         </div>
-                                        <span v-if="option.is_selected" class="selected-badge">✓ Seleccionada</span>
+                                        <span class="option-number-badge">Opción {{ option.option_number }}</span>
                                     </div>
                                     
                                     <div class="option-details">
@@ -498,9 +502,9 @@ const openPdfPreview = () => {
     color: #111827;
 }
 
-.selected-badge {
-    background: #D1FAE5;
-    color: #059669;
+.option-number-badge {
+    background: #F3F4F6;
+    color: #374151;
     padding: 0.25rem 0.625rem;
     border-radius: 9999px;
     font-size: 0.75rem;
