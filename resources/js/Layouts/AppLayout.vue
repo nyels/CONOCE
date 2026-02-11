@@ -137,17 +137,32 @@ const adminNav = [
         ]
     },
     {
-        section: 'Catálogos',
+        section: 'Catálogos — Vehículos',
         items: [
             { name: 'Marcas Vehículos', route: 'admin.vehicle-brands.index', icon: 'car', badge: null },
-            { name: 'Aseguradoras', route: 'admin.insurers.index', icon: 'building', badge: null },
             { name: 'Tipos de Vehículo', route: 'admin.vehicle-types.index', icon: 'truck', badge: null },
-            { name: 'Tipos de Contacto', route: 'admin.contact-types.index', icon: 'users', badge: null },
+        ]
+    },
+    {
+        section: 'Catálogos — Seguros',
+        items: [
+            { name: 'Aseguradoras', route: 'admin.insurers.index', icon: 'building', badge: null },
             { name: 'Paquetes Cobertura', route: 'admin.coverage-packages.index', icon: 'shield', badge: null },
             { name: 'Deducibles', route: 'admin.deductible-options.index', icon: 'chart', badge: null },
+        ]
+    },
+    {
+        section: 'Catálogos — Financiero',
+        items: [
             { name: 'Formas de Pago', route: 'admin.payment-methods.index', icon: 'currency', badge: null },
             { name: 'Derechos de Póliza', route: 'admin.policy-fees.index', icon: 'shield', badge: null },
             { name: 'Recargos', route: 'admin.surcharges.index', icon: 'chart', badge: null },
+        ]
+    },
+    {
+        section: 'Catálogos — General',
+        items: [
+            { name: 'Tipos de Contacto', route: 'admin.contact-types.index', icon: 'users', badge: null },
             { name: 'Estados', route: 'admin.mexican-states.index', icon: 'shield', badge: null },
         ]
     },
