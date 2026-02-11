@@ -82,11 +82,11 @@ const form = useForm({
 });
 
 const columns = [
-    { key: 'code', label: 'Código' },
+    { key: 'code', label: 'Código', sortable: true },
     { key: 'name', label: 'Nombre', sortable: true },
-    { key: 'installments', label: 'Pagos' },
-    { key: 'surcharge_percentage', label: 'Recargo %' },
-    { key: 'is_active', label: 'Estado', type: 'badge' },
+    { key: 'installments', label: 'Pagos', sortable: true },
+    { key: 'surcharge_percentage', label: 'Recargo %', sortable: true },
+    { key: 'is_active', label: 'Estado', type: 'badge', sortable: true },
     { key: 'actions', label: 'Acciones', type: 'actions' }
 ];
 

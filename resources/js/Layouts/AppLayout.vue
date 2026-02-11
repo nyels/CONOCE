@@ -2,6 +2,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
+import { useToast } from '@/composables/useToast';
 
 // ===== STATE =====
 const sidebarCollapsed = ref(false);
@@ -15,6 +16,14 @@ const isDesktop = computed(() => windowWidth.value >= 1024);
 const page = usePage();
 const user = computed(() => page.props.auth?.user || {});
 const userRole = computed(() => page.props.userRole || 'operator');
+const toast = useToast();
+
+// ===== FLASH MESSAGES (global handler) =====
+watch(() => page.props.flash, (flash) => {
+    if (flash?.success) toast.success(flash.success);
+    if (flash?.error) toast.error(flash.error);
+    if (flash?.message) toast.info(flash.message);
+}, { deep: true });
 
 const userInitials = computed(() => {
     if (!user.value.name) return 'U';
@@ -753,6 +762,65 @@ const closeDropdowns = () => {
     padding: 0.125rem 0.375rem;
     background: rgba(199, 161, 114, 0.15);
     border-radius: 4px;
+}
+
+/* ===== SIDEBAR COLLAPSED: NAV ITEMS ===== */
+.sidebar--collapsed .nav-group {
+    margin-bottom: 0.75rem;
+}
+
+.sidebar--collapsed .nav-item {
+    justify-content: center;
+    padding: 0.5rem;
+    margin: 2px 0.5rem;
+    background: transparent;
+}
+
+.sidebar--collapsed .nav-item:hover:not(.nav-item--disabled) {
+    background: transparent;
+}
+
+.sidebar--collapsed .nav-item__icon {
+    width: 42px;
+    height: 42px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+}
+
+.sidebar--collapsed .nav-item:hover:not(.nav-item--disabled) .nav-item__icon {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar--collapsed .nav-item--active {
+    background: transparent !important;
+}
+
+.sidebar--collapsed .nav-item--active::before {
+    display: none;
+}
+
+.sidebar--collapsed .nav-item--active .nav-item__icon {
+    background: rgba(199, 161, 114, 0.2);
+    color: #C7A172 !important;
+    box-shadow: 0 0 0 1px rgba(199, 161, 114, 0.3);
+}
+
+.sidebar--collapsed .nav-item--highlight {
+    background: transparent;
+    border: none;
+}
+
+.sidebar--collapsed .nav-item--highlight .nav-item__icon {
+    background: rgba(199, 161, 114, 0.15);
+    border: 1px solid rgba(199, 161, 114, 0.25);
+}
+
+.sidebar--collapsed .user-card {
+    justify-content: center;
+    padding: 0.5rem;
 }
 
 /* ===== USER SECTION ===== */

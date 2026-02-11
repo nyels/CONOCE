@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
 
@@ -8,50 +8,35 @@ import AuditDetailsModal from './AuditDetailsModal.vue';
 
 const props = defineProps({
     activities: Object,
-    filters: Object,
 });
 
-const search = ref(props.filters.search || '');
+const search = ref('');
 const showModal = ref(false);
 const selectedActivity = ref(null);
 
-// Debounce nativo para búsqueda
-const debounce = (fn, delay) => {
-    let timeout;
-    return (...args) => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => fn(...args), delay);
-    };
-};
+// Client-side filtered activities
+const filteredActivities = computed(() => {
+    const term = search.value.toLowerCase().trim();
+    if (!term) return props.activities.data;
+    return props.activities.data.filter(a =>
+        (a.description || '').toLowerCase().includes(term) ||
+        (a.causer?.name || '').toLowerCase().includes(term) ||
+        (a.event || '').toLowerCase().includes(term) ||
+        (a.subject_type?.split('\\').pop() || '').toLowerCase().includes(term)
+    );
+});
 
-// Paginación
-const currentPage = ref(props.activities.current_page);
-const perPage = ref(props.activities.per_page);
-
+// Paginación (server-side, mantener para audit logs grandes)
 const goToPage = (page) => {
     if (page < 1 || page > props.activities.last_page) return;
     router.get(route('admin.audit.index'), {
         page: page,
-        per_page: perPage.value,
-        search: search.value
     }, {
         preserveState: true,
         preserveScroll: true,
         replace: true,
     });
 };
-
-// Watch para Búsqueda
-watch(search, debounce((value) => {
-    router.get(route('admin.audit.index'), { 
-        search: value,
-        page: 1
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-        replace: true,
-    });
-}, 300));
 
 const openDetails = (activity) => {
     selectedActivity.value = activity;
@@ -144,7 +129,7 @@ const getInitials = (name) => {
                         />
                     </div>
                     <div class="toolbar-meta">
-                        <span class="meta-text">Mostrando {{ activities.from }}–{{ activities.to }} de {{ activities.total }}</span>
+                        <span class="meta-text">Mostrando {{ filteredActivities.length }} de {{ activities.data.length }}</span>
                     </div>
                 </div>
 
@@ -161,7 +146,7 @@ const getInitials = (name) => {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="activity in activities.data" :key="activity.id" @click="openDetails(activity)">
+                            <tr v-for="activity in filteredActivities" :key="activity.id" @click="openDetails(activity)">
                                 <td>
                                     <div class="event-cell">
                                         <span class="action-badge" :class="getActionClass(activity.event)">
@@ -202,7 +187,7 @@ const getInitials = (name) => {
                                     </button>
                                 </td>
                             </tr>
-                            <tr v-if="!activities.data.length">
+                            <tr v-if="!filteredActivities.length">
                                 <td colspan="5" class="empty-state">
                                     <div class="empty-state__content">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

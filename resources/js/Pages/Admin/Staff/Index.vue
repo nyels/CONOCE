@@ -11,7 +11,6 @@ import { useInertiaForm } from '@/composables/useInertiaForm';
 
 const props = defineProps({
     staff: { type: Object, default: () => ({ data: [] }) },
-    filters: { type: Object, default: () => ({}) },
     positions: { type: Array, default: () => [] },
 });
 
@@ -19,6 +18,21 @@ const props = defineProps({
 const { confirmDelete } = useConfirm();
 const toast = useToast();
 const { processing, submitForm, deleteRecord, toggleActive: toggleActiveRecord } = useInertiaForm();
+
+// Client-side filters
+const positionFilter = ref('');
+const activeFilter = ref('');
+const filteredStaff = computed(() => {
+    let data = props.staff.data || [];
+    if (positionFilter.value) {
+        data = data.filter(s => String(s.position_id) === positionFilter.value || s.position === positionFilter.value);
+    }
+    if (activeFilter.value !== '') {
+        const isActive = activeFilter.value === '1';
+        data = data.filter(s => s.is_active === isActive);
+    }
+    return data;
+});
 
 // Modal state
 const showModal = ref(false);
@@ -58,10 +72,10 @@ const errors = ref({});
 const columns = [
     { key: 'employee_number', label: 'No. Empleado', sortable: true },
     { key: 'full_name', label: 'Nombre', sortable: true },
-    { key: 'position', label: 'Puesto' },
-    { key: 'primary_email', label: 'Email' },
-    { key: 'phone', label: 'Teléfono' },
-    { key: 'is_active', label: 'Estado', type: 'badge' },
+    { key: 'position', label: 'Puesto', sortable: true },
+    { key: 'primary_email', label: 'Email', sortable: true },
+    { key: 'phone', label: 'Teléfono', sortable: true },
+    { key: 'is_active', label: 'Estado', type: 'badge', sortable: true },
     { key: 'actions', label: 'Acciones', type: 'actions' },
 ];
 
@@ -399,36 +413,9 @@ const getError = (field) => errors.value[field] || form.errors[field];
                     </button>
                 </div>
 
-                <!-- Filters -->
-                <div class="filters-bar">
-                    <div class="filter-group">
-                        <select
-                            class="filter-select"
-                            :value="filters.position || ''"
-                            @change="router.get(route('admin.staff.index'), { ...filters, position: $event.target.value || undefined }, { preserveState: true })"
-                        >
-                            <option value="">Todos los puestos</option>
-                            <option v-for="pos in positions" :key="pos.value" :value="pos.value">
-                                {{ pos.label }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <select
-                            class="filter-select"
-                            :value="filters.active"
-                            @change="router.get(route('admin.staff.index'), { ...filters, active: $event.target.value || undefined }, { preserveState: true })"
-                        >
-                            <option value="">Todos los estados</option>
-                            <option value="1">Activos</option>
-                            <option value="0">Inactivos</option>
-                        </select>
-                    </div>
-                </div>
-
                 <!-- Table -->
                 <CrudTable
-                    :data="staff.data"
+                    :data="filteredStaff"
                     :columns="columns"
                     :pagination="staff"
                     searchPlaceholder="Buscar personal..."
@@ -436,6 +423,19 @@ const getError = (field) => errors.value[field] || form.errors[field];
                     @edit="openEdit"
                     @delete="handleDelete"
                 >
+                    <template #filters>
+                        <select v-model="positionFilter" class="filter-select">
+                            <option value="">Todos los puestos</option>
+                            <option v-for="pos in positions" :key="pos.value" :value="pos.label">
+                                {{ pos.label }}
+                            </option>
+                        </select>
+                        <select v-model="activeFilter" class="filter-select">
+                            <option value="">Todos los estados</option>
+                            <option value="1">Activos</option>
+                            <option value="0">Inactivos</option>
+                        </select>
+                    </template>
                     <!-- Custom status column -->
                     <template #cell-is_active="{ item }">
                         <button
@@ -892,20 +892,7 @@ const getError = (field) => errors.value[field] || form.errors[field];
     margin: 0;
 }
 
-.filters-bar {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-}
 
-.filter-select {
-    padding: 0.5rem 1rem;
-    border: 1px solid #D1D5DB;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    background: white;
-}
 
 .btn {
     display: inline-flex;

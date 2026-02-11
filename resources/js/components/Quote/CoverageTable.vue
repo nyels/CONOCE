@@ -143,8 +143,23 @@ const handlePercentInput = (field, colIndex, event) => {
     setValue(field, colIndex, cleaned);
 };
 
-// Verificar si una columna está habilitada
+// Verificar si una columna está habilitada (por cantidad seleccionada)
 const isColumnEnabled = (colIndex) => colIndex <= props.enabledColumns;
+
+// Verificar si una columna tiene aseguradora seleccionada (habilita los campos de esa columna)
+const isColumnReady = (colIndex) => {
+    if (!isColumnEnabled(colIndex)) return false;
+    const insurerId = getValue('empresa_opcion', colIndex);
+    return insurerId && insurerId !== '0' && insurerId !== '';
+};
+
+// Verificar si los campos financieros (PRIMA TOTAL, PRIMER PAGO) están listos
+// Requiere: columna lista + forma de pago seleccionada
+const isPaymentReady = (colIndex) => {
+    if (!isColumnReady(colIndex)) return false;
+    const freq = props.paymentFrequency;
+    return freq && freq !== '0' && freq !== '';
+};
 
 // Total de columnas: 1 (label) + 5 (aseguradoras)
 const totalColumns = computed(() => 1 + 5);
@@ -160,19 +175,19 @@ const totalColumns = computed(() => 1 + 5);
  * RESPONSABILIDAD CIVIL: DM, cristales y RT deshabilitados
  */
 const isDanosEnabled = (colIndex) => {
-    if (!isColumnEnabled(colIndex)) return false;
+    if (!isColumnReady(colIndex)) return false;
     // AMPLIA = habilitado, LIMITADA/RC = deshabilitado
     return props.packageType === 'AMPLIA';
 };
 
 const isCristalesEnabled = (colIndex) => {
-    if (!isColumnEnabled(colIndex)) return false;
+    if (!isColumnReady(colIndex)) return false;
     // AMPLIA = habilitado, LIMITADA/RC = deshabilitado
     return props.packageType === 'AMPLIA';
 };
 
 const isRoboEnabled = (colIndex) => {
-    if (!isColumnEnabled(colIndex)) return false;
+    if (!isColumnReady(colIndex)) return false;
     // AMPLIA/LIMITADA = habilitado, RC = deshabilitado
     return props.packageType === 'AMPLIA' || props.packageType === 'LIMITADA';
 };
@@ -527,7 +542,7 @@ watch(
                 <!-- R.C. DAÑOS A TERCEROS -->
                 <tr>
                     <td class="coverage-label">R.C. DAÑOS A TERCEROS</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <div class="money-input">
                             <span class="currency-symbol">$</span>
                             <input
@@ -535,7 +550,7 @@ watch(
                                 :value="getValue('danos_tercero_opcion', col)"
                                 @keydown="onMoneyKeydown"
                                 @input="handleMoneyInput('danos_tercero_opcion', col, $event)"
-                                :disabled="!isColumnEnabled(col)"
+                                :disabled="!isColumnReady(col)"
                                 class="form-input form-input--money"
                                 :class="{ 'form-input--error': hasError('danos_tercero_opcion', col) }"
                                 placeholder="0.00"
@@ -547,7 +562,7 @@ watch(
                 <!-- DEDUCIBLE DE RC -->
                 <tr>
                     <td class="coverage-label">DEDUCIBLE DE RC</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <div class="percent-input">
                             <input
                                 type="text"
@@ -555,7 +570,7 @@ watch(
                                 :value="getValue('deducible_de_rc_opcion', col)"
                                 @keydown="onPercentKeydown"
                                 @input="handlePercentInput('deducible_de_rc_opcion', col, $event)"
-                                :disabled="!isColumnEnabled(col)"
+                                :disabled="!isColumnReady(col)"
                                 class="form-input form-input--percent"
                                 maxlength="3"
                             />
@@ -567,7 +582,7 @@ watch(
                 <!-- R.C. FALLECIMIENTO -->
                 <tr>
                     <td class="coverage-label">R.C. FALLECIMIENTO</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <div class="money-input">
                             <span class="currency-symbol">$</span>
                             <input
@@ -575,7 +590,7 @@ watch(
                                 :value="getValue('fallecimiento_opcion', col)"
                                 @keydown="onMoneyKeydown"
                                 @input="handleMoneyInput('fallecimiento_opcion', col, $event)"
-                                :disabled="!isColumnEnabled(col)"
+                                :disabled="!isColumnReady(col)"
                                 class="form-input form-input--money"
                                 :class="{ 'form-input--error': hasError('fallecimiento_opcion', col) }"
                                 placeholder="0.00"
@@ -587,7 +602,7 @@ watch(
                 <!-- GASTOS MEDICOS OCUPANTES -->
                 <tr>
                     <td class="coverage-label">GASTOS MEDICOS OCUPANTES</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <div class="money-input">
                             <span class="currency-symbol">$</span>
                             <input
@@ -595,7 +610,7 @@ watch(
                                 :value="getValue('gastos_medicos_opcion', col)"
                                 @keydown="onMoneyKeydown"
                                 @input="handleMoneyInput('gastos_medicos_opcion', col, $event)"
-                                :disabled="!isColumnEnabled(col)"
+                                :disabled="!isColumnReady(col)"
                                 class="form-input form-input--money"
                                 :class="{ 'form-input--error': hasError('gastos_medicos_opcion', col) }"
                                 placeholder="0.00"
@@ -607,7 +622,7 @@ watch(
                 <!-- ACCIDENTES AL CONDUCTOR -->
                 <tr>
                     <td class="coverage-label">ACCIDENTES AL CONDUCTOR</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <div class="money-input">
                             <span class="currency-symbol">$</span>
                             <input
@@ -615,7 +630,7 @@ watch(
                                 :value="getValue('accidente_conducir_opcion', col)"
                                 @keydown="onMoneyKeydown"
                                 @input="handleMoneyInput('accidente_conducir_opcion', col, $event)"
-                                :disabled="!isColumnEnabled(col)"
+                                :disabled="!isColumnReady(col)"
                                 class="form-input form-input--money"
                                 :class="{ 'form-input--error': hasError('accidente_conducir_opcion', col) }"
                                 placeholder="0.00"
@@ -627,11 +642,11 @@ watch(
                 <!-- PROTECCION LEGAL -->
                 <tr>
                     <td class="coverage-label">PROTECCION LEGAL</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <select
                             :value="getValue('proteccion_opcion_selec', col) || 'AMPARADA'"
                             @change="setValue('proteccion_opcion_selec', col, $event.target.value)"
-                            :disabled="!isColumnEnabled(col)"
+                            :disabled="!isColumnReady(col)"
                             class="form-select"
                         >
                             <option value="AMPARADA">AMPARADA</option>
@@ -642,11 +657,11 @@ watch(
                 <!-- ASISTENCIA VIAL -->
                 <tr>
                     <td class="coverage-label">ASISTENCIA VIAL</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <select
                             :value="getValue('asistencia_vial_opcion_selec', col) || 'AMPARADA'"
                             @change="setValue('asistencia_vial_opcion_selec', col, $event.target.value)"
-                            :disabled="!isColumnEnabled(col)"
+                            :disabled="!isColumnReady(col)"
                             class="form-select"
                         >
                             <option value="AMPARADA">AMPARADA</option>
@@ -657,11 +672,11 @@ watch(
                 <!-- DAÑOS POR LA CARGA -->
                 <tr>
                     <td class="coverage-label">DAÑOS POR LA CARGA</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <select
                             :value="getValue('danos_carga_opcion_selec', col)"
                             @change="setValue('danos_carga_opcion_selec', col, $event.target.value)"
-                            :disabled="!isColumnEnabled(col)"
+                            :disabled="!isColumnReady(col)"
                             class="form-select"
                             :class="{ 'form-select--error': hasError('danos_carga_opcion_selec', col) }"
                         >
@@ -675,7 +690,7 @@ watch(
                 <!-- ADAPTACIONES, CONVERSIONES Y/O EQUIPO ESPECIAL -->
                 <tr>
                     <td class="coverage-label">ADAPTACIONES, CONVERSIONES Y/O EQUIPO ESPECIAL</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <div class="money-input">
                             <span class="currency-symbol">$</span>
                             <input
@@ -683,7 +698,7 @@ watch(
                                 :value="getValue('adaptaciones_opcion', col)"
                                 @keydown="onMoneyKeydown"
                                 @input="handleMoneyInput('adaptaciones_opcion', col, $event)"
-                                :disabled="!isColumnEnabled(col)"
+                                :disabled="!isColumnReady(col)"
                                 class="form-input form-input--money"
                                 placeholder="0.00"
                             />
@@ -709,11 +724,11 @@ watch(
                 <!-- EXTENSION DE RC -->
                 <tr>
                     <td class="coverage-label">EXTENSION DE RC</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <select
                             :value="getValue('extension_rc_opcion', col)"
                             @change="setValue('extension_rc_opcion', col, $event.target.value)"
-                            :disabled="!isColumnEnabled(col)"
+                            :disabled="!isColumnReady(col)"
                             class="form-select"
                             :class="{ 'form-select--error': hasError('extension_rc_opcion', col) }"
                         >
@@ -739,11 +754,11 @@ watch(
                             placeholder="Cobertura adicional 1"
                         />
                     </td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <select
                             :value="getValue('cobertura_opcion_1_select', col)"
                             @change="setValue('cobertura_opcion_1_select', col, $event.target.value)"
-                            :disabled="!isColumnEnabled(col)"
+                            :disabled="!isColumnReady(col)"
                             class="form-select"
                         >
                             <option v-for="opt in coverageStatusOptions" :key="opt.value" :value="opt.value">
@@ -768,11 +783,11 @@ watch(
                             placeholder="Cobertura adicional 2"
                         />
                     </td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <select
                             :value="getValue('cobertura_opcion_2_select', col)"
                             @change="setValue('cobertura_opcion_2_select', col, $event.target.value)"
-                            :disabled="!isColumnEnabled(col)"
+                            :disabled="!isColumnReady(col)"
                             class="form-select"
                         >
                             <option v-for="opt in coverageStatusOptions" :key="opt.value" :value="opt.value">
@@ -812,16 +827,16 @@ watch(
                 <!-- El valor se actualiza via Create.vue -> requestBackendCalculation() -->
                 <tr>
                     <td class="coverage-label">PRIMA NETA ANUAL</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnReady(col) }">
                         <div class="money-input">
                             <span class="currency-symbol">$</span>
                             <input
                                 type="text"
                                 :value="getValue('cantidad_prima_neta_opcion', col)"
                                 readonly
-                                :disabled="!isColumnEnabled(col)"
+                                :disabled="!isColumnReady(col)"
                                 class="form-input form-input--money form-input--readonly"
-                                placeholder="(calculado)"
+                                placeholder="0.00"
                                 title="Calculado automáticamente por el sistema"
                             />
                         </div>
@@ -831,7 +846,7 @@ watch(
                 <!-- PRIMA TOTAL ANUAL -->
                 <tr>
                     <td class="coverage-label">PRIMA TOTAL ANUAL</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isPaymentReady(col) }">
                         <div class="money-input">
                             <span class="currency-symbol">$</span>
                             <input
@@ -839,7 +854,7 @@ watch(
                                 :value="getValue('cantidad_total_anual_opcion', col)"
                                 @keydown="onMoneyKeydown"
                                 @input="handleMoneyInput('cantidad_total_anual_opcion', col, $event)"
-                                :disabled="!isColumnEnabled(col)"
+                                :disabled="!isPaymentReady(col)"
                                 class="form-input form-input--money"
                                 placeholder="0.00"
                             />
@@ -851,7 +866,7 @@ watch(
                 <!-- Legacy: #primer_pago_opcion_X.focusout -> verificar_primer_pago_opcion_X -->
                 <tr>
                     <td class="coverage-label">PRIMER PAGO</td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isPaymentReady(col) }">
                         <div class="money-input">
                             <span class="currency-symbol">$</span>
                             <input
@@ -860,7 +875,7 @@ watch(
                                 @keydown="onMoneyKeydown"
                                 @input="handleMoneyInput('primer_pago_opcion', col, $event)"
                                 @blur="handlePrimerPagoBlur(col)"
-                                :disabled="!isColumnEnabled(col)"
+                                :disabled="!isPaymentReady(col)"
                                 :readonly="props.paymentFrequency === 'ANUAL'"
                                 class="form-input form-input--money"
                                 placeholder="0.00"
@@ -877,16 +892,16 @@ watch(
                     <td class="coverage-label">
                         SUBSECUENTES: <strong>{{ getSubsequentPayments }}</strong>
                     </td>
-                    <td v-for="col in 5" :key="col" :class="{ disabled: !isColumnEnabled(col) }">
+                    <td v-for="col in 5" :key="col" :class="{ disabled: !isPaymentReady(col) }">
                         <div class="money-input">
                             <span class="currency-symbol">$</span>
                             <input
                                 type="text"
                                 :value="getValue('subsecuente_opcion', col)"
                                 readonly
-                                :disabled="!isColumnEnabled(col)"
+                                :disabled="!isPaymentReady(col)"
                                 class="form-input form-input--money form-input--readonly"
-                                placeholder="(calculado)"
+                                placeholder="0.00"
                                 title="Calculado automáticamente: (Prima Total - Primer Pago) / {{ getSubsequentPayments }}"
                             />
                         </div>

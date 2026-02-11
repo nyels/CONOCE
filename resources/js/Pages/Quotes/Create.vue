@@ -5,15 +5,16 @@
     y la lógica condicional exacta
 -->
 <script setup>
-import { ref, computed, watch, reactive, onMounted } from 'vue';
+import { ref, computed, watch, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 defineOptions({ layout: AppLayout });
 import CoverageTable from '@/components/Quote/CoverageTable.vue';
 import { useCurrencyFormat } from '@/composables/useCurrencyFormat';
+import { useToast } from '@/composables/useToast';
 import Swal from 'sweetalert2';
 
-// Props desde el backend (QuoteController@create)
+// Props desde el backend (QuoteController@create o @edit)
 const props = defineProps({
     customers: { type: Array, default: () => [] },
     contacts: { type: Array, default: () => [] },
@@ -22,9 +23,17 @@ const props = defineProps({
     years: { type: Array, default: () => [] },
     insurers: { type: Array, default: () => [] },
     coveragePackages: { type: Array, default: () => [] },
+    quote: { type: Object, default: null }, // Datos existentes en modo edición
 });
 
+// Modo edición si viene quote prop
+const isEditMode = computed(() => !!props.quote?.id);
+
+// Flag para suprimir watchers durante inicialización en modo edición
+const isInitializing = ref(false);
+
 const { formatInput } = useCurrencyFormat();
+const toast = useToast();
 
 // ==========================================
 // Valores por defecto para columnas de coberturas
@@ -180,16 +189,48 @@ const setAseguradorasCount = (count) => {
  * LEGACY: cantidad_aseguradoras y paquete inician en 0 (placeholder)
  * Ver: cotizacion_autos.txt líneas 360-365, 384-391
  */
-const initQuoteForm = () => {
-    // Inicializar coverages con defaults
-    form.coverages = getInitialCoverages();
+const initQuoteForm = async () => {
+    if (props.quote) {
+        // MODO EDICIÓN: Suprimir watchers durante carga inicial
+        isInitializing.value = true;
 
-    // LEGACY: Ambos placeholders con value="0"
-    form.cantidad_aseguradoras = 0;
-    form.paquete = '0';
+        const q = props.quote;
+        form.tipo_cotizacion = q.tipo_cotizacion;
+        form.hora_solicitada = q.hora_solicitada || '';
+        form.contact_id = q.contact_id;
+        form.customer_id = q.customer_id;
+        form.asegurado = { ...q.asegurado };
+        form.vehiculo = { ...q.vehiculo };
+        form.renovacion = { ...q.renovacion };
+        form.paquete = q.paquete;
+        form.cantidad_aseguradoras = q.cantidad_aseguradoras;
+        form.coverages = { ...q.coverages };
+        form.custom_coverage_1_name = q.custom_coverage_1_name || '';
+        form.custom_coverage_2_name = q.custom_coverage_2_name || '';
+        form.notas = q.notas || '';
 
-    // No hay columnas habilitadas hasta que el usuario seleccione
-    setAseguradorasCount(0);
+        // Habilitar columnas según la cantidad de aseguradoras
+        setAseguradorasCount(q.cantidad_aseguradoras);
+
+        // Pre-cargar financial settings de las aseguradoras existentes (sin toast)
+        const n = parseInt(q.cantidad_aseguradoras) || 0;
+        for (let col = 1; col <= n; col++) {
+            const insurerId = q.coverages?.[`empresa_opcion_${col}`];
+            if (insurerId && insurerId !== '0') {
+                await loadFinancialSettings(insurerId);
+            }
+        }
+
+        // Permitir watchers después de un tick para que Vue procese los cambios
+        await nextTick();
+        isInitializing.value = false;
+    } else {
+        // MODO CREACIÓN: Inicializar con defaults
+        form.coverages = getInitialCoverages();
+        form.cantidad_aseguradoras = 0;
+        form.paquete = '0';
+        setAseguradorasCount(0);
+    }
 };
 
 /**
@@ -210,8 +251,28 @@ const handleInsurerChanged = ({ colIndex, insurerId }) => {
 };
 
 // Ejecutar inicialización al montar
+// Protección contra pérdida de datos al cerrar/recargar pestaña
+const allowNavigation = ref(false);
+const handleBeforeUnload = (e) => {
+    if (form.isDirty && !allowNavigation.value) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+};
+
+// Desactivar beforeunload durante navegación Inertia (links internos)
+const removeInertiaListener = router.on('before', () => {
+    allowNavigation.value = true;
+});
+
 onMounted(() => {
     initQuoteForm();
+    window.addEventListener('beforeunload', handleBeforeUnload);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+    removeInertiaListener();
 });
 
 // ==========================================
@@ -282,9 +343,17 @@ const validateField = (field) => {
             break;
 
         case 'hora_solicitada':
-            fieldErrors.hora_solicitada = !form.hora_solicitada
-                ? '¡Debes ingresar la hora solicitada!'
-                : '';
+            if (!form.hora_solicitada) {
+                fieldErrors.hora_solicitada = '¡Debes ingresar la hora solicitada!';
+            } else {
+                const now = new Date();
+                const [h, m] = form.hora_solicitada.split(':').map(Number);
+                if (h > now.getHours() || (h === now.getHours() && m > now.getMinutes())) {
+                    fieldErrors.hora_solicitada = 'La hora no puede ser mayor a la hora actual.';
+                } else {
+                    fieldErrors.hora_solicitada = '';
+                }
+            }
             break;
 
         case 'contact_id':
@@ -531,6 +600,16 @@ const validateAllFields = () => {
     });
 };
 
+// Scroll al primer campo con error visible
+const scrollToFirstError = () => {
+    setTimeout(() => {
+        const el = document.querySelector('.form-input--error, .form-select--error, .field-error');
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, 50);
+};
+
 // Verificar si el formulario es válido
 const isFormValid = computed(() => {
     return Object.values(fieldErrors).every(error => !error);
@@ -575,290 +654,89 @@ const loadFinancialSettings = async (insurerId) => {
 };
 
 // ==========================================
-// BACKEND AUTORITATIVO: Control de cálculos en tiempo real
-// El frontend SOLO renderiza, NUNCA calcula valores monetarios
+// CÁLCULO LOCAL: Fórmulas canónicas ejecutadas en frontend
+// El backend RECALCULA y VALIDA al guardar (QuoteController::store)
+// Fórmulas: N = ((T / 1.16) - D) / (1 + R)
+//           Subsecuentes: SEM=T-PP, TRIM=(T-PP)/3, MEN=(T-PP)/11
 // ==========================================
-const calculationRequestId = ref(0);
-const isCalculating = ref(false);
-let calculationDebounceTimer = null;
+
+const parseMoney = (str) => {
+    if (!str) return 0;
+    return parseFloat(String(str).replace(/[,$]/g, '')) || 0;
+};
+
+const formatMoney = (value) => {
+    if (value === null || value === undefined || value === 0) return '0';
+    return parseFloat(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+};
 
 /**
- * Solicita cálculo al backend (ÚNICA fuente de verdad)
- * El frontend envía inputs, el backend responde con TODOS los valores calculados
- *
- * @param {number} column - Columna a calcular (1-5)
- * @param {string} trigger - Qué campo disparó el cálculo ('primer_pago', 'total_anual', 'forma_pago')
+ * Calcula prima neta y subsecuentes LOCALMENTE para una columna
+ * Usa financial settings pre-cargados (policy_fee + surcharges)
+ * Backend recalcula al guardar → seguridad intacta
  */
-const requestBackendCalculation = async (column, trigger = 'primer_pago') => {
-    // No calcular si no hay forma de pago seleccionada
+const calculateLocally = (column) => {
     const formaPago = form.coverages?.forma_de_pago;
     if (!formaPago || formaPago === '0') return;
 
     const insurerId = form.coverages?.[`empresa_opcion_${column}`];
-    if (!insurerId || insurerId === '0') {
-        // Si se intenta calcular sin aseguradora, alertar al usuario
-        const totalAnual = form.coverages?.[`cantidad_total_anual_opcion_${column}`];
-        if (trigger === 'total_anual' && totalAnual && totalAnual !== '' && totalAnual !== '0') {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Aseguradora requerida',
-                text: `Seleccione una aseguradora en la opción ${column} antes de ingresar la prima total.`,
-                confirmButtonColor: '#7B2D3B',
-            });
-        }
+    if (!insurerId || insurerId === '0') return;
+
+    const settings = insurerFinancialSettings.value[insurerId];
+    if (!settings) {
+        toast.warning('Sin configuración financiera para esta aseguradora. Configure en Catálogos → Aseguradoras.');
         return;
     }
 
-    // Control de race conditions: incrementar request_id
-    const currentRequestId = ++calculationRequestId.value;
-
-    // Debounce: esperar 300ms antes de enviar
-    if (calculationDebounceTimer) {
-        clearTimeout(calculationDebounceTimer);
+    const totalAnual = parseMoney(form.coverages?.[`cantidad_total_anual_opcion_${column}`]);
+    if (totalAnual <= 0) {
+        form.coverages[`cantidad_prima_neta_opcion_${column}`] = '';
+        form.coverages[`subsecuente_opcion_${column}`] = '';
+        return;
     }
 
-    calculationDebounceTimer = setTimeout(async () => {
-        // Si ya hay otro request más reciente, cancelar este
-        if (currentRequestId !== calculationRequestId.value) return;
+    // Obtener derecho de póliza y recargo según frecuencia
+    const policyFee = settings.policy_fee || 0;
+    const surchargePercent = formaPago === 'ANUAL' ? 0 : (settings.surcharges?.[formaPago] || 0);
 
-        isCalculating.value = true;
+    // Fórmula canónica: N = ((T / 1.16) - D) / (1 + R%)
+    const beforeTax = totalAnual / 1.16;
+    const afterPolicyFee = beforeTax - policyFee;
+    const surchargeFactor = 1 + (surchargePercent / 100);
+    const netPremium = afterPolicyFee / surchargeFactor;
 
-        try {
-            const paymentFrequency = formaPago;
+    if (netPremium < 0) {
+        form.coverages[`cantidad_prima_neta_opcion_${column}`] = '';
+        form.coverages[`subsecuente_opcion_${column}`] = '';
+        toast.warning('Prima total muy baja para cubrir derecho de póliza y recargo.');
+        return;
+    }
 
-            // Parsear valores monetarios (quitar comas y símbolos)
-            const parseMoney = (str) => {
-                if (!str) return 0;
-                return parseFloat(String(str).replace(/[,$]/g, '')) || 0;
-            };
+    // Aplicar prima neta
+    form.coverages[`cantidad_prima_neta_opcion_${column}`] = formatMoney(Math.round(netPremium * 100) / 100);
 
-            const totalAnual = parseMoney(form.coverages?.[`cantidad_total_anual_opcion_${column}`]);
-            const primerPago = parseMoney(form.coverages?.[`primer_pago_opcion_${column}`]);
+    // Calcular subsecuentes
+    const primerPago = parseMoney(form.coverages?.[`primer_pago_opcion_${column}`]);
 
-            const response = await fetch('/api/quotes/calculate-realtime', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                },
-                body: JSON.stringify({
-                    request_id: String(currentRequestId),
-                    insurer_id: insurerId,
-                    frequency: paymentFrequency,
-                    total_annual: totalAnual,
-                    first_payment: primerPago,
-                }),
-            });
-
-            // Si ya hay otro request más reciente, ignorar esta respuesta
-            if (currentRequestId !== calculationRequestId.value) return;
-
-            const data = await response.json();
-
-            // Mapa completo de errores financieros → mensajes claros para el usuario
-            const financialErrorMessages = {
-                'no_derecho': 'No hay derecho de póliza configurado para esta aseguradora. Configure en Catálogos → Derechos de Póliza.',
-                'no_recargo': 'No hay recargo configurado para esta aseguradora y forma de pago. Configure en Catálogos → Recargos.',
-                'prima_neta_negativa': 'La prima total ingresada es muy baja. No alcanza para cubrir el derecho de póliza y recargo. Aumente el monto.',
-                'primer_pago_excede_total': 'El primer pago no puede ser mayor o igual a la prima total anual.',
-                'frecuencia_invalida': 'La forma de pago seleccionada no es válida. Seleccione: Anual, Semestral, Trimestral o Mensual.',
-                'total_invalido': 'La prima total anual debe ser mayor a cero.',
-            };
-
-            if (response.ok && data.calculation) {
-                // Verificar si el backend retornó un error embebido en la respuesta
-                if (data.calculation.error) {
-                    form.coverages[`cantidad_prima_neta_opcion_${column}`] = '';
-                    form.coverages[`subsecuente_opcion_${column}`] = '';
-                    const errorCode = data.calculation.error;
-                    const isConfigError = ['no_derecho', 'no_recargo'].includes(errorCode);
-                    Swal.fire({
-                        icon: isConfigError ? 'info' : 'warning',
-                        title: isConfigError ? 'Configuración incompleta' : 'Error en el cálculo',
-                        text: financialErrorMessages[errorCode] || 'Error inesperado en el cálculo financiero. Contacte a soporte.',
-                        confirmButtonColor: '#7B2D3B',
-                    });
-                } else {
-                    // Sin error → aplicar valores calculados
-                    const formatMoney = (value) => {
-                        if (value === null || value === undefined || value === 0) return '0';
-                        return parseFloat(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-                    };
-
-                    // PRIMA NETA ANUAL - DERIVADA, READONLY, BACKEND-AUTORITATIVA
-                    if (data.calculation.net_premium !== undefined) {
-                        form.coverages[`cantidad_prima_neta_opcion_${column}`] = formatMoney(data.calculation.net_premium);
-                    }
-
-                    // Subsecuente (el backend es autoritativo)
-                    if (data.calculation.subsequent_payment !== undefined) {
-                        form.coverages[`subsecuente_opcion_${column}`] = formatMoney(data.calculation.subsequent_payment);
-                    }
-
-                    // ANUAL: primer_pago = total_anual EXACTO
-                    if (trigger === 'total_anual') {
-                        const formaPagoActual = form.coverages?.forma_de_pago;
-                        if (formaPagoActual === 'ANUAL') {
-                            const totalAnualStr = form.coverages?.[`cantidad_total_anual_opcion_${column}`] || '';
-                            form.coverages[`primer_pago_opcion_${column}`] = totalAnualStr;
-                        }
-                    }
-                }
-            } else if (!response.ok) {
-                // Error HTTP (422, 500, etc.)
-                form.coverages[`cantidad_prima_neta_opcion_${column}`] = '';
-                form.coverages[`subsecuente_opcion_${column}`] = '';
-                const errorCode = data?.error || data?.calculation?.error;
-                if (errorCode && financialErrorMessages[errorCode]) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Error en el cálculo',
-                        text: financialErrorMessages[errorCode],
-                        confirmButtonColor: '#7B2D3B',
-                    });
-                }
-            }
-        } catch (_error) {
-            // LEGACY: Errores silenciosos — NO mostrar alertas, NO logs
-            // El campo simplemente queda sin calcular
-        } finally {
-            if (currentRequestId === calculationRequestId.value) {
-                isCalculating.value = false;
-            }
-        }
-    }, 300);
+    if (formaPago === 'ANUAL') {
+        form.coverages[`primer_pago_opcion_${column}`] = form.coverages?.[`cantidad_total_anual_opcion_${column}`] || '';
+        form.coverages[`subsecuente_opcion_${column}`] = '';
+    } else if (primerPago > 0 && primerPago <= totalAnual) {
+        const divisor = { 'SEMESTRAL': 1, 'TRIMESTRAL': 3, 'MENSUAL': 11 }[formaPago] || 1;
+        const subsecuente = Math.round(((totalAnual - primerPago) / divisor) * 100) / 100;
+        form.coverages[`subsecuente_opcion_${column}`] = formatMoney(subsecuente);
+    }
 };
 
 /**
- * Solicita cálculo batch para todas las columnas habilitadas
- * Se usa cuando cambia forma_de_pago (afecta a todas las columnas)
+ * Calcula todas las columnas habilitadas (cuando cambia forma_de_pago)
  */
-const requestBatchCalculation = async () => {
+const calculateAllColumns = () => {
     const n = parseInt(form.cantidad_aseguradoras) || 0;
-    if (n === 0) return;
-
-    // No calcular si no hay forma de pago seleccionada
-    const paymentFrequency = form.coverages?.forma_de_pago;
-    if (!paymentFrequency || paymentFrequency === '0') return;
-
-    const currentRequestId = ++calculationRequestId.value;
-    isCalculating.value = true;
-
-    try {
-
-        const parseMoney = (str) => {
-            if (!str) return 0;
-            return parseFloat(String(str).replace(/[,$]/g, '')) || 0;
-        };
-
-        // Construir array de opciones con datos (formato que espera el backend)
-        const options = [];
-        for (let col = 1; col <= n; col++) {
-            const insurerId = form.coverages?.[`empresa_opcion_${col}`];
-            if (insurerId && insurerId !== '0') {
-                options.push({
-                    column: col,
-                    insurer_id: parseInt(insurerId),
-                    total_annual: parseMoney(form.coverages?.[`cantidad_total_anual_opcion_${col}`]),
-                    first_payment: parseMoney(form.coverages?.[`primer_pago_opcion_${col}`]),
-                });
-            }
-        }
-
-        if (options.length === 0) return;
-
-        const response = await fetch('/api/quotes/calculate-batch', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-            },
-            body: JSON.stringify({
-                request_id: String(currentRequestId),
-                frequency: paymentFrequency,
-                options: options,
-            }),
-        });
-
-        if (currentRequestId !== calculationRequestId.value) return;
-
-        const data = response.ok ? await response.json() : null;
-
-        if (response.ok && data) {
-            const formatMoney = (value) => {
-                if (value === null || value === undefined || value === 0) return '0';
-                return parseFloat(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-            };
-
-            // Mapa completo de errores financieros
-            const batchErrorMessages = {
-                'no_derecho': 'No hay derecho de póliza configurado para esta aseguradora. Configure en Catálogos → Derechos de Póliza.',
-                'no_recargo': 'No hay recargo configurado para esta aseguradora y forma de pago. Configure en Catálogos → Recargos.',
-                'prima_neta_negativa': 'La prima total ingresada es muy baja. No alcanza para cubrir el derecho de póliza y recargo. Aumente el monto.',
-                'primer_pago_excede_total': 'El primer pago no puede ser mayor o igual a la prima total anual.',
-                'frecuencia_invalida': 'La forma de pago seleccionada no es válida. Seleccione: Anual, Semestral, Trimestral o Mensual.',
-                'total_invalido': 'La prima total anual debe ser mayor a cero.',
-            };
-
-            // Aplicar resultados a cada columna
-            // El backend retorna { results: { 1: {...}, 2: {...}, ... } }
-            const errorsByType = {};
-            if (data.results && typeof data.results === 'object') {
-                Object.entries(data.results).forEach(([col, result]) => {
-                    // Verificar si hay error en esta columna
-                    if (result.error) {
-                        form.coverages[`cantidad_prima_neta_opcion_${col}`] = '';
-                        form.coverages[`subsecuente_opcion_${col}`] = '';
-                        const errorCode = result.error;
-                        if (!errorsByType[errorCode]) {
-                            errorsByType[errorCode] = [];
-                        }
-                        errorsByType[errorCode].push(col);
-                        return;
-                    }
-
-                    if (result.net_premium !== undefined) {
-                        form.coverages[`cantidad_prima_neta_opcion_${col}`] = formatMoney(result.net_premium);
-                    }
-                    if (result.subsequent_payment !== undefined) {
-                        form.coverages[`subsecuente_opcion_${col}`] = formatMoney(result.subsequent_payment);
-                    }
-
-                    const formaPagoActual = form.coverages?.forma_de_pago;
-                    if (formaPagoActual === 'ANUAL') {
-                        const totalAnualStr = form.coverages?.[`cantidad_total_anual_opcion_${col}`] || '';
-                        form.coverages[`primer_pago_opcion_${col}`] = totalAnualStr;
-                    }
-                });
-            }
-
-            // Alertar si hubo errores agrupados por tipo
-            const errorCodes = Object.keys(errorsByType);
-            if (errorCodes.length > 0) {
-                const configErrors = errorCodes.filter(c => ['no_derecho', 'no_recargo'].includes(c));
-                const calcErrors = errorCodes.filter(c => !['no_derecho', 'no_recargo'].includes(c));
-
-                let messages = [];
-                for (const code of errorCodes) {
-                    const msg = batchErrorMessages[code] || 'Error inesperado en el cálculo. Contacte a soporte.';
-                    messages.push(msg);
-                }
-
-                Swal.fire({
-                    icon: configErrors.length > 0 && calcErrors.length === 0 ? 'info' : 'warning',
-                    title: configErrors.length > 0 && calcErrors.length === 0 ? 'Configuración incompleta' : 'Error en el cálculo',
-                    html: messages.map(m => `<p style="margin:4px 0;text-align:left;">${m}</p>`).join(''),
-                    confirmButtonColor: '#7B2D3B',
-                });
-            }
-        }
-    } catch (_error) {
-        // LEGACY: Errores silenciosos — NO mostrar alertas, NO logs
-    } finally {
-        if (currentRequestId === calculationRequestId.value) {
-            isCalculating.value = false;
+    for (let col = 1; col <= n; col++) {
+        const insurerId = form.coverages?.[`empresa_opcion_${col}`];
+        if (insurerId && insurerId !== '0') {
+            calculateLocally(col);
         }
     }
 };
@@ -1124,6 +1002,7 @@ watch(
  * 3. Disparar recálculo prima si hay valores
  */
 const handleInsurerChangeWithCalculation = async (column, insurerId) => {
+    if (isInitializing.value) return; // Suprimir durante inicialización en modo edición
     if (!insurerId || insurerId === '0') return;
 
     // 1. Cargar financial settings (derecho + recargos)
@@ -1132,7 +1011,7 @@ const handleInsurerChangeWithCalculation = async (column, insurerId) => {
     // 2. Disparar recálculo si ya hay valores en la columna
     const totalAnual = form.coverages?.[`cantidad_total_anual_opcion_${column}`];
     if (totalAnual && totalAnual !== '' && totalAnual !== '0') {
-        requestBackendCalculation(column, 'total_anual');
+        calculateLocally(column);
     }
 };
 
@@ -1147,11 +1026,12 @@ watch(() => form.coverages?.empresa_opcion_5, (newId) => handleInsurerChangeWith
  * EVENTO 2: forma_de_pago.change
  * LEGACY: Cuando cambia forma de pago, recalcular TODAS las columnas
  *
- * Dispara requestBatchCalculation() que actualiza:
+ * Dispara calculateAllColumns() que actualiza:
  * - cantidad_prima_neta_opcion_N
  * - subsecuente_opcion_N
  */
 watch(() => form.coverages?.forma_de_pago, (newVal, oldVal) => {
+    if (isInitializing.value) return; // Suprimir durante inicialización en modo edición
     if (newVal === oldVal) return;
 
     const n = parseInt(form.cantidad_aseguradoras) || 0;
@@ -1182,7 +1062,7 @@ watch(() => form.coverages?.forma_de_pago, (newVal, oldVal) => {
         }
     }
 
-    requestBatchCalculation();
+    calculateAllColumns();
 });
 
 /**
@@ -1193,22 +1073,21 @@ watch(() => form.coverages?.forma_de_pago, (newVal, oldVal) => {
  * El backend calcula:
  * - prima_neta = (total / 1.16) - derecho - (recargo si aplica)
  *
- * ANUAL: primer_pago = total_anual (inmediato, sin esperar backend)
+ * ANUAL: primer_pago = total_anual (inmediato, sin debounce)
+ * calculateLocally() se ejecuta con debounce de 500ms para no interrumpir al usuario
  */
+const totalAnualDebounceTimers = {};
 const handleTotalAnualChange = (column) => {
-    const parseMoney = (str) => {
-        if (!str) return 0;
-        return parseFloat(String(str).replace(/[,$]/g, '')) || 0;
-    };
-
+    if (isInitializing.value) return; // Suprimir durante inicialización en modo edición
     const totalStr = form.coverages?.[`cantidad_total_anual_opcion_${column}`] || '';
     const total = parseMoney(totalStr);
 
-    // Si total_anual se borra o queda en 0, limpiar campos dependientes
+    // Si total_anual se borra o queda en 0, limpiar campos dependientes (inmediato)
     if (total <= 0) {
         form.coverages[`primer_pago_opcion_${column}`] = '';
         form.coverages[`subsecuente_opcion_${column}`] = '';
         form.coverages[`cantidad_prima_neta_opcion_${column}`] = '';
+        clearTimeout(totalAnualDebounceTimers[column]);
         return;
     }
 
@@ -1216,7 +1095,12 @@ const handleTotalAnualChange = (column) => {
     if (form.coverages?.forma_de_pago === 'ANUAL') {
         form.coverages[`primer_pago_opcion_${column}`] = totalStr;
     }
-    requestBackendCalculation(column, 'total_anual');
+
+    // Debounce: calcular solo cuando el usuario deje de escribir (500ms)
+    clearTimeout(totalAnualDebounceTimers[column]);
+    totalAnualDebounceTimers[column] = setTimeout(() => {
+        calculateLocally(column);
+    }, 500);
 };
 
 watch(() => form.coverages?.cantidad_total_anual_opcion_1, () => handleTotalAnualChange(1));
@@ -1232,54 +1116,47 @@ watch(() => form.coverages?.cantidad_total_anual_opcion_5, () => handleTotalAnua
  * Validación: primer_pago no puede exceder prima_total_anual
  * Si excede, limpiar subsecuente y mostrar alerta
  */
+const primerPagoDebounceTimers = {};
 const handlePrimerPagoChange = (column) => {
-    const parseMoney = (str) => {
-        if (!str) return 0;
-        return parseFloat(String(str).replace(/[,$]/g, '')) || 0;
-    };
-
+    if (isInitializing.value) return; // Suprimir durante inicialización en modo edición
     const primerPagoStr = form.coverages?.[`primer_pago_opcion_${column}`] || '';
     const primerPago = parseMoney(primerPagoStr);
     const totalAnual = parseMoney(form.coverages?.[`cantidad_total_anual_opcion_${column}`]);
-    const frecuencia = form.coverages?.forma_de_pago;
 
-    // Si no hay total_anual, no calcular nada
+    // Si no hay total_anual, no calcular nada (inmediato)
     if (totalAnual <= 0) {
         form.coverages[`subsecuente_opcion_${column}`] = '';
+        clearTimeout(primerPagoDebounceTimers[column]);
         return;
     }
 
-    // Si primer_pago está vacío, limpiar subsecuente y no calcular
+    // Si primer_pago está vacío, limpiar subsecuente (inmediato)
     if (!primerPagoStr || primerPago <= 0) {
         form.coverages[`subsecuente_opcion_${column}`] = '';
+        clearTimeout(primerPagoDebounceTimers[column]);
         return;
     }
 
-    // Si primer_pago excede total_anual, alertar y limpiar
-    if (primerPago > totalAnual) {
-        form.coverages[`subsecuente_opcion_${column}`] = '';
-        Swal.fire({
-            icon: 'warning',
-            title: 'Primer pago excede la prima total',
-            text: `El primer pago no puede ser mayor que la prima total anual en la opción ${column}.`,
-            confirmButtonColor: '#7B2D3B',
-        });
-        return;
-    }
+    // Debounce: validaciones con alerta y cálculo solo cuando deje de escribir
+    clearTimeout(primerPagoDebounceTimers[column]);
+    primerPagoDebounceTimers[column] = setTimeout(() => {
+        const frecuencia = form.coverages?.forma_de_pago;
 
-    // Si primer_pago = total_anual en pago fraccionado, advertir
-    if (frecuencia && frecuencia !== 'ANUAL' && frecuencia !== '0' && primerPago === totalAnual) {
-        form.coverages[`subsecuente_opcion_${column}`] = '';
-        Swal.fire({
-            icon: 'info',
-            title: 'Primer pago igual a prima total',
-            text: `Si el primer pago cubre la prima total, los subsecuentes serán $0. Considere usar forma de pago Anual.`,
-            confirmButtonColor: '#7B2D3B',
-        });
-        // Permitir continuar pero con advertencia
-    }
+        // Si primer_pago excede total_anual, alertar y limpiar
+        if (primerPago > totalAnual) {
+            form.coverages[`subsecuente_opcion_${column}`] = '';
+            toast.warning(`Opción ${column}: El primer pago excede la prima total`);
+            return;
+        }
 
-    requestBackendCalculation(column, 'primer_pago');
+        // Si primer_pago = total_anual en pago fraccionado, advertir
+        if (frecuencia && frecuencia !== 'ANUAL' && frecuencia !== '0' && primerPago === totalAnual) {
+            form.coverages[`subsecuente_opcion_${column}`] = '';
+            toast.info('Primer pago cubre la prima total. Considere pago Anual.');
+        }
+
+        calculateLocally(column);
+    }, 500);
 };
 
 watch(() => form.coverages?.primer_pago_opcion_1, () => handlePrimerPagoChange(1));
@@ -1541,13 +1418,8 @@ const submit = () => {
     const allErrors = [...inlineErrors, ...coverageCvErrors, ...financialWarnings];
 
     if (allErrors.length > 0) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Campos incompletos',
-            html: `<ul style="text-align: left; margin: 0; padding-left: 1.5rem; font-size: 0.9rem;">${allErrors.map(e => `<li>${e}</li>`).join('')}</ul>`,
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#7B2D3B',
-        });
+        scrollToFirstError();
+        toast.warning(`Completa los ${allErrors.length} campos marcados en rojo`, 4000);
         return;
     }
 
@@ -1557,27 +1429,44 @@ const submit = () => {
 
     isSubmitting.value = true;
 
-    form.post(route('quotes.store'), {
+    const submitMethod = isEditMode.value ? 'put' : 'post';
+    const submitRoute = isEditMode.value
+        ? route('quotes.update', props.quote.id)
+        : route('quotes.store');
+
+    form[submitMethod](submitRoute, {
         preserveScroll: true,
+        preserveState: true,
         onSuccess: () => {
             isSubmitting.value = false;
+            // Remover protección beforeunload antes de navegar
+            window.removeEventListener('beforeunload', handleBeforeUnload);
             Swal.fire({
                 icon: 'success',
-                title: 'Cotización guardada',
-                text: 'La cotización se ha creado exitosamente',
+                title: isEditMode.value ? 'Cotización actualizada' : 'Cotización guardada',
+                text: isEditMode.value
+                    ? 'La cotización se ha actualizado exitosamente'
+                    : 'La cotización se ha creado exitosamente',
                 confirmButtonColor: '#7B2D3B',
             });
         },
         onError: (backendErrors) => {
             isSubmitting.value = false;
             const errorList = Object.values(backendErrors).flat();
-            Swal.fire({
-                icon: 'error',
-                title: 'Error al guardar',
-                html: `<ul style="text-align: left; margin: 0; padding-left: 1.5rem;">${errorList.map(e => `<li>${e}</li>`).join('')}</ul>`,
-                confirmButtonText: 'Entendido',
-                confirmButtonColor: '#7B2D3B',
-            });
+            if (errorList.length > 0) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al guardar',
+                    html: `<ul style="text-align: left; margin: 0; padding-left: 1.5rem;">${errorList.map(e => `<li>${e}</li>`).join('')}</ul>`,
+                    confirmButtonText: 'Corregir',
+                    confirmButtonColor: '#7B2D3B',
+                });
+            } else {
+                toast.error('Error inesperado del servidor. Sus datos no se han perdido.');
+            }
+        },
+        onFinish: () => {
+            isSubmitting.value = false;
         }
     });
 };
@@ -1586,8 +1475,8 @@ const submit = () => {
 const cancel = async () => {
     const result = await Swal.fire({
         icon: 'question',
-        title: '¿Cancelar cotización?',
-        text: 'Se perderán los datos ingresados',
+        title: isEditMode.value ? '¿Cancelar edición?' : '¿Cancelar cotización?',
+        text: isEditMode.value ? 'Los cambios no guardados se perderán' : 'Se perderán los datos ingresados',
         showCancelButton: true,
         confirmButtonText: 'Sí, cancelar',
         cancelButtonText: 'No, continuar',
@@ -1695,18 +1584,8 @@ const previewPdf = async () => {
     const allErrors = [...inlineErrors, ...coverageCvErrors, ...financialErrors];
 
     if (allErrors.length > 0) {
-        // Scroll al primer campo con error visual
-        const firstErrorEl = document.querySelector('.form-input--error, .form-select--error');
-        if (firstErrorEl) {
-            firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        Swal.fire({
-            icon: 'warning',
-            title: 'Campos incompletos',
-            html: `<ul style="text-align:left;margin:0;padding-left:1.5rem;font-size:0.9rem;">${allErrors.map(e => `<li>${e}</li>`).join('')}</ul>`,
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#7B2D3B',
-        });
+        scrollToFirstError();
+        toast.warning(`Completa los ${allErrors.length} campos marcados en rojo`, 4000);
         return;
     }
 
@@ -1874,6 +1753,14 @@ const sanitizePayload = () => {
     if (!formaPago || formaPago === '0') {
         form.coverages.forma_de_pago = null;
     }
+
+    // REGLA 6: Convertir placeholders '0' de vehículo a null
+    if (form.vehiculo.tipo_auto === '0' || form.vehiculo.tipo_auto === 0) {
+        form.vehiculo.tipo_auto = null;
+    }
+    if (form.vehiculo.carga === '0' || form.vehiculo.carga === 0) {
+        form.vehiculo.carga = null;
+    }
 };
 </script>
 
@@ -1881,7 +1768,7 @@ const sanitizePayload = () => {
     <div class="quote-form">
             <!-- Título -->
             <div class="form-header">
-                <h1 class="form-title">COTIZACION DE SEGURO DE AUTOMOVILES</h1>
+                <h1 class="form-title">{{ isEditMode ? 'EDITAR COTIZACION DE SEGURO' : 'COTIZACION DE SEGURO DE AUTOMOVILES' }}</h1>
             </div>
 
             <form @submit.prevent="submit" class="form-content">
@@ -1922,6 +1809,7 @@ const sanitizePayload = () => {
                                 class="form-input"
                                 :class="{ 'form-input--error': touchedFields.hora_solicitada && fieldErrors.hora_solicitada }"
                                 @blur="markTouched('hora_solicitada')"
+                                @input="markTouched('hora_solicitada'); validateField('hora_solicitada')"
                             />
                             <span v-if="touchedFields.hora_solicitada && fieldErrors.hora_solicitada" class="field-error">
                                 {{ fieldErrors.hora_solicitada }}
@@ -2360,7 +2248,7 @@ const sanitizePayload = () => {
                             :disabled="isSubmitting"
                         >
                             <span v-if="isSubmitting">Guardando...</span>
-                            <span v-else>Guardar Cotización</span>
+                            <span v-else>{{ isEditMode ? 'Actualizar Cotización' : 'Guardar Cotización' }}</span>
                         </button>
                     </div>
                 </div>

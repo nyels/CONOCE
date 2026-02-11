@@ -26,6 +26,9 @@ const showHistoryModal = ref(false);
 const historyTitle = ref('');
 const historyData = ref([]);
 const historyLoading = ref(false);
+const historyPagination = ref({ current_page: 1, last_page: 1, total: 0, per_page: 20 });
+const historyInsurerId = ref(null);
+const historyFrequency = ref('');
 
 // Frontend validation errors
 const validationErrors = ref({});
@@ -80,8 +83,8 @@ const form = useForm({
 const columns = [
     { key: 'insurer_name', label: 'Aseguradora', sortable: true },
     { key: 'frequency_label', label: 'Forma de Pago', sortable: true },
-    { key: 'surcharge_display', label: 'Recargo' },
-    { key: 'created_at', label: 'Registrado' },
+    { key: 'surcharge_display', label: 'Recargo', sortable: true },
+    { key: 'created_at', label: 'Registrado', sortable: true },
     { key: 'actions', label: 'Acciones', type: 'actions' }
 ];
 
@@ -156,24 +159,40 @@ const handleDelete = async (item) => {
 };
 
 // History
-const openHistory = async (item) => {
+const fetchHistoryPage = async (page = 1) => {
     historyLoading.value = true;
-    historyTitle.value = item.insurer_name + ' - ' + item.frequency_label;
-    historyData.value = [];
-    showHistoryModal.value = true;
-
     try {
-        const url = route('admin.surcharges.history', item.insurer_id) + '?frequency=' + item.frequency;
+        const url = route('admin.surcharges.history', historyInsurerId.value) + '?frequency=' + historyFrequency.value + '&page=' + page;
         const response = await fetch(url);
         const json = await response.json();
         historyTitle.value = json.insurer_name + ' - ' + json.frequency_label;
         historyData.value = json.history;
+        historyPagination.value = json.pagination;
     } catch (e) {
         historyData.value = [];
     } finally {
         historyLoading.value = false;
     }
 };
+
+const openHistory = async (item) => {
+    historyInsurerId.value = item.insurer_id;
+    historyFrequency.value = item.frequency;
+    historyTitle.value = item.insurer_name + ' - ' + item.frequency_label;
+    historyData.value = [];
+    historyPagination.value = { current_page: 1, last_page: 1, total: 0, per_page: 20 };
+    showHistoryModal.value = true;
+    await fetchHistoryPage(1);
+};
+
+const historyShowingFrom = computed(() => {
+    const p = historyPagination.value;
+    return p.total === 0 ? 0 : (p.current_page - 1) * p.per_page + 1;
+});
+const historyShowingTo = computed(() => {
+    const p = historyPagination.value;
+    return Math.min(p.current_page * p.per_page, p.total);
+});
 
 // Bloquear teclas no permitidas en el input de porcentaje
 const onSurchargeKeydown = (e) => {
@@ -318,6 +337,11 @@ const onSurchargeInput = (e) => {
         @close="showHistoryModal = false"
         @submit="showHistoryModal = false"
     >
+        <!-- Counter -->
+        <div v-if="historyPagination.total > 0 && !historyLoading" class="history-counter">
+            Mostrando {{ historyShowingFrom }}&ndash;{{ historyShowingTo }} de {{ historyPagination.total }} registros
+        </div>
+
         <div v-if="historyLoading" class="history-loading">
             <div class="spinner"></div>
             <span>Cargando historial...</span>
@@ -350,9 +374,30 @@ const onSurchargeInput = (e) => {
         </table>
 
         <template #footer>
-            <button class="btn btn--secondary" @click="showHistoryModal = false">
-                Cerrar
-            </button>
+            <div class="history-footer">
+                <div v-if="historyPagination.last_page > 1" class="pagination">
+                    <button
+                        class="pagination-btn"
+                        :disabled="historyPagination.current_page <= 1 || historyLoading"
+                        @click="fetchHistoryPage(historyPagination.current_page - 1)"
+                    >
+                        &laquo; Anterior
+                    </button>
+                    <span class="pagination-info">
+                        {{ historyPagination.current_page }} / {{ historyPagination.last_page }}
+                    </span>
+                    <button
+                        class="pagination-btn"
+                        :disabled="historyPagination.current_page >= historyPagination.last_page || historyLoading"
+                        @click="fetchHistoryPage(historyPagination.current_page + 1)"
+                    >
+                        Siguiente &raquo;
+                    </button>
+                </div>
+                <button class="btn btn--secondary" @click="showHistoryModal = false">
+                    Cerrar
+                </button>
+            </div>
         </template>
     </CrudModal>
 </template>
@@ -411,10 +456,21 @@ const onSurchargeInput = (e) => {
 
 .history-empty { text-align: center; padding: 2rem; color: #9CA3AF; font-size: 0.9375rem; }
 
+.history-counter { font-size: 0.8125rem; color: #6B7280; margin-bottom: 0.75rem; }
+
+.history-footer { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 1rem; }
+.pagination { display: flex; align-items: center; gap: 0.75rem; }
+.pagination-btn { padding: 0.375rem 0.75rem; border: 1px solid #E5E7EB; border-radius: 8px; background: white; color: #374151; font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.pagination-btn:hover:not(:disabled) { background: #F9FAFB; border-color: #D1D5DB; }
+.pagination-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pagination-info { font-size: 0.8125rem; color: #6B7280; font-weight: 500; white-space: nowrap; }
+
 @media (max-width: 640px) {
     .page-header { flex-direction: column; align-items: stretch; }
     .btn--primary { justify-content: center; }
     .history-table { font-size: 0.8125rem; }
     .history-table th, .history-table td { padding: 0.5rem; }
+    .history-footer { flex-direction: column; gap: 0.75rem; }
+    .pagination { width: 100%; justify-content: center; }
 }
 </style>

@@ -61,8 +61,8 @@ const form = useForm({
 
 const columns = [
     { key: 'name', label: 'Nombre', sortable: true },
-    { key: 'percentage', label: 'Porcentaje' },
-    { key: 'is_active', label: 'Estado', type: 'badge' },
+    { key: 'percentage', label: 'Porcentaje', sortable: true },
+    { key: 'is_active', label: 'Estado', type: 'badge', sortable: true },
     { key: 'actions', label: 'Acciones', type: 'actions' }
 ];
 

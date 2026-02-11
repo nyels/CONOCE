@@ -58,6 +58,7 @@ const themeColor = "#7B2D3B";
                     </svg>
                 </button>
             </div>
+            <slot name="filters"></slot>
         </div>
 
         <Vue3EasyDataTable
@@ -201,6 +202,10 @@ const themeColor = "#7B2D3B";
 /* Search bar */
 .search-bar {
     padding: 0 0 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
 }
 
 .search-input-wrapper {
@@ -258,6 +263,36 @@ const themeColor = "#7B2D3B";
 .search-clear:hover {
     background: #D1D5DB;
     color: #374151;
+}
+
+/* Filter selects inside search bar */
+:slotted(.filter-select) {
+    padding: 0.625rem 1rem;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    font-size: 0.9375rem;
+    color: #111827;
+    background: #F9FAFB;
+    transition: all 0.2s;
+    min-width: 160px;
+    height: 40px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 2rem;
+    cursor: pointer;
+}
+
+:slotted(.filter-select:focus) {
+    outline: none;
+    border-color: #7B2D3B;
+    box-shadow: 0 0 0 3px rgba(123, 45, 59, 0.1);
+    background-color: white;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
 }
 
 /* Customizing the table internal classes via deep selector */

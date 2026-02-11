@@ -1,6 +1,6 @@
 <!-- resources/js/Pages/Customers/Edit.vue -->
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { Head, router, useForm, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 defineOptions({ layout: AppLayout });
@@ -37,6 +37,18 @@ const typeOptions = [
     { value: 'physical', label: 'Persona Fisica' },
     { value: 'moral', label: 'Persona Moral' },
 ];
+
+// Protección contra pérdida de datos al cerrar/recargar pestaña
+const allowNavigation = ref(false);
+const handleBeforeUnload = (e) => {
+    if (form.isDirty && !allowNavigation.value) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+};
+const removeInertiaListener = router.on('before', () => { allowNavigation.value = true; });
+onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload));
+onBeforeUnmount(() => { window.removeEventListener('beforeunload', handleBeforeUnload); removeInertiaListener(); });
 
 // ============================================
 // VALIDACIONES FRONTEND
@@ -224,11 +236,19 @@ const submit = () => {
     }
 
     form.put(route('customers.update', props.customer.id), {
+        preserveScroll: true,
+        preserveState: true,
         onSuccess: () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
             toast.success('Cliente actualizado');
         },
-        onError: () => {
-            toast.error('Error al actualizar');
+        onError: (errors) => {
+            const errorList = Object.values(errors).flat();
+            if (errorList.length > 0) {
+                toast.error(errorList[0]);
+            } else {
+                toast.error('Error al actualizar');
+            }
         }
     });
 };

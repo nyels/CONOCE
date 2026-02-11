@@ -10,13 +10,19 @@ import { useToast } from '@/composables/useToast';
 
 const props = defineProps({
     contacts: { type: Object, default: () => ({ data: [] }) },
-    filters: { type: Object, default: () => ({}) },
     types: { type: Array, default: () => [] },
 });
 
 // Toast & Confirm (SweetAlert2)
 const { confirmDelete } = useConfirm();
 const toast = useToast();
+
+// Client-side filter
+const typeFilter = ref('');
+const filteredContacts = computed(() => {
+    if (!typeFilter.value) return props.contacts.data;
+    return props.contacts.data.filter(c => c.type === typeFilter.value);
+});
 
 // Modal state
 const showModal = ref(false);
@@ -43,12 +49,12 @@ const errors = ref({});
 // Table columns
 const columns = [
     { key: 'name', label: 'Nombre', sortable: true },
-    { key: 'type_label', label: 'Tipo' },
-    { key: 'phone', label: 'Teléfono' },
-    { key: 'mobile', label: 'Celular' },
-    { key: 'email', label: 'Email' },
-    { key: 'customers_count', label: 'Clientes', type: 'number' },
-    { key: 'is_active', label: 'Estado', type: 'badge' },
+    { key: 'type_label', label: 'Tipo', sortable: true },
+    { key: 'phone', label: 'Teléfono', sortable: true },
+    { key: 'mobile', label: 'Celular', sortable: true },
+    { key: 'email', label: 'Email', sortable: true },
+    { key: 'customers_count', label: 'Clientes', type: 'number', sortable: true },
+    { key: 'is_active', label: 'Estado', type: 'badge', sortable: true },
     { key: 'actions', label: 'Acciones', type: 'actions' },
 ];
 
@@ -293,25 +299,9 @@ const getTypeColor = (typeId) => {
                     </button>
                 </div>
 
-                <!-- Filters -->
-                <div class="filters-bar">
-                    <div class="filter-group">
-                        <select
-                            class="filter-select"
-                            :value="filters.type || ''"
-                            @change="router.get(route('contacts.index'), { ...filters, type: $event.target.value || undefined }, { preserveState: true })"
-                        >
-                            <option value="">Todos los tipos</option>
-                            <option v-for="type in types" :key="type.value" :value="type.value">
-                                {{ type.label }}
-                            </option>
-                        </select>
-                    </div>
-                </div>
-
                 <!-- Table -->
                 <CrudTable
-                    :data="contacts.data"
+                    :data="filteredContacts"
                     :columns="columns"
                     :pagination="contacts"
                     searchPlaceholder="Buscar contacto..."
@@ -319,6 +309,14 @@ const getTypeColor = (typeId) => {
                     @edit="openEdit"
                     @delete="handleDelete"
                 >
+                    <template #filters>
+                        <select v-model="typeFilter" class="filter-select">
+                            <option value="">Todos los tipos</option>
+                            <option v-for="type in types" :key="type.value" :value="type.value">
+                                {{ type.label }}
+                            </option>
+                        </select>
+                    </template>
                     <!-- Custom type column -->
                     <template #cell-type_label="{ item }">
                         <span :class="['type-badge', getTypeColor(item.type)]">
@@ -605,20 +603,6 @@ const getTypeColor = (typeId) => {
     color: #6B7280;
     font-size: 0.875rem;
     margin: 0;
-}
-
-.filters-bar {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.filter-select {
-    padding: 0.5rem 1rem;
-    border: 1px solid #D1D5DB;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    background: white;
 }
 
 .btn {

@@ -1,6 +1,6 @@
 <!-- resources/js/Pages/Admin/Positions/Index.vue -->
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 defineOptions({ layout: AppLayout });
@@ -15,6 +15,14 @@ const props = defineProps({
 // Composables (SweetAlert2)
 const { confirmDelete } = useConfirm();
 const { processing, submitForm, deleteRecord } = useInertiaForm();
+
+// Client-side filter
+const activeFilter = ref('');
+const filteredPositions = computed(() => {
+    if (activeFilter.value === '') return props.positions;
+    const isActive = activeFilter.value === '1';
+    return props.positions.filter(p => p.is_active === isActive);
+});
 
 // Modal state
 const showModal = ref(false);
@@ -58,8 +66,8 @@ const form = useForm({
 const columns = [
     { key: 'name', label: 'Nombre', sortable: true },
     { key: 'description', label: 'Descripción', sortable: true },
-    { key: 'staff_count', label: 'Personal', type: 'number' },
-    { key: 'is_active', label: 'Estado', type: 'badge' },
+    { key: 'staff_count', label: 'Personal', type: 'number', sortable: true },
+    { key: 'is_active', label: 'Estado', type: 'badge', sortable: true },
     { key: 'actions', label: 'Acciones', type: 'actions' }
 ];
 
@@ -149,13 +157,21 @@ const handleDelete = async (item) => {
 
                 <!-- Table -->
                 <CrudTable
-                    :data="positions"
+                    :data="filteredPositions"
                     :columns="columns"
                     search-placeholder="Buscar puesto..."
                     empty-message="No hay puestos registrados"
                     @edit="openEdit"
                     @delete="handleDelete"
-                />
+                >
+                    <template #filters>
+                        <select v-model="activeFilter" class="filter-select">
+                            <option value="">Todos los estados</option>
+                            <option value="1">Activos</option>
+                            <option value="0">Inactivos</option>
+                        </select>
+                    </template>
+                </CrudTable>
             </div>
 
             <!-- Create/Edit Modal -->

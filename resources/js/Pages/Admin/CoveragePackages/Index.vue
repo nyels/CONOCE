@@ -74,10 +74,10 @@ const form = useForm({
 });
 
 const columns = [
-    { key: 'code', label: 'Código' },
+    { key: 'code', label: 'Código', sortable: true },
     { key: 'name', label: 'Nombre', sortable: true },
-    { key: 'description', label: 'Descripción' },
-    { key: 'is_active', label: 'Estado', type: 'badge' },
+    { key: 'description', label: 'Descripción', sortable: true },
+    { key: 'is_active', label: 'Estado', type: 'badge', sortable: true },
     { key: 'actions', label: 'Acciones', type: 'actions' }
 ];
 

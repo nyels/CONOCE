@@ -68,12 +68,18 @@ const openEditModal = () => {
 const submitEdit = () => {
     form.put(route('customers.update', form.id), {
         preserveScroll: true,
+        preserveState: true,
         onSuccess: () => {
             showEditModal.value = false;
             toast.success('Cliente actualizado');
         },
-        onError: () => {
-            toast.error('Error al actualizar');
+        onError: (errors) => {
+            const errorList = Object.values(errors).flat();
+            if (errorList.length > 0) {
+                toast.error(errorList[0]);
+            } else {
+                toast.error('Error al actualizar');
+            }
         }
     });
 };

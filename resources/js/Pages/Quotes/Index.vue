@@ -10,7 +10,6 @@ import { useToast } from '@/composables/useToast';
 
 const props = defineProps({
     quotes: { type: Object, default: () => ({ data: [] }) },
-    filters: { type: Object, default: () => ({}) },
     statuses: { type: Array, default: () => [] },
 });
 
@@ -18,19 +17,97 @@ const props = defineProps({
 const { isOpen: confirmOpen, config: confirmConfig, confirmDelete, onConfirm, onCancel } = useConfirm();
 const toast = useToast();
 
-// Search & filters
-const search = ref(props.filters.search || '');
-const statusFilter = ref(props.filters.status || '');
+// Client-side filters
+const search = ref('');
+const statusFilter = ref('');
 
-const applyFilters = () => {
-    router.get(route('quotes.index'), {
-        search: search.value,
-        status: statusFilter.value,
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-    });
+// Client-side sorting
+const sortField = ref('created_at');
+const sortDirection = ref('desc');
+
+const sortBy = (field) => {
+    if (sortField.value === field) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortField.value = field;
+        sortDirection.value = field === 'created_at' ? 'desc' : 'asc';
+    }
 };
+
+const sortIcon = (field) => {
+    if (sortField.value !== field) return '↕';
+    return sortDirection.value === 'asc' ? '↑' : '↓';
+};
+
+// Parse date "dd/mm/YYYY HH:mm" to sortable timestamp
+const parseDate = (str) => {
+    if (!str) return 0;
+    const [date, time] = str.split(' ');
+    const [d, m, y] = date.split('/');
+    return new Date(`${y}-${m}-${d}T${time || '00:00'}`).getTime() || 0;
+};
+
+const filteredQuotes = computed(() => {
+    let data = props.quotes.data || [];
+
+    // Filter by status
+    if (statusFilter.value) {
+        data = data.filter(q => q.status === statusFilter.value);
+    }
+
+    // Filter by search text
+    const term = search.value.toLowerCase().trim();
+    if (term) {
+        data = data.filter(q =>
+            (q.folio || '').toLowerCase().includes(term) ||
+            (q.customer_name || '').toLowerCase().includes(term) ||
+            (q.vehicle || '').toLowerCase().includes(term) ||
+            (q.type_label || '').toLowerCase().includes(term) ||
+            (q.status_label || '').toLowerCase().includes(term)
+        );
+    }
+
+    return data;
+});
+
+const sortedQuotes = computed(() => {
+    const data = [...filteredQuotes.value];
+    const field = sortField.value;
+    const dir = sortDirection.value === 'asc' ? 1 : -1;
+
+    return data.sort((a, b) => {
+        let valA, valB;
+
+        if (field === 'created_at') {
+            valA = parseDate(a.created_at);
+            valB = parseDate(b.created_at);
+        } else if (field === 'options_count') {
+            valA = a.options_count ?? 0;
+            valB = b.options_count ?? 0;
+        } else if (field === 'folio') {
+            valA = (a.folio || '').toLowerCase();
+            valB = (b.folio || '').toLowerCase();
+        } else if (field === 'type') {
+            valA = (a.type_label || '').toLowerCase();
+            valB = (b.type_label || '').toLowerCase();
+        } else if (field === 'customer_name') {
+            valA = (a.customer_name || '').toLowerCase();
+            valB = (b.customer_name || '').toLowerCase();
+        } else if (field === 'vehicle') {
+            valA = (a.vehicle || '').toLowerCase();
+            valB = (b.vehicle || '').toLowerCase();
+        } else if (field === 'status') {
+            valA = (a.status_label || '').toLowerCase();
+            valB = (b.status_label || '').toLowerCase();
+        } else {
+            return 0;
+        }
+
+        if (valA < valB) return -1 * dir;
+        if (valA > valB) return 1 * dir;
+        return 0;
+    });
+});
 
 // Delete quote
 let deleteItem = null;
@@ -91,61 +168,87 @@ const statusColors = {
                     </Link>
                 </div>
 
-                <!-- Filters -->
-                <div class="filters">
-                    <input 
-                        v-model="search"
-                        type="text" 
-                        placeholder="Buscar por folio, cliente..."
-                        class="filter-input"
-                        @keyup.enter="applyFilters"
-                    >
-                    <select v-model="statusFilter" class="filter-select" @change="applyFilters">
-                        <option value="">Todos los estados</option>
-                        <option v-for="status in statuses" :key="status.value" :value="status.value">
-                            {{ status.label }}
-                        </option>
-                    </select>
-                    <button class="btn btn--secondary" @click="applyFilters">Filtrar</button>
-                </div>
+                <!-- Card container (filters + table) -->
+                <div class="card">
+                    <!-- Filters -->
+                    <div class="filters">
+                        <div class="search-input-wrapper">
+                            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"/>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                            <input
+                                v-model="search"
+                                type="text"
+                                placeholder="Buscar por folio, cliente, vehículo..."
+                                class="filter-input"
+                            >
+                            <button v-if="search" class="search-clear" @click="search = ''" title="Limpiar">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <select v-model="statusFilter" class="filter-select">
+                            <option value="">Todos los estados</option>
+                            <option v-for="status in statuses" :key="status.value" :value="status.value">
+                                {{ status.label }}
+                            </option>
+                        </select>
+                    </div>
 
-                <!-- Table -->
-                <div class="table-container">
-                    <table class="table">
+                    <!-- Table -->
+                    <div class="table-container">
+                        <table class="table">
                         <thead>
                             <tr>
-                                <th>Folio</th>
-                                <th>Cliente</th>
-                                <th>Vehículo</th>
-                                <th>Tipo</th>
-                                <th>Estado</th>
-                                <th>Opciones</th>
-                                <th>Fecha</th>
+                                <th class="sortable" @click="sortBy('created_at')">
+                                    Fecha <span class="sort-icon" :class="{ active: sortField === 'created_at' }">{{ sortIcon('created_at') }}</span>
+                                </th>
+                                <th class="sortable" @click="sortBy('folio')">
+                                    Folio <span class="sort-icon" :class="{ active: sortField === 'folio' }">{{ sortIcon('folio') }}</span>
+                                </th>
+                                <th class="sortable" @click="sortBy('type')">
+                                    Tipo <span class="sort-icon" :class="{ active: sortField === 'type' }">{{ sortIcon('type') }}</span>
+                                </th>
+                                <th class="sortable" @click="sortBy('options_count')">
+                                    Opciones <span class="sort-icon" :class="{ active: sortField === 'options_count' }">{{ sortIcon('options_count') }}</span>
+                                </th>
+                                <th class="sortable" @click="sortBy('customer_name')">
+                                    Cliente <span class="sort-icon" :class="{ active: sortField === 'customer_name' }">{{ sortIcon('customer_name') }}</span>
+                                </th>
+                                <th class="sortable" @click="sortBy('vehicle')">
+                                    Vehículo <span class="sort-icon" :class="{ active: sortField === 'vehicle' }">{{ sortIcon('vehicle') }}</span>
+                                </th>
+                                <th class="sortable" @click="sortBy('status')">
+                                    Estado <span class="sort-icon" :class="{ active: sortField === 'status' }">{{ sortIcon('status') }}</span>
+                                </th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="quote in quotes.data" :key="quote.id">
+                            <tr v-for="quote in sortedQuotes" :key="quote.id">
+                                <td class="date-cell">{{ quote.created_at }}</td>
                                 <td>
                                     <Link :href="route('quotes.show', quote.id)" class="folio-link">
                                         {{ quote.folio }}
                                     </Link>
                                 </td>
-                                <td>{{ quote.customer_name }}</td>
-                                <td class="vehicle-cell">{{ quote.vehicle || '—' }}</td>
                                 <td>
                                     <span class="type-badge">{{ quote.type_label }}</span>
                                 </td>
+                                <td class="options-count">{{ quote.options_count }}</td>
+                                <td>{{ quote.customer_name }}</td>
+                                <td class="vehicle-cell">{{ quote.vehicle || '—' }}</td>
                                 <td>
-                                    <span 
+                                    <span
                                         class="status-badge"
                                         :class="`status-badge--${quote.status}`"
                                     >
                                         {{ quote.status_label }}
                                     </span>
                                 </td>
-                                <td class="options-count">{{ quote.options_count }}</td>
-                                <td class="date-cell">{{ quote.created_at }}</td>
                                 <td>
                                     <div class="actions">
                                         <Link :href="route('quotes.show', quote.id)" class="action-btn" title="Ver">
@@ -178,25 +281,26 @@ const statusColors = {
                                     </div>
                                 </td>
                             </tr>
-                            <tr v-if="!quotes.data?.length">
+                            <tr v-if="!sortedQuotes.length">
                                 <td colspan="8" class="empty-row">
                                     No hay cotizaciones registradas
                                 </td>
                             </tr>
                         </tbody>
                     </table>
-                </div>
+                    </div>
 
-                <!-- Pagination -->
-                <div v-if="quotes.links?.length > 3" class="pagination">
-                    <Link 
-                        v-for="link in quotes.links"
-                        :key="link.label"
-                        :href="link.url"
-                        class="pagination-link"
-                        :class="{ 'active': link.active, 'disabled': !link.url }"
-                        v-html="link.label"
-                    />
+                    <!-- Pagination -->
+                    <div v-if="quotes.links?.length > 3" class="pagination">
+                        <Link
+                            v-for="link in quotes.links"
+                            :key="link.label"
+                            :href="link.url"
+                            class="pagination-link"
+                            :class="{ 'active': link.active, 'disabled': !link.url }"
+                            v-html="link.label"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -245,37 +349,114 @@ const statusColors = {
     margin: 0.25rem 0 0 0;
 }
 
+/* Card */
+.card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    padding: 1rem;
+}
+
 /* Filters */
 .filters {
     display: flex;
     gap: 0.75rem;
-    margin-bottom: 1.5rem;
+    padding: 0 0 1rem 0;
     flex-wrap: wrap;
+    align-items: center;
 }
 
-.filter-input, .filter-select {
-    padding: 0.625rem 1rem;
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 200px;
+    max-width: 400px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    color: #9CA3AF;
+    pointer-events: none;
+}
+
+.filter-input {
+    width: 100%;
+    padding: 0.625rem 2.25rem 0.625rem 2.5rem;
     border: 1px solid #E5E7EB;
     border-radius: 10px;
     font-size: 0.9375rem;
-    background: white;
+    color: #111827;
+    background: #F9FAFB;
+    transition: all 0.2s;
 }
 
-.filter-input { flex: 1; min-width: 200px; }
-.filter-select { min-width: 180px; }
-
-.filter-input:focus, .filter-select:focus {
+.filter-input:focus {
     outline: none;
     border-color: #7B2D3B;
     box-shadow: 0 0 0 3px rgba(123,45,59,0.1);
+    background: white;
+}
+
+.filter-input::placeholder { color: #9CA3AF; }
+
+.search-clear {
+    position: absolute;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: #E5E7EB;
+    color: #6B7280;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.search-clear:hover {
+    background: #D1D5DB;
+    color: #374151;
+}
+
+.filter-select {
+    padding: 0.625rem 2rem 0.625rem 1rem;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    font-size: 0.9375rem;
+    color: #111827;
+    background: #F9FAFB;
+    transition: all 0.2s;
+    min-width: 180px;
+    height: 40px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    cursor: pointer;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #7B2D3B;
+    box-shadow: 0 0 0 3px rgba(123,45,59,0.1);
+    background-color: white;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
 }
 
 /* Table */
 .table-container {
-    background: white;
-    border-radius: 16px;
-    border: 1px solid #E5E7EB;
     overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid #F3F4F6;
 }
 
 .table {
@@ -293,6 +474,27 @@ const statusColors = {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     border-bottom: 1px solid #E5E7EB;
+    white-space: nowrap;
+}
+
+.table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s;
+}
+
+.table th.sortable:hover {
+    color: #7B2D3B;
+}
+
+.sort-icon {
+    font-size: 0.7rem;
+    color: #D1D5DB;
+    margin-left: 0.25rem;
+}
+
+.sort-icon.active {
+    color: #7B2D3B;
 }
 
 .table td {
@@ -392,7 +594,8 @@ const statusColors = {
     display: flex;
     justify-content: center;
     gap: 0.25rem;
-    margin-top: 1.5rem;
+    padding: 1rem 0 0;
+    border-top: 1px solid #F3F4F6;
 }
 
 .pagination-link {
@@ -433,17 +636,6 @@ const statusColors = {
     box-shadow: 0 6px 20px rgba(123, 45, 59, 0.3);
 }
 
-.btn--secondary {
-    background: white;
-    border: 1px solid #E5E7EB;
-    color: #374151;
-}
-
-.btn--secondary:hover {
-    border-color: #7B2D3B;
-    color: #7B2D3B;
-}
-
 .btn-icon {
     font-size: 1.125rem;
     font-weight: 400;
@@ -452,8 +644,10 @@ const statusColors = {
 @media (max-width: 768px) {
     .page-header { flex-direction: column; }
     .filters { flex-direction: column; }
-    .filter-input, .filter-select { width: 100%; }
+    .search-input-wrapper { max-width: 100%; }
+    .filter-select { width: 100%; }
     .table-container { overflow-x: auto; }
     .table { min-width: 800px; }
+    .card { padding: 0.75rem; }
 }
 </style>

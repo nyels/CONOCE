@@ -107,6 +107,10 @@ const openPdfPreview = () => {
                         <div class="card">
                             <h3 class="card-title">👤 Cliente</h3>
                             <div class="info-grid" v-if="quote.customer">
+                                <div class="info-item" v-if="quote.customer.type_label">
+                                    <span class="info-label">Tipo de Persona</span>
+                                    <span class="info-value">{{ quote.customer.type_label }}</span>
+                                </div>
                                 <div class="info-item">
                                     <span class="info-label">Nombre</span>
                                     <span class="info-value">{{ quote.customer.name }}</span>
@@ -114,6 +118,10 @@ const openPdfPreview = () => {
                                 <div class="info-item" v-if="quote.customer.phone">
                                     <span class="info-label">Teléfono</span>
                                     <span class="info-value">{{ quote.customer.phone }}</span>
+                                </div>
+                                <div class="info-item" v-if="quote.customer.mobile">
+                                    <span class="info-label">Celular</span>
+                                    <span class="info-value">{{ quote.customer.mobile }}</span>
                                 </div>
                                 <div class="info-item" v-if="quote.customer.email">
                                     <span class="info-label">Email</span>
@@ -131,24 +139,54 @@ const openPdfPreview = () => {
                         <div class="card">
                             <h3 class="card-title">🚗 Vehículo</h3>
                             <div class="vehicle-summary" v-if="quote.vehicle">
-                                <div class="vehicle-main">{{ quote.vehicle_description }}</div>
                                 <div class="info-grid">
                                     <div class="info-item" v-if="quote.vehicle.brand">
                                         <span class="info-label">Marca</span>
                                         <span class="info-value">{{ quote.vehicle.brand }}</span>
                                     </div>
+                                    <div class="info-item" v-if="quote.vehicle_type">
+                                        <span class="info-label">Tipo</span>
+                                        <span class="info-value">{{ quote.vehicle_type }}</span>
+                                    </div>
                                     <div class="info-item" v-if="quote.vehicle.model">
-                                        <span class="info-label">Modelo</span>
+                                        <span class="info-label">Descripción (Versión/Línea)</span>
                                         <span class="info-value">{{ quote.vehicle.model }}</span>
                                     </div>
                                     <div class="info-item" v-if="quote.vehicle.year">
-                                        <span class="info-label">Año</span>
+                                        <span class="info-label">Modelo (Año)</span>
                                         <span class="info-value">{{ quote.vehicle.year }}</span>
                                     </div>
-                                    <div class="info-item" v-if="quote.vehicle.value">
-                                        <span class="info-label">Valor</span>
-                                        <span class="info-value info-mono">{{ formatCurrency(quote.vehicle.value) }}</span>
+                                    <div class="info-item" v-if="quote.vehicle_usage || quote.vehicle?.usage">
+                                        <span class="info-label">Uso de la Unidad</span>
+                                        <span class="info-value">{{ quote.vehicle_usage || quote.vehicle.usage }}</span>
                                     </div>
+                                    <div class="info-item" v-if="quote.cargo_description">
+                                        <span class="info-label">Carga</span>
+                                        <span class="info-value">{{ quote.cargo_description }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contact Card -->
+                        <div class="card" v-if="quote.contact">
+                            <h3 class="card-title">📇 Contacto</h3>
+                            <div class="info-grid">
+                                <div class="info-item" v-if="quote.contact.type_label">
+                                    <span class="info-label">Tipo de Contacto</span>
+                                    <span class="info-value">{{ quote.contact.type_label }}</span>
+                                </div>
+                                <div class="info-item" v-if="quote.contact.name">
+                                    <span class="info-label">Nombre</span>
+                                    <span class="info-value">{{ quote.contact.name }}</span>
+                                </div>
+                                <div class="info-item" v-if="quote.contact.mobile">
+                                    <span class="info-label">Celular</span>
+                                    <span class="info-value">{{ quote.contact.mobile }}</span>
+                                </div>
+                                <div class="info-item" v-if="quote.contact.email">
+                                    <span class="info-label">Correo</span>
+                                    <span class="info-value">{{ quote.contact.email }}</span>
                                 </div>
                             </div>
                         </div>

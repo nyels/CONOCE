@@ -1,6 +1,6 @@
 <!-- resources/js/Pages/Customers/Create.vue -->
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { Head, router, useForm, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 defineOptions({ layout: AppLayout });
@@ -53,6 +53,18 @@ watch(() => form.type, (newType) => {
         form.curp = '';
     }
 });
+
+// Protección contra pérdida de datos al cerrar/recargar pestaña
+const allowNavigation = ref(false);
+const handleBeforeUnload = (e) => {
+    if (form.isDirty && !allowNavigation.value) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+};
+const removeInertiaListener = router.on('before', () => { allowNavigation.value = true; });
+onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload));
+onBeforeUnmount(() => { window.removeEventListener('beforeunload', handleBeforeUnload); removeInertiaListener(); });
 
 // ============================================
 // VALIDACIONES FRONTEND
@@ -276,11 +288,19 @@ const submit = () => {
     }
 
     form.post(route('customers.store'), {
+        preserveScroll: true,
+        preserveState: true,
         onSuccess: () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
             toast.success('Cliente creado exitosamente');
         },
-        onError: () => {
-            toast.error('Error al crear el cliente');
+        onError: (errors) => {
+            const errorList = Object.values(errors).flat();
+            if (errorList.length > 0) {
+                toast.error(errorList[0]);
+            } else {
+                toast.error('Error al crear el cliente');
+            }
         }
     });
 };

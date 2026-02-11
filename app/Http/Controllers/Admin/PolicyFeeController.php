@@ -154,11 +154,22 @@ class PolicyFeeController extends Controller
         }
     }
 
-    public function history(Insurer $insurer)
+    public function history(Insurer $insurer, Request $request)
     {
-        $history = InsurerFinancialSetting::where('insurer_id', $insurer->id)
+        $perPage = 20;
+        $page = max(1, (int) $request->query('page', 1));
+
+        $query = InsurerFinancialSetting::where('insurer_id', $insurer->id)
             ->orderByDesc('created_at')
-            ->orderByDesc('id')
+            ->orderByDesc('id');
+
+        $total = $query->count();
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $lastPage);
+
+        $history = $query
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
             ->get()
             ->map(fn($setting) => [
                 'id' => $setting->id,
@@ -172,6 +183,12 @@ class PolicyFeeController extends Controller
         return response()->json([
             'insurer_name' => $insurer->display_name ?? $insurer->name,
             'history' => $history,
+            'pagination' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $total,
+            ],
         ]);
     }
 }

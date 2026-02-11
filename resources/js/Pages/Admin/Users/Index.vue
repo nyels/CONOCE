@@ -13,13 +13,27 @@ const props = defineProps({
     users: { type: Object, default: () => ({ data: [] }) },
     roles: { type: Array, default: () => [] },
     availableStaff: { type: Array, default: () => [] },
-    filters: { type: Object, default: () => ({}) },
 });
 
 // Composables
 const { confirmDelete } = useConfirm();
 const { processing, submitForm, deleteRecord, toggleActive: toggleActiveRecord } = useInertiaForm();
 const toast = useToast();
+
+// Client-side filters
+const roleFilter = ref('');
+const activeFilter = ref('');
+const filteredUsers = computed(() => {
+    let data = props.users.data || [];
+    if (roleFilter.value) {
+        data = data.filter(u => u.role === roleFilter.value);
+    }
+    if (activeFilter.value !== '') {
+        const isActive = activeFilter.value === '1';
+        data = data.filter(u => u.is_active === isActive);
+    }
+    return data;
+});
 
 // Modal state
 const showModal = ref(false);
@@ -210,9 +224,9 @@ const onPasswordConfirmationInput = () => {
 const columns = [
     { key: 'username', label: 'Username', sortable: true },
     { key: 'staff', label: 'Personal Asociado', sortable: true },
-    { key: 'role_label', label: 'Rol' },
-    { key: 'is_active', label: 'Estado', type: 'badge' },
-    { key: 'last_login_at', label: 'Último Acceso' },
+    { key: 'role_label', label: 'Rol', sortable: true },
+    { key: 'is_active', label: 'Estado', type: 'badge', sortable: true },
+    { key: 'last_login_at', label: 'Último Acceso', sortable: true },
     { key: 'actions', label: 'Acciones', type: 'actions' }
 ];
 
@@ -422,36 +436,9 @@ const getRoleColorClass = (role) => {
                 </button>
             </div>
 
-            <!-- Filters -->
-            <div class="filters-bar">
-                <div class="filter-group">
-                    <select
-                        class="filter-select"
-                        :value="filters.role || ''"
-                        @change="router.get(route('admin.users.index'), { ...filters, role: $event.target.value || undefined }, { preserveState: true })"
-                    >
-                        <option value="">Todos los roles</option>
-                        <option v-for="role in roles" :key="role.value" :value="role.value">
-                            {{ role.label }}
-                        </option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <select
-                        class="filter-select"
-                        :value="filters.active"
-                        @change="router.get(route('admin.users.index'), { ...filters, active: $event.target.value || undefined }, { preserveState: true })"
-                    >
-                        <option value="">Todos los estados</option>
-                        <option value="1">Activos</option>
-                        <option value="0">Inactivos</option>
-                    </select>
-                </div>
-            </div>
-
             <!-- Table -->
             <CrudTable
-                :data="users.data"
+                :data="filteredUsers"
                 :columns="columns"
                 :pagination="users"
                 searchPlaceholder="Buscar usuario..."
@@ -460,6 +447,19 @@ const getRoleColorClass = (role) => {
                 @edit="openEdit"
                 @delete="handleDelete"
             >
+                <template #filters>
+                    <select v-model="roleFilter" class="filter-select">
+                        <option value="">Todos los roles</option>
+                        <option v-for="role in roles" :key="role.value" :value="role.value">
+                            {{ role.label }}
+                        </option>
+                    </select>
+                    <select v-model="activeFilter" class="filter-select">
+                        <option value="">Todos los estados</option>
+                        <option value="1">Activos</option>
+                        <option value="0">Inactivos</option>
+                    </select>
+                </template>
                 <!-- Custom status column -->
                 <template #cell-is_active="{ item }">
                     <button
@@ -774,20 +774,7 @@ const getRoleColorClass = (role) => {
     margin: 0;
 }
 
-.filters-bar {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-}
 
-.filter-select {
-    padding: 0.5rem 1rem;
-    border: 1px solid #D1D5DB;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    background: white;
-}
 
 .btn {
     display: inline-flex;

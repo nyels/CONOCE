@@ -250,9 +250,20 @@ class SurchargeController extends Controller
         $column = self::FREQUENCY_MAP[$frequency]['column'];
         $label = self::FREQUENCY_MAP[$frequency]['label'];
 
-        $history = InsurerFinancialSetting::where('insurer_id', $insurer->id)
+        $perPage = 20;
+        $page = max(1, (int) $request->query('page', 1));
+
+        $query = InsurerFinancialSetting::where('insurer_id', $insurer->id)
             ->orderByDesc('created_at')
-            ->orderByDesc('id')
+            ->orderByDesc('id');
+
+        $total = $query->count();
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $lastPage);
+
+        $history = $query
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
             ->get()
             ->map(fn($setting) => [
                 'id' => $setting->id,
@@ -267,6 +278,12 @@ class SurchargeController extends Controller
             'insurer_name' => $insurer->display_name ?? $insurer->name,
             'frequency_label' => $label,
             'history' => $history,
+            'pagination' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $total,
+            ],
         ]);
     }
 }

@@ -47,12 +47,12 @@ const form = useForm({
 // Table columns
 const columns = [
     { key: 'name', label: 'Nombre', sortable: true },
-    { key: 'mobile', label: 'Celular' },
-    { key: 'email', label: 'Email' },
-    { key: 'neighborhood', label: 'Colonia' },
-    { key: 'type_label', label: 'Tipo' },
-    { key: 'quotes_count', label: 'Cotizaciones', type: 'number' },
-    { key: 'is_active', label: 'Estado', type: 'badge' },
+    { key: 'mobile', label: 'Celular', sortable: true },
+    { key: 'email', label: 'Email', sortable: true },
+    { key: 'neighborhood', label: 'Colonia', sortable: true },
+    { key: 'type_label', label: 'Tipo', sortable: true },
+    { key: 'quotes_count', label: 'Cotizaciones', type: 'number', sortable: true },
+    { key: 'is_active', label: 'Estado', type: 'badge', sortable: true },
     { key: 'actions', label: 'Acciones', type: 'actions' },
 ];
 

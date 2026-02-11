@@ -94,9 +94,9 @@ const form = useForm({
 const columns = [
     { key: 'logo_url', label: 'Logo', type: 'image' },
     { key: 'name', label: 'Nombre', sortable: true },
-    { key: 'short_name', label: 'Abreviatura' },
-    { key: 'code', label: 'Código' },
-    { key: 'is_active', label: 'Estado', type: 'badge' },
+    { key: 'short_name', label: 'Abreviatura', sortable: true },
+    { key: 'code', label: 'Código', sortable: true },
+    { key: 'is_active', label: 'Estado', type: 'badge', sortable: true },
     { key: 'actions', label: 'Acciones', type: 'actions' }
 ];
 

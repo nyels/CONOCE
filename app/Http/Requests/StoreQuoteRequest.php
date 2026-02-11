@@ -2,9 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\InsurerFinancialSetting;
+use App\Models\Insurer;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Closure;
 
 /**
  * Request para validar la creación de cotización (Formato Legacy)
@@ -106,61 +107,39 @@ class StoreQuoteRequest extends FormRequest
                 ? ['required', 'not_in:0', 'exists:insurers,id']
                 : ['nullable'],
 
-            // Daños materiales (tipo, importe, deducible)
-            'coverages.danos_opcion_selec_*' => ['nullable', 'string', 'in:0,V.COMERCIAL,V.CONVENIDO,V.FACTURA'],
-            'coverages.danos_material_importe_factura_*' => ['nullable', 'string', 'max:20', 'regex:/^[\d,]+(\.\d{1,2})?$/'],
-            'coverages.deducible_opcion_*' => ['nullable', 'string', 'in:na,0,3,5,10,15,20'],
-
-            // Robo total
-            'coverages.robo_opcion_selec_*' => ['nullable', 'string', 'in:0,V.COMERCIAL,V.CONVENIDO,V.FACTURA'],
-            'coverages.robo_importe_factura_*' => ['nullable', 'string', 'max:20', 'regex:/^[\d,]+(\.\d{1,2})?$/'],
-            'coverages.deducible_rt_*' => ['nullable', 'string', 'in:na,0,5,10,15,20'],
-
-            // Cristales - siempre AMPARADA
-            'coverages.cristales_opcion_selec_*' => ['nullable', 'string', 'in:AMPARADA'],
-
-            // RC Daños a terceros
-            'coverages.danos_tercero_opcion_*' => ['nullable', 'string', 'max:20', 'regex:/^[\d,]+(\.\d{1,2})?$/'],
-            'coverages.deducible_de_rc_opcion_*' => ['nullable', 'integer', 'min:0', 'max:100'],
-
-            // RC Fallecimiento
-            'coverages.fallecimiento_opcion_*' => ['nullable', 'string', 'max:20', 'regex:/^[\d,]+(\.\d{1,2})?$/'],
-
-            // Gastos médicos ocupantes
-            'coverages.gastos_medicos_opcion_*' => ['nullable', 'string', 'max:20', 'regex:/^[\d,]+(\.\d{1,2})?$/'],
-
-            // Accidentes al conductor
-            'coverages.accidente_conducir_opcion_*' => ['nullable', 'string', 'max:20', 'regex:/^[\d,]+(\.\d{1,2})?$/'],
-
-            // Protección legal - siempre AMPARADA
-            'coverages.proteccion_opcion_selec_*' => ['nullable', 'string', 'in:AMPARADA'],
-
-            // Asistencia vial - siempre AMPARADA
-            'coverages.asistencia_vial_opcion_selec_*' => ['nullable', 'string', 'in:AMPARADA'],
-
-            // Daños por la carga
-            'coverages.danos_carga_opcion_selec_*' => ['nullable', 'string', 'in:0,AMPARADA,EXCLUIDA'],
-
-            // Adaptaciones/equipo especial
-            'coverages.adaptaciones_opcion_*' => ['nullable', 'string', 'max:20', 'regex:/^[\d,]+(\.\d{1,2})?$/'],
-
-            // Descripción general
-            'coverages.descripcion_tabla_1' => ['nullable', 'string', 'max:500'],
-
-            // Extensión de RC
-            'coverages.extension_rc_opcion_*' => ['nullable', 'string', 'in:0,AMPARADA,EXCLUIDA'],
-
-            // Coberturas opcionales
-            'coverages.cobertura_opcion_1_select_*' => ['nullable', 'string', 'in:0,AMPARADA,EXCLUIDA'],
-            'coverages.cobertura_opcion_2_select_*' => ['nullable', 'string', 'in:0,AMPARADA,EXCLUIDA'],
-
             // ==========================================
-            // DESGLOSE DE PRIMA
+            // COBERTURAS POR COLUMNA (expandidas para 1..5)
+            // NOTA: Laravel wildcard * solo funciona para indices de arrays,
+            // NO para sufijos de claves planas. Se expanden explicitamente.
             // ==========================================
-            'coverages.cantidad_prima_neta_opcion_*' => ['nullable', 'string', 'max:20', 'regex:/^[\d,]+(\.\d{1,2})?$/'],
-            'coverages.cantidad_total_anual_opcion_*' => ['nullable', 'string', 'max:20', 'regex:/^[\d,]+(\.\d{1,2})?$/'],
-            'coverages.primer_pago_opcion_*' => ['nullable', 'string', 'max:20', 'regex:/^[\d,]+(\.\d{1,2})?$/'],
-            'coverages.subsecuente_opcion_*' => ['nullable', 'string', 'max:20', 'regex:/^[\d,]+(\.\d{1,2})?$/'],
+            ...collect(range(1, 5))->mapWithKeys(fn($i) => [
+                "coverages.danos_opcion_selec_{$i}" => ['nullable', 'string', 'in:0,V.COMERCIAL,V.CONVENIDO,V.FACTURA'],
+                "coverages.danos_material_importe_factura_{$i}" => ['nullable', 'string', 'max:20'],
+                "coverages.deducible_opcion_{$i}" => ['nullable', 'string', 'in:na,0,3,5,10,15,20'],
+                "coverages.robo_opcion_selec_{$i}" => ['nullable', 'string', 'in:0,V.COMERCIAL,V.CONVENIDO,V.FACTURA'],
+                "coverages.robo_importe_factura_{$i}" => ['nullable', 'string', 'max:20'],
+                "coverages.deducible_rt_{$i}" => ['nullable', 'string', 'in:na,0,5,10,15,20'],
+                "coverages.cristales_opcion_selec_{$i}" => ['nullable', 'string', 'in:AMPARADA'],
+                "coverages.danos_tercero_opcion_{$i}" => ['nullable', 'string', 'max:20'],
+                "coverages.deducible_de_rc_opcion_{$i}" => ['nullable', 'integer', 'min:0', 'max:100'],
+                "coverages.fallecimiento_opcion_{$i}" => ['nullable', 'string', 'max:20'],
+                "coverages.gastos_medicos_opcion_{$i}" => ['nullable', 'string', 'max:20'],
+                "coverages.accidente_conducir_opcion_{$i}" => ['nullable', 'string', 'max:20'],
+                "coverages.proteccion_opcion_selec_{$i}" => ['nullable', 'string', 'in:AMPARADA'],
+                "coverages.asistencia_vial_opcion_selec_{$i}" => ['nullable', 'string', 'in:AMPARADA'],
+                "coverages.danos_carga_opcion_selec_{$i}" => ['nullable', 'string', 'in:0,AMPARADA,EXCLUIDA'],
+                "coverages.adaptaciones_opcion_{$i}" => ['nullable', 'string', 'max:20'],
+                "coverages.extension_rc_opcion_{$i}" => ['nullable', 'string', 'in:0,AMPARADA,EXCLUIDA'],
+                "coverages.cobertura_opcion_1_select_{$i}" => ['nullable', 'string', 'in:0,AMPARADA,EXCLUIDA'],
+                "coverages.cobertura_opcion_2_select_{$i}" => ['nullable', 'string', 'in:0,AMPARADA,EXCLUIDA'],
+                "coverages.cantidad_prima_neta_opcion_{$i}" => ['nullable', 'string', 'max:20'],
+                "coverages.cantidad_total_anual_opcion_{$i}" => ['nullable', 'string', 'max:20'],
+                "coverages.primer_pago_opcion_{$i}" => ['nullable', 'string', 'max:20'],
+                "coverages.subsecuente_opcion_{$i}" => ['nullable', 'string', 'max:20'],
+            ])->all(),
+
+            // Descripción general de coberturas
+            'coverages.descripcion_tabla' => ['nullable', 'string', 'max:500'],
 
             // ==========================================
             // COBERTURAS OPCIONALES (nombres dinámicos)
@@ -257,16 +236,29 @@ class StoreQuoteRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        $vehiculo = $this->input('vehiculo', []);
+        $changed = false;
+
         // Convertir modelo a string si viene como número
-        if ($this->has('vehiculo.modelo')) {
-            $modelo = $this->input('vehiculo.modelo');
-            if (is_numeric($modelo)) {
-                $this->merge([
-                    'vehiculo' => array_merge($this->input('vehiculo', []), [
-                        'modelo' => (string) $modelo,
-                    ]),
-                ]);
-            }
+        if (isset($vehiculo['modelo']) && is_numeric($vehiculo['modelo'])) {
+            $vehiculo['modelo'] = (string) $vehiculo['modelo'];
+            $changed = true;
+        }
+
+        // Convertir placeholder '0' de carga a null
+        if (isset($vehiculo['carga']) && ($vehiculo['carga'] === '0' || $vehiculo['carga'] === 0)) {
+            $vehiculo['carga'] = null;
+            $changed = true;
+        }
+
+        // Convertir placeholder '0' de tipo_auto a null
+        if (isset($vehiculo['tipo_auto']) && ($vehiculo['tipo_auto'] === '0' || $vehiculo['tipo_auto'] === 0)) {
+            $vehiculo['tipo_auto'] = null;
+            $changed = true;
+        }
+
+        if ($changed) {
+            $this->merge(['vehiculo' => $vehiculo]);
         }
     }
 
@@ -386,6 +378,9 @@ class StoreQuoteRequest extends FormRequest
                 }
             }
 
+            // 7. Verificar configuración financiera para cada aseguradora seleccionada
+            $this->validateFinancialSettings($validator, $n, $coverages);
+
             // Validaciones de campos de vehiculo (mirror de frontend)
             $this->validateVehicleFields($validator);
 
@@ -478,6 +473,39 @@ class StoreQuoteRequest extends FormRequest
                 $validator->errors()->add(
                     'renovacion.prima_año',
                     'La prima del ano anterior debe ser un numero positivo.'
+                );
+            }
+        }
+    }
+
+    /**
+     * Verifica que cada aseguradora seleccionada tenga configuración financiera vigente.
+     * Sin esta configuración, el backend no puede calcular desgloces financieros.
+     */
+    private function validateFinancialSettings($validator, int $n, array $coverages): void
+    {
+        for ($col = 1; $col <= $n; $col++) {
+            $insurerId = $coverages["empresa_opcion_{$col}"] ?? null;
+
+            if (!$insurerId || $insurerId === '0') {
+                continue;
+            }
+
+            $insurerId = (int) $insurerId;
+
+            $hasSettings = InsurerFinancialSetting::where('insurer_id', $insurerId)
+                ->where('valid_from', '<=', now())
+                ->where(function ($q) {
+                    $q->whereNull('valid_until')
+                        ->orWhere('valid_until', '>=', now());
+                })
+                ->exists();
+
+            if (!$hasSettings) {
+                $insurerName = Insurer::find($insurerId)?->name ?? "ID {$insurerId}";
+                $validator->errors()->add(
+                    "coverages.empresa_opcion_{$col}",
+                    "La aseguradora \"{$insurerName}\" no tiene configuración financiera vigente (derecho de póliza y recargos). Configure los derechos de póliza y recargos antes de cotizar."
                 );
             }
         }
